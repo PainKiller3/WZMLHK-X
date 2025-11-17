@@ -428,8 +428,7 @@ class TaskListener(TaskConfig):
             f"<b><i>{escape(self.name)}</i></b>\n│"
             f"\n┟ <b>Task Size</b> → {get_readable_file_size(self.size)}"
             f"\n┠ <b>Time Taken</b> → {get_readable_time(time() - self.message.date.timestamp())}"
-            f"\n┠ <b>In Mode</b> → {self.mode[0]}"
-            f"\n┠ <b>Out Mode</b> → {self.mode[1]}"
+            f"\n┠ <b>In / Out Mode</b> → {self.mode[0]} | {self.mode[1]}"
         )
         LOGGER.info(f"Task Done: {self.name}")
         if self.is_yt:
@@ -467,8 +466,8 @@ class TaskListener(TaskConfig):
 
             if self.bot_pm:
                 pmsg = msg
-                pmsg += "〶 <b><u>Action Performed :</u></b>\n"
-                pmsg += "⋗ <i>File(s) have been sent to User PM</i>\n\n"
+                # pmsg += "〶 <b><u>Action Performed :</u></b>\n"
+                # pmsg += "⋗ <i>File(s) have been sent to User PM</i>\n\n"
                 if self.is_super_chat:
                     await send_message(self.message, pmsg)
 
@@ -570,8 +569,9 @@ class TaskListener(TaskConfig):
                 button = None
             msg += f"\n┃\n┖ <b>Task By</b> → {self.tag}\n\n"
             group_msg = (
-                msg + "〶 <b><u>Action Performed :</u></b>\n"
-                "⋗ <i>Cloud link(s) have been sent to User PM</i>\n\n"
+                msg
+                # msg + "〶 <b><u>Action Performed :</u></b>\n"
+                # "⋗ <i>Cloud link(s) have been sent to User PM</i>\n\n"
             )
 
             if multi_link_msg:
@@ -622,19 +622,17 @@ class TaskListener(TaskConfig):
         await self.remove_from_same_dir()
         msg = (
             f"""〶 <b><i><u>Limit Breached:</u></i></b>
-│
-┟ <b>Task Size</b> → {get_readable_file_size(self.size)}
-┠ <b>In Mode</b> → {self.mode[0]}
-┠ <b>Out Mode</b> → {self.mode[1]}
+
+┎ <b>Task Size</b> → {get_readable_file_size(self.size)}
+┠ <b>In / Out Mode</b> → {self.mode[0]} | {self.mode[1]}
 {error}"""
             if is_limit
             else f"""<i><b>〶 Download Stopped!</b></i>
-│
-┟ <b>Due To</b> → {escape(str(error))}
+
+┎ <b>Due To</b> → {escape(str(error))}
 ┠ <b>Task Size</b> → {get_readable_file_size(self.size)}
 ┠ <b>Time Taken</b> → {get_readable_time(time() - self.message.date.timestamp())}
-┠ <b>In Mode</b> → {self.mode[0]}
-┠ <b>Out Mode</b> → {self.mode[1]}
+┠ <b>In / Out Mode</b> → {self.mode[0]} | {self.mode[1]}
 ┖ <b>Task By</b> → {self.tag}"""
         )
 

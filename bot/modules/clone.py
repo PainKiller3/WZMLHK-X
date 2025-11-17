@@ -174,8 +174,7 @@ class Clone(TaskListener):
                     f"""〶 <b><i><u>Limit Breached:</u></i></b>
 │
 ┟ <b>Task Size</b> → {get_readable_file_size(self.size)}
-┠ <b>In Mode</b> → {self.mode[0]}
-┠ <b>Out Mode</b> → {self.mode[1]}
+┠ <b>In / Out Mode</b> → {self.mode[0]} | {self.mode[1]}
 {limit_exceeded}""",
                 )
                 return
