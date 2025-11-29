@@ -136,6 +136,10 @@ RCLONE_SERVE_PORT = 0
 RCLONE_SERVE_USER = ""
 RCLONE_SERVE_PASS = ""
 
+# For rclone list module
+RCLONE_REMOTE = ""
+REMOTE_BASE_PATH = ""
+
 # JDownloader
 JD_EMAIL = ""
 JD_PASS = ""

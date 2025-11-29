@@ -17,6 +17,7 @@ from .gd_count import count_node
 from .gd_delete import delete_file
 from .gd_clean import drive_clean, confirm_drive_clean_cb
 from .gd_search import gdrive_search, select_type
+from .rc_search import rclone_list
 from .help import arg_usage, bot_help
 from .images import picture_add, pictures, pics_callback
 from .mediainfo import mediainfo
@@ -79,6 +80,7 @@ __all__ = [
     "confirm_drive_clean_cb",
     "gdrive_search",
     "select_type",
+    "rclone_list",
     "arg_usage",
     "uphoster",
     "mirror",

@@ -396,6 +396,7 @@ def get_bot_commands():
         "ForceStart": "[gid/reply] Force start from queued task",
         "Count": "[link] Count no. of files/folders in GDrive",
         "List": "[query] Search any Text which is available in GDrive",
+        "RcList": "[query] Search any Text which is available in Rclone Remotes",
         "Search": "[query] Search torrents via Qbit Plugins",
         "MediaInfo": "[reply/link] Get MediaInfo of the Target Media",
         "Select": "[gid/reply] Select files for NZB, Aria2, Qbit Tasks",
@@ -499,6 +500,8 @@ def get_help_string():
             help_lines.append(f"{cmd_str} [query]: Cancel all [status] tasks.")
         elif key == "List":
             help_lines.append(f"{cmd_str} [query]: Search in Google Drive(s).")
+        elif key == "RcList":
+            help_lines.append(f"{cmd_str} [query]: Search in Rclone Remotes.")
         elif key == "Search":
             help_lines.append(f"{cmd_str} [query]: Search for torrents with API.")
         elif key == "MediaInfo":

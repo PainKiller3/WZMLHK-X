@@ -112,6 +112,8 @@ class Config:
     RCLONE_SERVE_USER = ""
     RCLONE_SERVE_PASS = ""
     RCLONE_SERVE_PORT = 8081
+    RCLONE_REMOTE = ""
+    REMOTE_BASE_PATH = ""
     RSS_CHAT = ""
     RSS_DELAY = 600
     RSS_SIZE_LIMIT = 0
