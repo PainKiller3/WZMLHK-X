@@ -149,6 +149,13 @@ def add_handlers():
     TgClient.bot.add_handler(
         CallbackQueryHandler(select_type, filters=regex("^list_types"))
     )
+    TgClient.bot.add_handler(
+        MessageHandler(
+            rclone_list,
+            filters=command(BotCommands.RcListCommand, case_sensitive=True)
+            & CustomFilters.authorized,
+        )
+    )
     TgClient.bot.add_handler(CallbackQueryHandler(arg_usage, filters=regex("^help")))
     TgClient.bot.add_handler(
         MessageHandler(
