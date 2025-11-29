@@ -396,6 +396,12 @@ def get_bot_commands():
         "ForceStart": "[gid/reply] Force start from queued task",
         "Count": "[link] Count no. of files/folders in GDrive",
         "List": "[query] Search any Text which is available in GDrive",
+        "RcList": "[query] Search any Text which is available in Rclone Remotes",
+        "RcRefreshIndex": "[SUDO] Refresh Rclone Remote Index",
+        "Recent": "Get recent files/folders from Rclone Remotes",
+        "Latest": "Get latest files/folders from Rclone Remotes",
+        "RclStorage": "Get rclone storage info",
+        "RclDelete": "[query] Delete files/folders from rclone",
         "Search": "[query] Search torrents via Qbit Plugins",
         "MediaInfo": "[reply/link] Get MediaInfo of the Target Media",
         "Select": "[gid/reply] Select files for NZB, Aria2, Qbit Tasks",
@@ -501,6 +507,18 @@ def get_help_string():
             help_lines.append(f"{cmd_str} [query]: Cancel all [status] tasks.")
         elif key == "List":
             help_lines.append(f"{cmd_str} [query]: Search in Google Drive(s).")
+        elif key == "RcList":
+            help_lines.append(f"{cmd_str} [query]: Search in Rclone Remotes.")
+        elif key == "RcRefreshIndex":
+            help_lines.append(f"{cmd_str}: Refresh Rclone Remote Index (Only Sudo).")
+        elif key == "Recent":
+            help_lines.append(f"{cmd_str}: Get recent searches.")
+        elif key == "Latest":
+            help_lines.append(f"{cmd_str}: Get a list of latest files from Rclone.")
+        elif key == "RclStorage":
+            help_lines.append(f"{cmd_str}: Get Rclone Storage.")
+        elif key == "RclDelete":
+            help_lines.append(f"{cmd_str} [query]: Delete files/folders from rclone.")
         elif key == "Search":
             help_lines.append(f"{cmd_str} [query]: Search for torrents with API.")
         elif key == "MediaInfo":

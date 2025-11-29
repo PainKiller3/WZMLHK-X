@@ -9,6 +9,17 @@ from .gd_count import count_node
 from .gd_delete import delete_file
 from .gd_clean import drive_clean, confirm_drive_clean_cb
 from .gd_search import gdrive_search, select_type
+from .rc_search import (
+    rclist_command,
+    recent_searches,
+    latest_uploads,
+    rclstorage_command,
+    rcldelete_command,
+    rcrefreshindex_command,
+    handle_pagination,
+    confirm_delete_callback,
+    cancel_delete_callback,
+)
 from .help import arg_usage, bot_help
 from .mediainfo import mediainfo
 from .broadcast import broadcast
@@ -65,6 +76,15 @@ __all__ = [
     "confirm_drive_clean_cb",
     "gdrive_search",
     "select_type",
+    "rclist_command",
+    "rcrefreshindex_command",
+    "recent_searches",
+    "latest_uploads",
+    "rclstorage_command",
+    "rcldelete_command",
+    "handle_pagination",
+    "confirm_delete_callback",
+    "cancel_delete_callback",
     "arg_usage",
     "uphoster",
     "mirror",
