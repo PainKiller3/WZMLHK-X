@@ -8,6 +8,7 @@ from .force_start import remove_from_queue
 from .gd_count import count_node
 from .gd_delete import delete_file
 from .gd_search import gdrive_search, select_type
+from .rc_search import rclone_list
 from .help import arg_usage, bot_help
 from .mediainfo import mediainfo
 from .broadcast import broadcast
@@ -62,6 +63,7 @@ __all__ = [
     "delete_file",
     "gdrive_search",
     "select_type",
+    "rclone_list",
     "arg_usage",
     "uphoster",
     "mirror",
