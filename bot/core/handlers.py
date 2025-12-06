@@ -171,10 +171,27 @@ async def add_handlers():
     )
     TgClient.bot.add_handler(
         MessageHandler(
-            rclone_list,
+            rclist_command,
             filters=command(BotCommands.RcListCommand, case_sensitive=True)
             & CustomFilters.authorized,
         )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
+            recent_searches,
+            filters=command(BotCommands.RecentCommand, case_sensitive=True)
+            & CustomFilters.authorized,
+        )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
+            latest_uploads,
+            filters=command(BotCommands.LatestCommand, case_sensitive=True)
+            & CustomFilters.authorized,
+        )
+    )
+    TgClient.bot.add_handler(
+        CallbackQueryHandler(handle_pagination, filters=regex("^page"))
     )
     TgClient.bot.add_handler(CallbackQueryHandler(arg_usage, filters=regex("^help")))
     TgClient.bot.add_handler(
