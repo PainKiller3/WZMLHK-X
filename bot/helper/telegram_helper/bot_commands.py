@@ -24,6 +24,8 @@ class BotCommands:
         "Delete": "del",
         "List": "list",
         "RcList": "rclist",
+        "Recent": "recent",
+        "Latest": "latest",
         "Search": "search",
         "Users": "users",
         "CancelTask": ["cancel", "c"],
