@@ -431,6 +431,7 @@ def get_bot_commands():
         "RcList": "[query] Search any Text which is available in Rclone Remotes",
         "Recent": "Get recent files/folders from Rclone Remotes",
         "Latest": "Get latest files/folders from Rclone Remotes",
+        "RclStorage": "Get rclone storage info",
         "Search": "[query] Search torrents via Qbit Plugins",
         "Select": "[gid/reply] Select files for NZB, Aria2, Qbit Tasks",
         "Ping": "Ping Bot to test Response Speed",
@@ -540,6 +541,8 @@ def get_help_string():
             help_lines.append(f"{cmd_str}: Get recent searches.")
         elif key == "Latest":
             help_lines.append(f"{cmd_str}: Get a list of latest files from Rclone.")
+        elif key == "RclStorage":
+            help_lines.append(f"{cmd_str}: Get Rclone Storage.")
         elif key == "Search":
             help_lines.append(f"{cmd_str} [query]: Search for torrents with API.")
         elif key == "Status":

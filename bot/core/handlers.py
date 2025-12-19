@@ -197,6 +197,13 @@ async def add_handlers():
     )
     TgClient.bot.add_handler(
         MessageHandler(
+            rclstorage_command,
+            filters=command(BotCommands.RclStorageCommand, case_sensitive=True)
+            & CustomFilters.authorized,
+        )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
             latest_uploads,
             filters=command(BotCommands.LatestCommand, case_sensitive=True)
             & CustomFilters.authorized,
