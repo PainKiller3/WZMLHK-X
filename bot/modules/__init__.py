@@ -12,6 +12,7 @@ from .rc_search import (
     rclist_command,
     recent_searches,
     latest_uploads,
+    rclstorage_command,
     handle_pagination,
 )
 from .help import arg_usage, bot_help
@@ -71,6 +72,7 @@ __all__ = [
     "rclist_command",
     "recent_searches",
     "latest_uploads",
+    "rclstorage_command",
     "handle_pagination",
     "arg_usage",
     "uphoster",
