@@ -25,6 +25,7 @@ class BotCommands:
         "RcList": "rclist",
         "Recent": "recent",
         "Latest": "latest",
+        "RclStorage": "rclstorage",
         "Search": "search",
         "Users": "users",
         "CancelTask": ["cancel", "c"],
