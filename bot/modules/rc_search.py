@@ -415,6 +415,28 @@ def create_result_text(matched_files, page, query, filters_applied):
     return reply, total_pages
 
 
+@lru_cache(maxsize=1)
+def get_rclone_storage():
+    """
+    Returns (used, free, total) in bytes using `rclone about`.
+    Cached to avoid frequent calls.
+    """
+    try:
+        cmd = ["rclone", "--config", "rclone.conf", "about", RCLONE_REMOTE, "--json"]
+
+        result = run_rclone_command(cmd, description="Getting rclone storage")
+        if not result:
+            return None
+
+        data = json.loads(result)
+
+        return (data.get("used", 0), data.get("free", 0), data.get("total", 0))
+
+    except Exception as e:
+        LOGGER.error(f"rclone storage error: {e}")
+        return None
+
+
 def create_pagination_buttons(page, total_pages, user_id, query):
     """Create pagination buttons."""
     buttons = []
@@ -670,6 +692,40 @@ async def latest_uploads(client: Client, message: Message):
         parse_mode=ParseMode.MARKDOWN,
         reply_markup=buttons,
         disable_web_page_preview=True,
+    )
+
+
+async def rclstorage_command(client: Client, message: Message):
+    status_msg = await message.reply_text(
+        "⏳ Fetching rclone storage info...", parse_mode=ParseMode.MARKDOWN
+    )
+
+    storage = get_rclone_storage()
+
+    if not storage:
+        return await status_msg.edit_text(
+            "❌ **Unable to fetch storage information**\n\n"
+            "This remote may not support `rclone about`.",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+
+    used, free, total = storage
+
+    # Avoid division by zero
+    percent = (used / total * 100) if total else 0
+
+    # Simple text progress bar
+    bar_len = 12
+    filled = int(bar_len * percent / 100)
+    bar = "█" * filled + "░" * (bar_len - filled)
+
+    await status_msg.edit_text(
+        f"💽 **Rclone Storage Info**\n\n"
+        f"📦 **Used:** {format_size(used)}\n"
+        f"🆓 **Free:** {format_size(free)}\n"
+        f"📊 **Total:** {format_size(total)}\n\n"
+        f"📈 **Usage:** `{bar}` **{percent:.2f}%**",
+        parse_mode=ParseMode.MARKDOWN,
     )
 
 
