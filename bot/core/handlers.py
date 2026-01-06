@@ -192,6 +192,13 @@ async def add_handlers():
     )
     TgClient.bot.add_handler(
         MessageHandler(
+            rcldelete_command,
+            filters=command(BotCommands.RclDeleteCommand, case_sensitive=True)
+            & CustomFilters.authorized,
+        )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
             latest_uploads,
             filters=command(BotCommands.LatestCommand, case_sensitive=True)
             & CustomFilters.authorized,
@@ -199,6 +206,12 @@ async def add_handlers():
     )
     TgClient.bot.add_handler(
         CallbackQueryHandler(handle_pagination, filters=regex("^page"))
+    )
+    TgClient.bot.add_handler(
+        CallbackQueryHandler(confirm_delete_callback, filters=regex("^confirm_delete"))
+    )
+    TgClient.bot.add_handler(
+        CallbackQueryHandler(cancel_delete_callback, filters=regex("^cancel"))
     )
     TgClient.bot.add_handler(CallbackQueryHandler(arg_usage, filters=regex("^help")))
     TgClient.bot.add_handler(
