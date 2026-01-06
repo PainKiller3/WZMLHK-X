@@ -400,6 +400,7 @@ def get_bot_commands():
         "Recent": "Get recent files/folders from Rclone Remotes",
         "Latest": "Get latest files/folders from Rclone Remotes",
         "RclStorage": "Get rclone storage info",
+        "RclDelete": "[query] Delete files/folders from rclone",
         "Search": "[query] Search torrents via Qbit Plugins",
         "MediaInfo": "[reply/link] Get MediaInfo of the Target Media",
         "Select": "[gid/reply] Select files for NZB, Aria2, Qbit Tasks",
@@ -509,6 +510,8 @@ def get_help_string():
             help_lines.append(f"{cmd_str}: Get a list of latest files from Rclone.")
         elif key == "RclStorage":
             help_lines.append(f"{cmd_str}: Get Rclone Storage.")
+        elif key == "RclDelete":
+            help_lines.append(f"{cmd_str} [query]: Delete files/folders from rclone.")
         elif key == "Search":
             help_lines.append(f"{cmd_str} [query]: Search for torrents with API.")
         elif key == "MediaInfo":

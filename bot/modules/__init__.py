@@ -13,7 +13,10 @@ from .rc_search import (
     recent_searches,
     latest_uploads,
     rclstorage_command,
+    rcldelete_command,
     handle_pagination,
+    confirm_delete_callback,
+    cancel_delete_callback,
 )
 from .help import arg_usage, bot_help
 from .mediainfo import mediainfo
@@ -73,7 +76,10 @@ __all__ = [
     "recent_searches",
     "latest_uploads",
     "rclstorage_command",
+    "rcldelete_command",
     "handle_pagination",
+    "confirm_delete_callback",
+    "cancel_delete_callback",
     "arg_usage",
     "uphoster",
     "mirror",
