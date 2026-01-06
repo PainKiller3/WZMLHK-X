@@ -1,6 +1,7 @@
 import subprocess
 import json
 import re
+import uuid
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urljoin, quote
@@ -25,12 +26,21 @@ RCLONE_REMOTE = getattr(Config, "RCLONE_REMOTE", "")
 RCLONE_SERVE_URL = getattr(Config, "RCLONE_SERVE_URL", "")
 REMOTE_BASE_PATH = getattr(Config, "REMOTE_BASE_PATH", "")
 RESULTS_PER_PAGE = getattr(Config, "RESULTS_PER_PAGE", 4)
+SUDO_USERS = getattr(Config, "SUDO_USERS", "")
 
 # Store search results temporarily
 search_cache = {}
 
 # Store last 10 searches per user
 search_history = {}
+
+# Convert sudo users string → set of ints
+SUDO_USERS_SET = set(
+    int(x.strip()) for x in SUDO_USERS.split(",") if x.strip().isdigit()
+)
+
+# Store pending deletions (key -> (requester_id, full_path, is_dir))
+pending_deletions = {}
 
 # ---------------- Auto Index Refresh Cache ---------------- #
 global_file_index = []
@@ -437,6 +447,10 @@ def get_rclone_storage():
         return None
 
 
+def is_sudo(user_id: int) -> bool:
+    return user_id in SUDO_USERS_SET
+
+
 def create_pagination_buttons(page, total_pages, user_id, query):
     """Create pagination buttons."""
     buttons = []
@@ -582,7 +596,7 @@ async def rclist_command(client: Client, message: Message):
         search_history[user_id] = new_list[:10]
 
     # Store results in cache with unique key including filters
-    cache_key = f"{user_id}:{query}:{file_type}:{min_size}:{max_size}:{date_filter}"
+    cache_key = uuid.uuid4().hex[:8]  # short, safe (8 bytes)
     search_cache[cache_key] = {
         "files": matched_files,
         "query": query or "all files",
@@ -727,6 +741,182 @@ async def rclstorage_command(client: Client, message: Message):
         f"📈 **Usage:** `{bar}` **{percent:.2f}%**",
         parse_mode=ParseMode.MARKDOWN,
     )
+
+
+async def rcldelete_command(client: Client, message: Message):
+    if len(message.command) < 2:
+        return await message.reply_text(
+            "🗑 **Usage:** `/rcldelete <name>`\nExample: `/rcldelete foldername`",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+
+    target_query = " ".join(message.command[1:])
+
+    # ------------------ Send "Searching" indicator ------------------
+    searching_msg = await message.reply_text(
+        f"🔍 Searching for **{target_query}** ...", parse_mode=ParseMode.MARKDOWN
+    )
+
+    # Fetch files
+    files = search_files()
+    if not files:
+        await searching_msg.edit_text(
+            "❌ Cannot fetch remote index.", parse_mode=ParseMode.MARKDOWN
+        )
+        return
+
+    # Match files/folders
+    matched = [f for f in files if match_file(target_query, Path(f["Path"]).name)]
+    if not matched:
+        await searching_msg.edit_text(
+            f"❌ No files/folders found matching `{target_query}`.",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    # Count folders/files
+    folders = sum(1 for f in matched if f.get("IsDir", False))
+    files_count = len(matched) - folders
+
+    # Prepare sudo mentions
+    sudo_mentions = []
+    for uid in SUDO_USERS_SET:
+        try:
+            user = await client.get_users(uid)
+            mention = (
+                f"@{user.username}" if user.username else f"[{uid}](tg://user?id={uid})"
+            )
+        except Exception:
+            mention = f"[{uid}](tg://user?id={uid})"
+        sudo_mentions.append(mention)
+    sudo_mentions_text = " ".join(sudo_mentions)
+
+    # ------------------ Build Approval Message ------------------
+    text = (
+        f"⚠️ User @{message.from_user.username or message.from_user.id} requests deletion of `{target_query}`\n"
+        f"🗂 Folders: {folders} | 📄 Files: {files_count} | ✅ Total: {len(matched)}\n\n"
+        f"Sudo users, please confirm deletion by clicking below.\n\n"
+        f"{sudo_mentions_text}"
+    )
+
+    # Generate a unique callback key
+    key = str(uuid.uuid4())
+    pending_deletions[key] = {
+        "requester_id": message.from_user.id,
+        "matches": matched,
+        "chat_id": message.chat.id,
+        "msg_id": message.id,
+    }
+
+    keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton("✅ YES", callback_data=f"confirm_delete:{key}"),
+                InlineKeyboardButton("❌ CANCEL", callback_data=f"cancel_delete:{key}"),
+            ]
+        ]
+    )
+
+    # Edit "Searching" message to approval message
+    await searching_msg.edit_text(
+        text, parse_mode=ParseMode.MARKDOWN, reply_markup=keyboard
+    )
+
+
+# CALLBACK HANDLER UPDATE
+async def confirm_delete_callback(client: Client, callback_query: CallbackQuery):
+    key = callback_query.data.split(":")[1]
+
+    if key not in pending_deletions:
+        return await callback_query.answer(
+            "❌ Invalid or expired callback.", show_alert=True
+        )
+
+    data = pending_deletions.pop(key)
+    requester_id = data["requester_id"]
+    matches = data["matches"]
+    chat_id = data["chat_id"]
+    msg_id = data["msg_id"]
+
+    user_id = callback_query.from_user.id
+
+    # Only sudo users can confirm deletion
+    if user_id not in SUDO_USERS_SET:
+        return await callback_query.answer(
+            "❌ Only sudo users can confirm.", show_alert=True
+        )
+
+    # Delete original command message
+    try:
+        await client.delete_messages(chat_id=chat_id, message_ids=msg_id)
+    except Exception as e:
+        LOGGER.error(f"Failed to delete command message: {e}")
+
+    folders = [f for f in matches if f.get("IsDir")]
+    files = [f for f in matches if not f.get("IsDir")]
+
+    deleted_folders = set()
+    deleted_count = 0
+    skipped_files = 0
+
+    # DELETE FOLDERS FIRST
+    for f in folders:
+        folder_path = f["Path"]
+        full_path = f"{RCLONE_REMOTE}{folder_path}"
+
+        result = run_rclone_command(
+            ["rclone", "--config", "rclone.conf", "purge", full_path],
+            description="Rclone purge folder",
+        )
+
+        if result is not None:
+            deleted_folders.add(folder_path)
+            deleted_count += 1
+
+    # DELETE FILES NOT INSIDE DELETED FOLDERS
+    for f in files:
+        file_path = f["Path"]
+
+        # Skip files inside already-deleted folders
+        if any(file_path.startswith(folder + "/") for folder in deleted_folders):
+            skipped_files += 1
+            continue
+
+        full_path = f"{RCLONE_REMOTE}{file_path}"
+
+        result = run_rclone_command(
+            ["rclone", "--config", "rclone.conf", "delete", full_path],
+            description="Rclone delete file",
+        )
+        if result is not None:
+            deleted_count += 1
+
+    req_user = await client.get_users(requester_id)
+    req_name = f"@{req_user.username}" if req_user.username else requester_id
+
+    await callback_query.message.edit_text(
+        f"✅ Deletion complete\n\n"
+        f"🗂 Deleted folders: {len(deleted_folders)}\n"
+        f"📄 Deleted files: {deleted_count - len(deleted_folders)}\n"
+        f"⏭ Skipped files: {skipped_files}\n\n"
+        f"Requested by {req_name}"
+    )
+    await callback_query.answer("✅ Deleted!")
+
+
+async def cancel_delete_callback(client: Client, callback_query: CallbackQuery):
+    key = callback_query.data.split(":")[1]
+
+    if key not in pending_deletions:
+        return await callback_query.answer(
+            "❌ Invalid or expired callback.", show_alert=True
+        )
+
+    data = pending_deletions.pop(key)
+    await callback_query.message.edit_text(
+        "❌ Deletion canceled.", parse_mode=ParseMode.MARKDOWN
+    )
+    await callback_query.answer("✅ Deletion canceled.")
 
 
 async def handle_pagination(client: Client, callback_query: CallbackQuery):

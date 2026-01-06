@@ -8,7 +8,16 @@ from .force_start import remove_from_queue
 from .gd_count import count_node
 from .gd_delete import delete_file
 from .gd_search import gdrive_search, select_type
-from .rc_search import rclist_command, recent_searches, latest_uploads, rclstorage_command, handle_pagination
+from .rc_search import (
+    rclist_command,
+    recent_searches,
+    latest_uploads,
+    rclstorage_command,
+    rcldelete_command,
+    handle_pagination,
+    confirm_delete_callback,
+    cancel_delete_callback,
+)
 from .help import arg_usage, bot_help
 from .mediainfo import mediainfo
 from .broadcast import broadcast
@@ -67,7 +76,10 @@ __all__ = [
     "recent_searches",
     "latest_uploads",
     "rclstorage_command",
+    "rcldelete_command",
     "handle_pagination",
+    "confirm_delete_callback",
+    "cancel_delete_callback",
     "arg_usage",
     "uphoster",
     "mirror",
