@@ -1,7 +1,7 @@
 from asyncio import sleep
 from pyrogram.enums import ButtonStyle
 
-from .. import task_dict, task_dict_lock, user_data, multi_tags
+from .. import task_dict, task_dict_lock, multi_tags
 from ..core.tg_client import Config
 from ..helper.ext_utils.bot_utils import new_task
 from ..helper.ext_utils.status_utils import (
@@ -52,9 +52,9 @@ async def cancel(_, message):
         await send_message(message, msg)
         return
     if (
-        Config.OWNER_ID != user_id
+        user_id != Config.OWNER_ID
         and task.listener.user_id != user_id
-        and (user_id not in user_data or not user_data[user_id].get("SUDO"))
+        and not await CustomFilters.sudo("", message)
     ):
         await send_message(message, "This task is not for you!")
         return
