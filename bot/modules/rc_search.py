@@ -33,9 +33,7 @@ search_cache = {}
 search_history = {}
 
 # Convert sudo users string → set of ints
-SUDO_USERS_SET = set(
-    int(x.strip()) for x in SUDO_USERS.split(",") if x.strip().isdigit()
-)
+SUDO_USERS_SET = set(int(x) for x in SUDO_USERS.split() if x.isdigit())
 
 # Store pending deletions (key -> (requester_id, full_path, is_dir))
 pending_deletions = {}
@@ -828,12 +826,18 @@ async def rcldelete_command(client: Client, message: Message):
 
 # CALLBACK HANDLER UPDATE
 async def confirm_delete_callback(client: Client, callback_query: CallbackQuery):
-    key = callback_query.data.split(":")[1]
+    try:
+        # Show "Deleting..." in chat message
+        await callback_query.message.edit_text(
+            "🗑 **Deleting… Please wait...**", parse_mode=ParseMode.MARKDOWN
+        )
+    except Exception as e:
+        LOGGER.warning(f"Failed to edit message to deleting: {e}")
+
+    key = callback_query.data.split(":", 1)[1]
 
     if key not in pending_deletions:
-        return await callback_query.answer(
-            "❌ Invalid or expired callback.", show_alert=True
-        )
+        return
 
     data = pending_deletions.pop(key)
     requester_id = data["requester_id"]
@@ -845,9 +849,7 @@ async def confirm_delete_callback(client: Client, callback_query: CallbackQuery)
 
     # Only sudo users can confirm deletion
     if user_id not in SUDO_USERS_SET:
-        return await callback_query.answer(
-            "❌ Only sudo users can confirm.", show_alert=True
-        )
+        return
 
     # Delete original command message
     try:
@@ -891,40 +893,51 @@ async def confirm_delete_callback(client: Client, callback_query: CallbackQuery)
             [BinConfig.RCLONE_NAME, "--config", "rclone.conf", "delete", full_path],
             description="Rclone delete file",
         )
+
         if result is not None:
             deleted_count += 1
 
-    req_user = await client.get_users(requester_id)
-    req_name = f"@{req_user.username}" if req_user.username else requester_id
+    # Get requester's display name
+    try:
+        req_user = await client.get_users(requester_id)
+        req_name = f"@{req_user.username}" if req_user.username else str(requester_id)
+    except Exception:
+        req_name = str(requester_id)
 
+    # Force refresh global index after deletion
+    refresh_global_index(force=True)
+
+    # ✅ Update message with final summary
     await callback_query.message.edit_text(
-        f"✅ Deletion complete\n\n"
+        f"✅ **Deletion completed**\n\n"
         f"🗂 Deleted folders: {len(deleted_folders)}\n"
         f"📄 Deleted files: {deleted_count - len(deleted_folders)}\n"
         f"⏭ Skipped files: {skipped_files}\n\n"
-        f"Requested by {req_name}"
+        f"Requested by {req_name}",
+        parse_mode=ParseMode.MARKDOWN,
     )
-    await callback_query.answer("✅ Deleted!")
 
 
 async def cancel_delete_callback(client: Client, callback_query: CallbackQuery):
-    key = callback_query.data.split(":")[1]
+    try:
+        await callback_query.answer("❌ Canceled")
+    except Exception:
+        pass
+
+    key = callback_query.data.split(":", 1)[1]
 
     if key not in pending_deletions:
-        return await callback_query.answer(
-            "❌ Invalid or expired callback.", show_alert=True
-        )
+        return
 
-    pending_deletions.pop(key)
+    pending_deletions.pop(key, None)
+
     await callback_query.message.edit_text(
-        "❌ Deletion canceled.", parse_mode=ParseMode.MARKDOWN
+        "❌ **Deletion canceled.**", parse_mode=ParseMode.MARKDOWN
     )
-    await callback_query.answer("✅ Deletion canceled.")
 
 
 async def handle_pagination(client: Client, callback_query: CallbackQuery):
     data = callback_query.data.split(":", 3)  # Split into max 4 parts
-
     user_id = int(data[1])
 
     # Check if user is authorized
@@ -935,15 +948,18 @@ async def handle_pagination(client: Client, callback_query: CallbackQuery):
 
     # Handle close button
     if data[2] == "close":
-        await callback_query.answer("✅ Closed")
+        try:
+            await callback_query.answer("✅ Closed")
+        except Exception:
+            pass
 
         cache_key = data[3] if len(data) > 3 else None
 
         # Delete bot result message
         try:
             await callback_query.message.delete()
-        except Exception as e:
-            LOGGER.error(f"Failed to delete bot message: {e}")
+        except Exception:
+            pass
 
         # Delete original /rclist command message
         if cache_key and cache_key in search_cache:
@@ -952,15 +968,15 @@ async def handle_pagination(client: Client, callback_query: CallbackQuery):
                 await client.delete_messages(
                     chat_id=data["chat_id"], message_ids=data["cmd_msg_id"]
                 )
-            except Exception as e:
-                LOGGER.error(f"Failed to delete command message: {e}")
+            except Exception:
+                pass
 
             # Cleanup cache
             search_cache.pop(cache_key, None)
 
         return
 
-    # 📄 PAGINATION
+    # PAGINATION
     if len(data) < 4:
         return await callback_query.answer(
             "❌ Invalid pagination request", show_alert=True
@@ -976,13 +992,17 @@ async def handle_pagination(client: Client, callback_query: CallbackQuery):
         )
 
     cache_data = search_cache[cache_key]
-    matched_files = cache_data["files"]
-    query = cache_data["query"]
-    filters_applied = cache_data["filters"]
 
     # Create page text and buttons
-    reply, total_pages = create_result_text(matched_files, page, query, filters_applied)
+    reply, total_pages = create_result_text(
+        cache_data["files"], page, cache_data["query"], cache_data["filters"]
+    )
     buttons = create_pagination_buttons(page, total_pages, user_id, cache_key)
+
+    try:
+        await callback_query.answer(f"📄 Page {page + 1}/{total_pages}")
+    except Exception:
+        pass
 
     # Update message
     await callback_query.message.edit_text(
@@ -991,5 +1011,3 @@ async def handle_pagination(client: Client, callback_query: CallbackQuery):
         reply_markup=buttons,
         disable_web_page_preview=True,
     )
-
-    await callback_query.answer(f"📄 Page {page + 1}/{total_pages}")
