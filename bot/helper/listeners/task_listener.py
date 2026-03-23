@@ -69,6 +69,8 @@ from ..telegram_helper.message_utils import (
 class TaskListener(TaskConfig):
     def __init__(self):
         super().__init__()
+        self.avg_download_speed = 0
+        self.avg_upload_speed = 0
 
     async def clean(self):
         with suppress(Exception):
@@ -96,6 +98,7 @@ class TaskListener(TaskConfig):
                 self.same_dir[self.folder_name]["total"] -= 1
 
     async def on_download_start(self):
+        self.download_start_time = time()
         mode_name = "Leech" if self.is_leech else "Mirror"
         if self.bot_pm and self.is_super_chat:
             self.pm_msg = await send_message(
@@ -207,7 +210,11 @@ class TaskListener(TaskConfig):
 
         dl_path = f"{self.dir}/{self.name}"
         self.size = await get_path_size(dl_path)
+        self.download_size = self.size
         self.is_file = await aiopath.isfile(dl_path)
+
+        download_time = time() - getattr(self, "download_start_time", time())
+        self.avg_download_speed = self.download_size / download_time if download_time > 0 else 0
 
         if self.seed:
             up_dir = self.up_dir = f"{self.dir}10000"
@@ -346,6 +353,8 @@ class TaskListener(TaskConfig):
                 return
             LOGGER.info(f"Start from Queued/Upload: {self.name}")
 
+        self.upload_start_time = time()
+
         self.size = await get_path_size(up_dir)
 
         if self.is_yt:
@@ -418,6 +427,8 @@ class TaskListener(TaskConfig):
     async def on_upload_complete(
         self, link, files, folders, mime_type, rclone_path="", dir_id=""
     ):
+        upload_time = time() - getattr(self, "upload_start_time", time())
+        self.avg_upload_speed = self.size / upload_time if upload_time > 0 else 0
         if (
             self.is_super_chat
             and (Config.INC_TASK_NOTIFY or Config.INC_TASK_RESUME)
@@ -430,6 +441,12 @@ class TaskListener(TaskConfig):
             f"\n┠ <b>Time Taken</b> → {get_readable_time(time() - self.message.date.timestamp())}"
             f"\n┠ <b>In / Out Mode</b> → {self.mode[0]} | {self.mode[1]}"
         )
+
+        if not getattr(self, "is_clone", False):
+            msg += (
+                f"\n┠ <b>Avg DL Speed</b> → {get_readable_file_size(self.avg_download_speed)}/s"
+                f"\n┠ <b>Avg UL Speed</b> → {get_readable_file_size(self.avg_upload_speed)}/s"
+            )
         LOGGER.info(f"Task Done: {self.name}")
         if self.is_yt:
             buttons = ButtonMaker()
