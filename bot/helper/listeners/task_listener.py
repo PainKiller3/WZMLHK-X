@@ -526,7 +526,10 @@ class TaskListener(TaskConfig):
                 if rclone_path and Config.RCLONE_SERVE_URL and not self.private_link:
                     remote, rpath = rclone_path.split(":", 1)
                     url_path = rutils.quote(f"{rpath}")
-                    share_url = f"{Config.RCLONE_SERVE_URL}/{remote}/{url_path}"
+                    if Config.RCLONE_USE_REMOTE_PREFIX:
+                        share_url = f"{Config.RCLONE_SERVE_URL}/{remote}/{url_path}"
+                    else:
+                        share_url = f"{Config.RCLONE_SERVE_URL}/{url_path}"
                     if mime_type == "Folder":
                         share_url += "/"
                     buttons.url_button(
