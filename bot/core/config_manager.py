@@ -127,6 +127,7 @@ class Config:
     RCLONE_FLAGS = ""
     RCLONE_PATH = ""
     RCLONE_SERVE_URL = ""
+    RCLONE_USE_REMOTE_PREFIX = True
     SHOW_CLOUD_LINK = True
     RCLONE_SERVE_USER = ""
     RCLONE_SERVE_PASS = ""
