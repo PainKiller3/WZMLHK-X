@@ -240,7 +240,7 @@ def parse_search_args(args):
         arg = args[i]
 
         if arg == "--type" and i + 1 < len(args):
-            file_type = args[i + 1].lower()
+            file_type = args[i + 1].lower().lstrip(".")
             i += 2
         elif arg == "--min" and i + 1 < len(args):
             min_size = parse_size(args[i + 1])
@@ -274,7 +274,11 @@ def apply_filters(
             continue
 
         # Filter by file type
-        if file_type and not is_dir:
+        if file_type:
+            # When a type filter is used, ignore directories
+            if is_dir:
+                continue
+
             file_ext = Path(f["Name"]).suffix.lower().lstrip(".")
             if file_ext != file_type:
                 continue
