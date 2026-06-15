@@ -23,6 +23,7 @@ class BotCommands:
         "Delete": "del",
         "List": "list",
         "RcList": "rclist",
+        "RcRefreshIndex": "rcrefreshindex",
         "Recent": "recent",
         "Latest": "latest",
         "RclStorage": "rclstorage",

@@ -624,6 +624,35 @@ async def rclist_command(client: Client, message: Message):
     )
 
 
+async def rcrefreshindex_command(client: Client, message: Message):
+    status = await message.reply_text(
+        "🔄 Forcing global index refresh...",
+        parse_mode=ParseMode.MARKDOWN,
+    )
+
+    try:
+        files = refresh_global_index(force=True)
+
+        if not files:
+            return await status.edit_text(
+                "❌ Failed to refresh index.",
+                parse_mode=ParseMode.MARKDOWN,
+            )
+
+        await status.edit_text(
+            f"✅ **Index refreshed successfully**\n\n"
+            f"📦 Total files indexed: `{len(files)}`",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+
+    except Exception as e:
+        LOGGER.error(f"Index refresh failed: {e}")
+        await status.edit_text(
+            "❌ Error occurred while refreshing index.",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+
+
 async def recent_searches(client: Client, message: Message):
     user_id = message.from_user.id
     history = search_history.get(user_id, [])
