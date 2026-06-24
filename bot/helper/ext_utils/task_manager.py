@@ -19,7 +19,7 @@ from ..telegram_helper.button_build import ButtonMaker
 from ..telegram_helper.tg_utils import check_botpm, forcesub, verify_token
 from .bot_utils import get_telegraph_list, sync_to_async, safe_int
 from .files_utils import get_base_name, check_storage_threshold
-from .links_utils import is_gdrive_id
+from .links_utils import is_gdrive_id, is_rclone_path
 from .status_utils import get_readable_time, get_readable_file_size
 
 
@@ -28,15 +28,12 @@ async def stop_duplicate_check(listener):
         isinstance(listener.up_dest, int)
         or listener.is_leech
         or listener.select
-        or not is_gdrive_id(listener.up_dest)
-        or (listener.up_dest.startswith("mtp:") and listener.stop_duplicate)
         or not listener.stop_duplicate
         or listener.same_dir
     ):
         return False, None
 
     name = listener.name
-    LOGGER.info(f"Checking File/Folder if already in Drive: {name}")
 
     if listener.compress:
         name = f"{name}.zip"
@@ -46,7 +43,14 @@ async def stop_duplicate_check(listener):
         except Exception:
             name = None
 
-    if name is not None:
+    if name is None:
+        return False, None
+
+    # GDrive stop duplicate check
+    if is_gdrive_id(listener.up_dest):
+        if listener.up_dest.startswith("mtp:"):
+            return False, None
+        LOGGER.info(f"Checking File/Folder if already in Drive: {name}")
         telegraph_content, contents_no = await sync_to_async(
             GoogleDriveSearch(stop_dup=True, no_multi=listener.is_clone).drive_list,
             name,
@@ -58,7 +62,106 @@ async def stop_duplicate_check(listener):
             button = await get_telegraph_list(telegraph_content)
             return msg, button
 
+    # Rclone stop duplicate check using rc_search cached index
+    elif is_rclone_path(listener.up_dest):
+        LOGGER.info(f"Checking File/Folder if already in Rclone Dest: {name}")
+        msg, button = await _rclone_stop_duplicate_check(name)
+        if msg:
+            return msg, button
+
     return False, None
+
+
+async def _rclone_stop_duplicate_check(name):
+    """Check if a file/folder with the same name exists on the rclone remote
+    using the global cached index from rc_search. Returns inline results
+    styled like /rclist output. Uses plain text since callers may escape HTML."""
+    from ...modules.rc_search import (
+        search_files,
+        format_size,
+        RCLONE_SERVE_URL,
+        REMOTE_BASE_PATH,
+        RCLONE_REMOTE,
+    )
+    from ...core.config_manager import BinConfig
+    from .bot_utils import cmd_exec
+
+    files = await sync_to_async(search_files)
+    if not files:
+        return False, None
+
+    matched = [f for f in files if f["Name"].lower() == name.lower()]
+
+    if not matched:
+        return False, None
+
+    msg = "File/Folder is already available in Rclone Destination.\n"
+    msg += f"┠ <b>Duplicates Found:</b> {len(matched)}"
+
+    for i, f in enumerate(matched[:10], 1):
+        is_dir = f.get("IsDir", False)
+        path = f["Path"]
+        if is_dir:
+            size = "Folder"
+        else:
+            size = format_size(f.get("Size", 0))
+
+        msg += f"\n┠ <b>{i}.</b> {f['Name']}\n"
+        msg += f"┠ <b>Size:</b> {size}"
+
+        links = []
+        if RCLONE_SERVE_URL:
+            remote = ""
+            if RCLONE_REMOTE and ":" in RCLONE_REMOTE:
+                remote = RCLONE_REMOTE.split(":", 1)[0]
+
+            url_path = path
+            if REMOTE_BASE_PATH:
+                if url_path.startswith(f"{REMOTE_BASE_PATH}/"):
+                    url_path = url_path[len(REMOTE_BASE_PATH) + 1 :]
+                rpath = f"{REMOTE_BASE_PATH}/{url_path}"
+            else:
+                rpath = url_path
+
+            from requests import utils as rutils
+
+            url_path_quoted = rutils.quote(f"{rpath}")
+
+            from ...core.config_manager import Config
+
+            if getattr(Config, "RCLONE_USE_REMOTE_PREFIX", False):
+                public_link = f"{RCLONE_SERVE_URL}/{remote}/{url_path_quoted}"
+            else:
+                public_link = f"{RCLONE_SERVE_URL}/{url_path_quoted}"
+
+            if is_dir:
+                public_link += "/"
+            links.append(f'<a href="{public_link}">Rclone Link</a>')
+
+        # Get native cloud link via rclone link (best effort)
+        if RCLONE_REMOTE:
+            try:
+                full_path = f"{RCLONE_REMOTE}{path}"
+                cmd = [
+                    BinConfig.RCLONE_NAME,
+                    "link",
+                    "--config",
+                    "rclone.conf",
+                    full_path,
+                ]
+                res, _, code = await cmd_exec(cmd)
+                if code == 0 and res.strip():
+                    links.append(f'<a href="{res.strip()}">Cloud Link</a>')
+            except Exception:
+                pass
+
+        if links:
+            msg += f"\n┠ <b>Links:</b> {' | '.join(links)}"
+
+    if len(matched) > 10:
+        msg += f"\n┠ ... and {len(matched) - 10} more."
+
+    return msg, None
 
 
 async def check_running_tasks(listener, state="dl"):
