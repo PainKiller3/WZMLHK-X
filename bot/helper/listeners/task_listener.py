@@ -608,6 +608,7 @@ class TaskListener(TaskConfig):
                 del task_dict[self.mid]
             count = len(task_dict)
         await self.remove_from_same_dir()
+        error_msg = error if isinstance(error, str) and error.startswith("File/Folder is already available") else escape(str(error))
         msg = (
             f"""〶 <b><i><u>Limit Breached:</u></i></b>
 
@@ -617,7 +618,7 @@ class TaskListener(TaskConfig):
             if is_limit
             else f"""<i><b>〶 Download Stopped!</b></i>
 
-┎ <b>Due To</b> → {escape(str(error))}
+┎ <b>Due To</b> → {error_msg}
 ┠ <b>Task Size</b> → {get_readable_file_size(self.size)}
 ┠ <b>Time Taken</b> → {get_readable_time(time() - self.message.date.timestamp())}
 ┠ <b>In / Out Mode</b> → {self.mode[0]} | {self.mode[1]}
