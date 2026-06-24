@@ -227,7 +227,7 @@ DEFAULT_DESP = {
     "SET_COMMANDS": "Auto-set bot commands on start. Default: True.",
     "STATUS_LIMIT": "Number of status messages to show. Default: 10.",
     "STATUS_UPDATE_INTERVAL": "Status message refresh interval in seconds. Default: 15.",
-    "STOP_DUPLICATE": "Stop if file/folder exists in GDrive. Default: False.",
+    "STOP_DUPLICATE": "Stop if file/folder already exists in GDrive/Rclone destination. Default: False.",
     "STREAMWISH_API": "StreamWish API key for uploads.",
     "SUDO_USERS": "User IDs with sudo access. Space-separated.",
     "TELEGRAM_API": "Telegram API ID from my.telegram.org.",
