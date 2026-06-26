@@ -13,7 +13,7 @@ from .... import (
 from ....core.config_manager import Config
 from ...ext_utils.bot_lock import sab_par2_lock
 from ...ext_utils.db_handler import database
-from ...ext_utils.task_manager import check_running_tasks
+from ...ext_utils.task_manager import check_running_tasks, stop_duplicate_check
 from ...listeners.nzb_listener import on_download_start
 from ...ext_utils.bot_utils import bt_selection_buttons
 from ...mirror_leech_utils.status_utils.nzb_status import SabnzbdStatus
@@ -80,6 +80,11 @@ async def add_nzb(listener, path):
             await listener.on_download_error(str(e))
             return
     use_par2_lock = listener.extract and sab_par2_lock.throttled
+    if listener.name:
+        msg, button = await stop_duplicate_check(listener)
+        if msg:
+            await listener.on_download_error(msg, button)
+            return
     job_id = None
     par2_lock_acquired = False
     url = listener.link
@@ -132,6 +137,20 @@ async def add_nzb(listener, path):
                 name = listener.name
         else:
             name = downloads["queue"]["slots"][0]["filename"]
+
+        listener.name = listener.name or name
+        msg, button = await stop_duplicate_check(listener)
+        if msg:
+            if par2_lock_acquired:
+                await sab_par2_lock.release()
+            res1, _ = await gather(
+                sabnzbd_client.delete_history(job_id, delete_files=True),
+                sabnzbd_client.delete_category(f"{listener.mid}"),
+            )
+            if not res1:
+                await sabnzbd_client.delete_job(job_id, True)
+            await listener.on_download_error(msg, button)
+            return
 
         async with task_dict_lock:
             task_dict[listener.mid] = SabnzbdStatus(

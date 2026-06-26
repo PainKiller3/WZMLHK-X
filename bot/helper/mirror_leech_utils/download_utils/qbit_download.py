@@ -14,7 +14,7 @@ from .... import (
 from ....core.config_manager import Config
 from ....core.torrent_manager import TorrentManager
 from ...ext_utils.bot_utils import bt_selection_buttons
-from ...ext_utils.task_manager import check_running_tasks
+from ...ext_utils.task_manager import check_running_tasks, stop_duplicate_check
 from ...listeners.qbit_listener import on_download_start
 from ...mirror_leech_utils.status_utils.qbit_status import QbittorrentStatus
 from ...telegram_helper.message_utils import (
@@ -46,6 +46,11 @@ async def add_qb_torrent(listener, path, ratio, seed_time):
     if Config.DISABLE_TORRENTS:
         await listener.on_download_error("Torrents are disabled in the configuration.")
         return
+    if listener.name:
+        msg, button = await stop_duplicate_check(listener)
+        if msg:
+            await listener.on_download_error(msg, button)
+            return
     try:
         form = AddFormBuilder.with_client(TorrentManager.qbittorrent)
         if await aiopath.exists(listener.link):
@@ -84,8 +89,20 @@ async def add_qb_torrent(listener, path, ratio, seed_time):
                     break
                 await sleep(1)
         tor_info = tor_info[0]
-        listener.name = tor_info.name
+        listener.name = listener.name or tor_info.name
         ext_hash = tor_info.hash
+
+        if tor_info.state != "metaDL":
+            msg, button = await stop_duplicate_check(listener)
+            if msg:
+                await TorrentManager.qbittorrent.torrents.stop([ext_hash])
+                await sleep(0.3)
+                await TorrentManager.qbittorrent.torrents.delete([ext_hash], True)
+                await TorrentManager.qbittorrent.torrents.delete_tags(
+                    [f"{listener.mid}"]
+                )
+                await listener.on_download_error(msg, button)
+                return
 
         async with task_dict_lock:
             task_dict[listener.mid] = QbittorrentStatus(listener, queued=add_to_queue)
