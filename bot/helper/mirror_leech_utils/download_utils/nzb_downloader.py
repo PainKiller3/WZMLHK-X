@@ -9,7 +9,7 @@ from .... import (
     LOGGER,
 )
 from ....core.config_manager import Config
-from ...ext_utils.task_manager import check_running_tasks
+from ...ext_utils.task_manager import check_running_tasks, stop_duplicate_check
 from ...listeners.nzb_listener import on_download_start
 from ...ext_utils.db_handler import database
 from ...ext_utils.bot_utils import bt_selection_buttons
@@ -111,6 +111,18 @@ async def add_nzb(listener, path):
             name = history["history"]["slots"][0]["name"]
         else:
             name = downloads["queue"]["slots"][0]["filename"]
+
+        listener.name = listener.name or name
+        msg, button = await stop_duplicate_check(listener)
+        if msg:
+            res1, _ = await gather(
+                sabnzbd_client.delete_history(job_id, delete_files=True),
+                sabnzbd_client.delete_category(f"{listener.mid}"),
+            )
+            if not res1:
+                await sabnzbd_client.delete_job(job_id, True)
+            await listener.on_download_error(msg, button)
+            return
 
         async with task_dict_lock:
             task_dict[listener.mid] = SabnzbdStatus(
