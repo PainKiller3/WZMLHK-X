@@ -22,7 +22,6 @@ class BotCommands:
         "Count": "count",
         "Delete": "del",
         "List": "list",
-        "RcList": "rclist",
         "RcRefreshIndex": "rcrefreshindex",
         "Recent": "recent",
         "Latest": "latest",
