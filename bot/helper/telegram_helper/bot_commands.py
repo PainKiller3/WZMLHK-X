@@ -23,7 +23,6 @@ class BotCommands:
         "Delete": "del",
         "GDClean": ["gdclean", "gdc"],
         "List": "list",
-        "RcList": "rclist",
         "RcRefreshIndex": "rcrefreshindex",
         "Recent": "recent",
         "Latest": "latest",
