@@ -624,40 +624,6 @@ async def run_rclone_search(
         )
 
 
-async def rclist_command(client: Client, message: Message):
-    # Extract command and arguments
-    user_id = message.from_user.id
-
-    # If user typed only "/rclist" show suggestions (autocomplete-style)
-    if len(message.command) < 2:
-        history = search_history.get(user_id, [])
-
-        text = "🤖 **Search Suggestions**\n\n"
-
-        if history:
-            text += "🕘 **Recent Searches:**\n"
-            for q in history[:5]:
-                text += f"• `/rclist {q}`\n"
-            text += "\n"
-
-        text += (
-            "🧩 **Common Filters:**\n"
-            "`--type zip`   `--type mkv`\n"
-            "`--min 1GB`    `--max 10GB`\n"
-            "`--date 7d`\n\n"
-            "📌 **Examples:**\n"
-            "`/rclist software --type zip`\n"
-            "`/rclist movie --min 1GB --max 5GB`\n"
-        )
-
-        await message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
-        return
-
-    # Parse arguments
-    args = message.command[1:]
-    await run_rclone_search(client, message, args)
-
-
 async def rcrefreshindex_command(client: Client, message: Message):
     status = await message.reply_text(
         "🔄 Forcing global index refresh...",
