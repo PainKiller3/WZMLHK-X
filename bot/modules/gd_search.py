@@ -9,6 +9,9 @@ from ..helper.telegram_helper.button_build import ButtonMaker
 from ..helper.telegram_helper.message_utils import send_message, edit_message
 
 
+from .rc_search import run_rclone_search
+
+
 def _parse_bool(value):
     if isinstance(value, bool):
         return value
@@ -99,11 +102,42 @@ async def select_type(_, query):
 
 
 @new_task
+async def select_dest(client, query):
+    user_id = query.from_user.id
+    message = query.message
+    data = query.data.split()
+    if user_id != int(data[1]):
+        return await query.answer(text="Not Yours!", show_alert=True)
+
+    dest = data[2]
+    if dest == "cancel":
+        await query.answer()
+        return await edit_message(message, "<i>List has been canceled!</i>")
+
+    if dest == "gdrive":
+        await query.answer()
+        buttons = await list_buttons(user_id)
+        return await edit_message(message, "Choose list options:", buttons)
+
+    if dest == "rclone":
+        await query.answer()
+        reply_to = message.reply_to_message
+        if not reply_to:
+            return await edit_message(message, "❌ Original message not found.")
+
+        args = (reply_to.text or reply_to.caption or "").split()[1:]
+        await run_rclone_search(client, reply_to, args, edit_message_obj=message)
+
+
+@new_task
 async def gdrive_search(_, message):
     if len(message.text.split()) == 1:
         return await send_message(
             message, "<i>Send a search query along with list command</i>"
         )
     user_id = message.from_user.id
-    buttons = await list_buttons(user_id)
-    await send_message(message, "Choose list options:", buttons)
+    buttons = ButtonMaker()
+    buttons.data_button("Google Drive", f"list_dest {user_id} gdrive")
+    buttons.data_button("Rclone", f"list_dest {user_id} rclone")
+    buttons.data_button("Cancel", f"list_dest {user_id} cancel")
+    await send_message(message, "Choose search destination:", buttons.build_menu(2))
