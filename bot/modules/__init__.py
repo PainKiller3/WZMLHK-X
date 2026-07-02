@@ -9,7 +9,6 @@ from .gd_count import count_node
 from .gd_delete import delete_file
 from .gd_search import gdrive_search, select_type, select_dest
 from .rc_search import (
-    rclist_command,
     recent_searches,
     latest_uploads,
     rclstorage_command,
@@ -75,7 +74,6 @@ __all__ = [
     "gdrive_search",
     "select_type",
     "select_dest",
-    "rclist_command",
     "rcrefreshindex_command",
     "recent_searches",
     "latest_uploads",
