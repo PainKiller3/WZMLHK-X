@@ -18,7 +18,6 @@ from .gd_delete import delete_file
 from .gd_clean import drive_clean, confirm_drive_clean_cb
 from .gd_search import gdrive_search, select_type, select_dest
 from .rc_search import (
-    rclist_command,
     recent_searches,
     latest_uploads,
     rclstorage_command,
@@ -92,7 +91,6 @@ __all__ = [
     "gdrive_search",
     "select_type",
     "select_dest",
-    "rclist_command",
     "rcrefreshindex_command",
     "recent_searches",
     "latest_uploads",

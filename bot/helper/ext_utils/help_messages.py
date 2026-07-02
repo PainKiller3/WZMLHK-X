@@ -396,7 +396,6 @@ def get_bot_commands():
         "ForceStart": "[gid/reply] Force start from queued task",
         "Count": "[link] Count no. of files/folders in GDrive",
         "List": "[query] Search any Text which is available in GDrive or Rclone Remotes",
-        "RcList": "[query] Search any Text which is available in Rclone Remotes",
         "RcRefreshIndex": "[SUDO] Refresh Rclone Remote Index",
         "Recent": "Get recent files/folders from Rclone Remotes",
         "Latest": "Get latest files/folders from Rclone Remotes",
@@ -507,8 +506,6 @@ def get_help_string():
             help_lines.append(
                 f"{cmd_str} [query]: Search in Google Drive(s) or Rclone Remotes."
             )
-        elif key == "RcList":
-            help_lines.append(f"{cmd_str} [query]: Search in Rclone Remotes.")
         elif key == "RcRefreshIndex":
             help_lines.append(f"{cmd_str}: Refresh Rclone Remote Index (Only Sudo).")
         elif key == "Recent":
