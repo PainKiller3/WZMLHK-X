@@ -225,9 +225,9 @@ def parse_search_args(args):
     Returns: (query, file_type, min_size, max_size, date_filter)
 
     Examples:
-        /rclist software --type zip
-        /rclist movie --type mkv --min 1GB --max 10GB
-        /rclist document --date 7d
+        /list software --type zip
+        /list movie --type mkv --min 1GB --max 10GB
+        /list document --date 7d
     """
     query_parts = []
     file_type = None
@@ -495,48 +495,26 @@ def create_pagination_buttons(page, total_pages, user_id, query):
     return InlineKeyboardMarkup(buttons)
 
 
-async def rclist_command(client: Client, message: Message):
+async def run_rclone_search(
+    client: Client, message: Message, args: list, edit_message_obj: Message = None
+):
     # Extract command and arguments
     command_message_id = message.id
     chat_id = message.chat.id
     user_id = message.from_user.id
 
-    # If user typed only "/rclist" show suggestions (autocomplete-style)
-    if len(message.command) < 2:
-        history = search_history.get(user_id, [])
-
-        text = "🤖 **Search Suggestions**\n\n"
-
-        if history:
-            text += "🕘 **Recent Searches:**\n"
-            for q in history[:5]:
-                text += f"• `/rclist {q}`\n"
-            text += "\n"
-
-        text += (
-            "🧩 **Common Filters:**\n"
-            "`--type zip`   `--type mkv`\n"
-            "`--min 1GB`    `--max 10GB`\n"
-            "`--date 7d`\n\n"
-            "📌 **Examples:**\n"
-            "`/rclist software --type zip`\n"
-            "`/rclist movie --min 1GB --max 5GB`\n"
-        )
-
-        await message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
-        return
-
-    # Parse arguments
-    args = message.command[1:]
     query, file_type, min_size, max_size, date_filter = parse_search_args(args)
 
     # Validate query (can be empty if filters are provided)
     if query and not is_valid_query(query):
-        await message.reply_text(
-            "❌ **Invalid command**\n\nUsage: `/rclist <query> [options]`\n\n"
-            "Please provide a valid search query with alphanumeric characters.",
-            parse_mode=ParseMode.MARKDOWN,
+        err_text = (
+            "❌ **Invalid command**\n\nUsage: `/list <query> [options]`\n\n"
+            "Please provide a valid search query with alphanumeric characters."
         )
+        if edit_message_obj:
+            await edit_message_obj.edit_text(err_text, parse_mode=ParseMode.MARKDOWN)
+        else:
+            await message.reply_text(err_text, parse_mode=ParseMode.MARKDOWN)
         return
 
     # At least one filter or query must be provided
@@ -547,14 +525,15 @@ async def rclist_command(client: Client, message: Message):
         and not max_size
         and not date_filter
     ):
-        await message.reply_text(
-            "❌ **Invalid command**\n\nUsage: `/rclist <query> [options]`\n\n"
-            "Please provide at least a search query or filter.",
-            parse_mode=ParseMode.MARKDOWN,
+        err_text = (
+            "❌ **Invalid command**\n\nUsage: `/list <query> [options]`\n\n"
+            "Please provide at least a search query or filter."
         )
+        if edit_message_obj:
+            await edit_message_obj.edit_text(err_text, parse_mode=ParseMode.MARKDOWN)
+        else:
+            await message.reply_text(err_text, parse_mode=ParseMode.MARKDOWN)
         return
-
-    user_id = message.from_user.id
 
     # Build filter description
     filters_applied = []
@@ -573,7 +552,13 @@ async def rclist_command(client: Client, message: Message):
         search_text += f"\n🔧 Filters: {', '.join(filters_applied)}"
     search_text += " ..."
 
-    search_msg = await message.reply_text(search_text, parse_mode=ParseMode.MARKDOWN)
+    if edit_message_obj:
+        search_msg = edit_message_obj
+        await search_msg.edit_text(search_text, parse_mode=ParseMode.MARKDOWN)
+    else:
+        search_msg = await message.reply_text(
+            search_text, parse_mode=ParseMode.MARKDOWN
+        )
 
     files = search_files()
 
@@ -619,19 +604,58 @@ async def rclist_command(client: Client, message: Message):
     )
     buttons = create_pagination_buttons(0, total_pages, user_id, cache_key)
 
-    # Delete searching message
-    try:
-        await search_msg.delete()
-    except Exception:
-        pass
+    if edit_message_obj:
+        await search_msg.edit_text(
+            reply,
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=buttons,
+            disable_web_page_preview=True,
+        )
+    else:
+        try:
+            await search_msg.delete()
+        except Exception:
+            pass
+        await message.reply_text(
+            reply,
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=buttons,
+            disable_web_page_preview=True,
+        )
 
-    # Send first page with buttons
-    await message.reply_text(
-        reply,
-        parse_mode=ParseMode.MARKDOWN,
-        reply_markup=buttons,
-        disable_web_page_preview=True,
-    )
+
+async def rclist_command(client: Client, message: Message):
+    # Extract command and arguments
+    user_id = message.from_user.id
+
+    # If user typed only "/rclist" show suggestions (autocomplete-style)
+    if len(message.command) < 2:
+        history = search_history.get(user_id, [])
+
+        text = "🤖 **Search Suggestions**\n\n"
+
+        if history:
+            text += "🕘 **Recent Searches:**\n"
+            for q in history[:5]:
+                text += f"• `/rclist {q}`\n"
+            text += "\n"
+
+        text += (
+            "🧩 **Common Filters:**\n"
+            "`--type zip`   `--type mkv`\n"
+            "`--min 1GB`    `--max 10GB`\n"
+            "`--date 7d`\n\n"
+            "📌 **Examples:**\n"
+            "`/rclist software --type zip`\n"
+            "`/rclist movie --min 1GB --max 5GB`\n"
+        )
+
+        await message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+        return
+
+    # Parse arguments
+    args = message.command[1:]
+    await run_rclone_search(client, message, args)
 
 
 async def rcrefreshindex_command(client: Client, message: Message):
@@ -669,7 +693,7 @@ async def recent_searches(client: Client, message: Message):
 
     if not history:
         return await message.reply_text(
-            "📭 **No recent searches yet!**\nStart searching using `/rclist <keyword>`.",
+            "📭 **No recent searches yet!**\nStart searching using `/list <keyword>`.",
             parse_mode=ParseMode.MARKDOWN,
         )
 
@@ -994,7 +1018,7 @@ async def handle_pagination(client: Client, callback_query: CallbackQuery):
         except Exception:
             pass
 
-        # Delete original /rclist command message
+        # Delete original /list command message
         if cache_key and cache_key in search_cache:
             data = search_cache.get(cache_key)
             try:
