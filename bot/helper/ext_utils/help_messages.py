@@ -395,7 +395,7 @@ def get_bot_commands():
         "UserSet": "User personal settings",
         "ForceStart": "[gid/reply] Force start from queued task",
         "Count": "[link] Count no. of files/folders in GDrive",
-        "List": "[query] Search any Text which is available in GDrive",
+        "List": "[query] Search any Text which is available in GDrive or Rclone Remotes",
         "RcList": "[query] Search any Text which is available in Rclone Remotes",
         "RcRefreshIndex": "[SUDO] Refresh Rclone Remote Index",
         "Recent": "Get recent files/folders from Rclone Remotes",
@@ -504,7 +504,9 @@ def get_help_string():
         elif key == "CancelAll":
             help_lines.append(f"{cmd_str} [query]: Cancel all [status] tasks.")
         elif key == "List":
-            help_lines.append(f"{cmd_str} [query]: Search in Google Drive(s).")
+            help_lines.append(
+                f"{cmd_str} [query]: Search in Google Drive(s) or Rclone Remotes."
+            )
         elif key == "RcList":
             help_lines.append(f"{cmd_str} [query]: Search in Rclone Remotes.")
         elif key == "RcRefreshIndex":

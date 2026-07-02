@@ -16,7 +16,7 @@ from .force_start import remove_from_queue
 from .gd_count import count_node
 from .gd_delete import delete_file
 from .gd_clean import drive_clean, confirm_drive_clean_cb
-from .gd_search import gdrive_search, select_type
+from .gd_search import gdrive_search, select_type, select_dest
 from .rc_search import (
     rclist_command,
     recent_searches,
@@ -27,6 +27,7 @@ from .rc_search import (
     handle_pagination,
     confirm_delete_callback,
     cancel_delete_callback,
+    run_rclone_search,
 )
 from .help import arg_usage, bot_help
 from .images import picture_add, pictures, pics_callback
@@ -90,6 +91,7 @@ __all__ = [
     "confirm_drive_clean_cb",
     "gdrive_search",
     "select_type",
+    "select_dest",
     "rclist_command",
     "rcrefreshindex_command",
     "recent_searches",
@@ -99,6 +101,7 @@ __all__ = [
     "handle_pagination",
     "confirm_delete_callback",
     "cancel_delete_callback",
+    "run_rclone_search",
     "arg_usage",
     "uphoster",
     "mirror",

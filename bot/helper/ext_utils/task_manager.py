@@ -75,7 +75,7 @@ async def stop_duplicate_check(listener):
 async def _rclone_stop_duplicate_check(name):
     """Check if a file/folder with the same name exists on the rclone remote
     using the global cached index from rc_search. Returns inline results
-    styled like /rclist output. Uses plain text since callers may escape HTML."""
+    styled like /list output. Uses plain text since callers may escape HTML."""
     from urllib.parse import urljoin, quote
     from ...modules.rc_search import (
         search_files,

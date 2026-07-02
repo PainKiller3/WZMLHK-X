@@ -170,6 +170,9 @@ async def add_handlers():
         CallbackQueryHandler(select_type, filters=regex("^list_types"))
     )
     TgClient.bot.add_handler(
+        CallbackQueryHandler(select_dest, filters=regex("^list_dest"))
+    )
+    TgClient.bot.add_handler(
         MessageHandler(
             rclist_command,
             filters=command(BotCommands.RcListCommand, case_sensitive=True)
