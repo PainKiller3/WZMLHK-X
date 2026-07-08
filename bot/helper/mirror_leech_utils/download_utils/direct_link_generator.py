@@ -526,7 +526,7 @@ def mediafile(url):
         postid = postvalue[1].replace("(", "").replace(")", "")
         response = post(
             "https://mediafile.cc/account/ajax/file_details",
-            data={"u": postid},
+            data={"u": postid, "p": "true"},
             headers={"X-Requested-With": "XMLHttpRequest"},
         )
         html = response.json()["html"]
