@@ -1,4 +1,4 @@
-from asyncio import gather, get_event_loop, sleep
+from asyncio import gather, sleep
 from datetime import datetime
 from importlib import reload as reload_module
 from os import execl as osexecl
@@ -296,7 +296,17 @@ async def confirm_restart(_, query):
             except Exception:
                 pass
 
-            get_event_loop().create_task(_background_cleanup())
+            await _background_cleanup()
+
+            import os
+
+            try:
+                while True:
+                    pid, status = os.waitpid(-1, os.WNOHANG)
+                    if pid == 0:
+                        break
+            except ChildProcessError:
+                pass
 
             osexecl(executable, executable, "-m", "bot")
     else:
