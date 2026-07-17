@@ -294,7 +294,7 @@ class HyperTGDownload:
 
                     if current_part <= part_count:
                         raise ValueError(
-                            f"Incomplete download: got {current_part-1} of {part_count} parts"
+                            f"Incomplete download: got {current_part - 1} of {part_count} parts"
                         )
                     break
 
