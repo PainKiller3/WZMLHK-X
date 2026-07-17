@@ -6,7 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urljoin, quote
 from datetime import datetime, timedelta
-from pyrogram import Client, filters
+from pyrogram import Client
 from pyrogram.enums import ParseMode
 from pyrogram.types import (
     Message,
@@ -17,8 +17,6 @@ from pyrogram.types import (
 from rapidfuzz import fuzz
 
 from .. import LOGGER
-from ..helper.ext_utils.bot_utils import new_task
-from ..helper.telegram_helper.message_utils import send_message, edit_message
 from ..core.config_manager import Config
 
 # Get rclone configuration from Config
@@ -657,7 +655,7 @@ async def recent_searches(client: Client, message: Message):
             parse_mode=ParseMode.MARKDOWN,
         )
 
-    formatted = "\n".join([f"**{i+1}.** `{q}`" for i, q in enumerate(history)])
+    formatted = "\n".join([f"**{i + 1}.** `{q}`" for i, q in enumerate(history)])
 
     await message.reply_text(
         f"🕘 **Your Recent Searches (last {len(history)}):**\n\n{formatted}",
@@ -674,7 +672,7 @@ async def latest_uploads(client: Client, message: Message):
 
     # "Fetching latest uploads..." indicator
     fetching_msg = await message.reply_text(
-        f"⏳ Fetching latest uploads...", parse_mode=ParseMode.MARKDOWN
+        "⏳ Fetching latest uploads...", parse_mode=ParseMode.MARKDOWN
     )
 
     # Get all files from remote

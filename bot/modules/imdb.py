@@ -76,9 +76,7 @@ async def imdb_search(_, message):
                     f"{movie.title} ({getattr(movie, 'year', 'N/A')})",
                     f"imdb {user_id} movie {movie.id}",
                 )
-        buttons.data_button(
-            "Close", f"imdb {user_id} close", style=ButtonStyle.DANGER
-        )
+        buttons.data_button("Close", f"imdb {user_id} close", style=ButtonStyle.DANGER)
         await edit_message(
             k, "<b><i>Search Results found on IMDb.com</i></b>", buttons.build_menu(1)
         )
@@ -178,7 +176,7 @@ def get_poster(query, bulk=False, id=False, file=None):
         akas = get_akas(f"tt{movie.imdb_id}")
         seen_aka = set()
         aka_list = []
-        for a in akas["akas"][:LIST_ITEMS * 2]:
+        for a in akas["akas"][: LIST_ITEMS * 2]:
             title = a.title
             if title.lower() not in seen_aka:
                 seen_aka.add(title.lower())
@@ -192,7 +190,9 @@ def get_poster(query, bulk=False, id=False, file=None):
     _box_office = getattr(movie, "box_office", None) or {}
     _end_year = getattr(movie, "year_end", None)
     _end_year_str = f"-{_end_year}" if _end_year else ""
-    _certificate = getattr(movie, "certificate", None) or getattr(movie, "mpaa", None) or ""
+    _certificate = (
+        getattr(movie, "certificate", None) or getattr(movie, "mpaa", None) or ""
+    )
     if not _certificate:
         _certs = getattr(movie, "certificates", {}) or {}
         for _key in ["US", "MPAA"]:
@@ -211,9 +211,7 @@ def get_poster(query, bulk=False, id=False, file=None):
                         _certificate = cert_val
                         break
     _keywords_list = getattr(movie, "storyline_keywords", []) or []
-    _creators_list = (
-        getattr(getattr(movie, "info_series", None), "creators", []) or []
-    )
+    _creators_list = getattr(getattr(movie, "info_series", None), "creators", []) or []
     _production_companies = (
         [c.name for c in getattr(movie, "company_credits", {}).get("production", [])]
         if getattr(movie, "company_credits", None)
@@ -272,8 +270,10 @@ def get_poster(query, bulk=False, id=False, file=None):
         "year": str(getattr(movie, "year", "N/A") or "N/A"),
         "genres": list_to_hash(getattr(movie, "genres", []) or [], emoji=True) or "N/A",
         "genres_plain": list_to_plain(getattr(movie, "genres", []) or []) or "N/A",
-        "countries_plain": list_to_plain(getattr(movie, "countries", []) or []) or "N/A",
-        "languages_plain": list_to_plain(getattr(movie, "languages_text", []) or []) or "N/A",
+        "countries_plain": list_to_plain(getattr(movie, "countries", []) or [])
+        or "N/A",
+        "languages_plain": list_to_plain(getattr(movie, "languages_text", []) or [])
+        or "N/A",
         "poster": getattr(
             movie, "cover_url", "https://telegra.ph/file/5af8d90a479b0d11df298.jpg"
         )
@@ -389,9 +389,7 @@ async def imdb_callback(_, query):
                 buttons.url_button(
                     "IMDb Trailer", imdb["trailer"], style=ButtonStyle.PRIMARY
                 )
-        buttons.data_button(
-            "Close", f"imdb {user_id} close", style=ButtonStyle.DANGER
-        )
+        buttons.data_button("Close", f"imdb {user_id} close", style=ButtonStyle.DANGER)
         buttons = buttons.build_menu(1)
 
         title = imdb.get("title", "N/A")
@@ -444,9 +442,7 @@ async def imdb_callback(_, query):
         if poster:
             seen.add(poster)
         try:
-            gallery = await sync_to_async(
-                get_media_gallery, data[3], locale="en"
-            )
+            gallery = await sync_to_async(get_media_gallery, data[3], locale="en")
             if gallery and gallery.items:
                 for item in gallery.items[:5]:
                     url = item.url
@@ -458,16 +454,12 @@ async def imdb_callback(_, query):
         if len(all_images) == 1:
             gallery_html = f'<img src="{all_images[0]}"/>\n'
         elif len(all_images) > 1:
-            slides = "\n".join(
-                f'<img src="{img}"/>' for img in all_images
-            )
+            slides = "\n".join(f'<img src="{img}"/>' for img in all_images)
             gallery_html = f"<tg-slideshow>\n{slides}\n</tg-slideshow>\n"
 
         prod_html = ""
         if production_companies:
-            prod_items = "".join(
-                f"<li>{p}</li>" for p in production_companies[:6]
-            )
+            prod_items = "".join(f"<li>{p}</li>" for p in production_companies[:6])
             prod_html = f"""
 <details>
 <summary>Production companies</summary>
@@ -526,13 +518,19 @@ async def imdb_callback(_, query):
 
         box_office_rows = ""
         if budget:
-            box_office_rows += f"<tr><td><b>Budget</b></td><td><code>{budget}</code></td></tr>"
+            box_office_rows += (
+                f"<tr><td><b>Budget</b></td><td><code>{budget}</code></td></tr>"
+            )
         if box_opening:
             box_office_rows += f"<tr><td><b>Opening Weekend</b></td><td><code>{box_opening}</code></td></tr>"
         if box_domestic:
-            box_office_rows += f"<tr><td><b>Domestic</b></td><td><code>{box_domestic}</code></td></tr>"
+            box_office_rows += (
+                f"<tr><td><b>Domestic</b></td><td><code>{box_domestic}</code></td></tr>"
+            )
         if box_office and box_office != "N/A":
-            box_office_rows += f"<tr><td><b>Worldwide</b></td><td><code>{box_office}</code></td></tr>"
+            box_office_rows += (
+                f"<tr><td><b>Worldwide</b></td><td><code>{box_office}</code></td></tr>"
+            )
         box_office_table = ""
         if box_office_rows:
             box_office_table = f"""
@@ -568,9 +566,7 @@ async def imdb_callback(_, query):
                     )
                 except (MediaEmpty, PhotoInvalidDimensions, WebpageMediaEmpty):
                     fallback_poster = poster.replace(".jpg", "._V1_UX360.jpg")
-                    await send_message(
-                        reply_to, cap, buttons, photo=fallback_poster
-                    )
+                    await send_message(reply_to, cap, buttons, photo=fallback_poster)
             else:
                 await send_message(
                     reply_to,

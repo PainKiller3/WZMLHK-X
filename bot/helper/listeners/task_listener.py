@@ -214,7 +214,9 @@ class TaskListener(TaskConfig):
         self.is_file = await aiopath.isfile(dl_path)
 
         download_time = time() - getattr(self, "download_start_time", time())
-        self.avg_download_speed = self.download_size / download_time if download_time > 0 else 0
+        self.avg_download_speed = (
+            self.download_size / download_time if download_time > 0 else 0
+        )
 
         if self.seed:
             up_dir = self.up_dir = f"{self.dir}10000"
@@ -640,7 +642,12 @@ class TaskListener(TaskConfig):
                 del task_dict[self.mid]
             count = len(task_dict)
         await self.remove_from_same_dir()
-        error_msg = error if isinstance(error, str) and error.startswith("File/Folder is already available") else escape(str(error))
+        error_msg = (
+            error
+            if isinstance(error, str)
+            and error.startswith("File/Folder is already available")
+            else escape(str(error))
+        )
         msg = (
             f"""〶 <b><i><u>Limit Breached:</u></i></b>
 

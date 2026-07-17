@@ -98,7 +98,9 @@ async def add_qb_torrent(listener, path, ratio, seed_time):
                 await TorrentManager.qbittorrent.torrents.stop([ext_hash])
                 await sleep(0.3)
                 await TorrentManager.qbittorrent.torrents.delete([ext_hash], True)
-                await TorrentManager.qbittorrent.torrents.delete_tags([f"{listener.mid}"])
+                await TorrentManager.qbittorrent.torrents.delete_tags(
+                    [f"{listener.mid}"]
+                )
                 await listener.on_download_error(msg, button)
                 return
 

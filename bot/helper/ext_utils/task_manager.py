@@ -20,7 +20,7 @@ from ..telegram_helper.tg_utils import check_botpm, forcesub, verify_token
 from .bot_utils import get_telegraph_list, sync_to_async, safe_int
 from .files_utils import get_base_name, check_storage_threshold
 from .links_utils import is_gdrive_id, is_rclone_path
-from .status_utils import get_readable_time, get_readable_file_size, get_specific_tasks
+from .status_utils import get_readable_time, get_readable_file_size
 
 
 async def stop_duplicate_check(listener):
@@ -76,7 +76,6 @@ async def _rclone_stop_duplicate_check(name):
     """Check if a file/folder with the same name exists on the rclone remote
     using the global cached index from rc_search. Returns inline results
     styled like /list output. Uses plain text since callers may escape HTML."""
-    from urllib.parse import urljoin, quote
     from ...modules.rc_search import (
         search_files,
         format_size,
@@ -91,10 +90,7 @@ async def _rclone_stop_duplicate_check(name):
     if not files:
         return False, None
 
-    matched = [
-        f for f in files
-        if f["Name"].lower() == name.lower()
-    ]
+    matched = [f for f in files if f["Name"].lower() == name.lower()]
 
     if not matched:
         return False, None
@@ -122,15 +118,17 @@ async def _rclone_stop_duplicate_check(name):
             url_path = path
             if REMOTE_BASE_PATH:
                 if url_path.startswith(f"{REMOTE_BASE_PATH}/"):
-                    url_path = url_path[len(REMOTE_BASE_PATH) + 1:]
+                    url_path = url_path[len(REMOTE_BASE_PATH) + 1 :]
                 rpath = f"{REMOTE_BASE_PATH}/{url_path}"
             else:
                 rpath = url_path
 
             from requests import utils as rutils
+
             url_path_quoted = rutils.quote(f"{rpath}")
 
             from ...core.config_manager import Config
+
             if getattr(Config, "RCLONE_USE_REMOTE_PREFIX", False):
                 public_link = f"{RCLONE_SERVE_URL}/{remote}/{url_path_quoted}"
             else:
