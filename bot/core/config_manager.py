@@ -166,7 +166,7 @@ class Config:
         for attr in dir(settings):
             if hasattr(cls, attr):
                 value = getattr(settings, attr)
-                if not value:
+                if not value and not isinstance(value, (bool, int, float)):
                     continue
                 if isinstance(value, str):
                     value = value.strip()
