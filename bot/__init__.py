@@ -33,6 +33,7 @@ getLogger("pyrogram").setLevel(ERROR)
 getLogger("apscheduler").setLevel(ERROR)
 getLogger("pymongo").setLevel(WARNING)
 getLogger("aiohttp").setLevel(WARNING)
+getLogger("httpx").setLevel(WARNING)
 
 
 bot_start_time = time()
