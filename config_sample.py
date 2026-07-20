@@ -33,6 +33,7 @@ UPLOAD_PATHS = {}
 WEB_ACCESS_PASSWORD = (
     ""  # Secret for deriving proxy passwords. Logs derived passwords at startup.
 )
+KUMA_URL = ""
 
 # Hyper Tg Downloader
 HELPER_TOKENS = ""

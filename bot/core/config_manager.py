@@ -78,6 +78,7 @@ class Config:
     IS_TEAM_DRIVE = False
     JD_EMAIL = ""
     JD_PASS = ""
+    KUMA_URL = ""
     MEGA_EMAIL = ""
     MEGA_PASSWORD = ""
     SEEDR_EMAIL = ""
@@ -234,6 +235,7 @@ class Config:
                     "RCLONE_SERVE_URL",
                     "INDEX_URL",
                     "SEARCH_API_LINK",
+                    "KUMA_URL",
                 ]:
                     if value:
                         value = value.strip("/")
@@ -331,6 +333,7 @@ class Config:
                     "RCLONE_SERVE_URL",
                     "INDEX_URL",
                     "SEARCH_API_LINK",
+                    "KUMA_URL",
                 ]:
                     if value:
                         value = value.strip("/")

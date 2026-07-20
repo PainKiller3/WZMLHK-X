@@ -15,6 +15,7 @@ feedparser
 google-api-python-client
 google-auth-oauthlib
 gunicorn
+httpx
 langcodes
 language-data
 jinja2

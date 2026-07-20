@@ -99,6 +99,7 @@ async def main():
     from .helper.ext_utils.bot_utils import git_info, search_images
     from .helper.ext_utils.files_utils import clean_all
     from .helper.ext_utils.session_vault import SessionReaper
+    from .helper.ext_utils.kuma_heartbeat import kuma_heartbeat
     from .helper.ext_utils.telegraph_helper import telegraph
     from .helper.mirror_leech_utils.rclone_utils.serve import rclone_serve_booter
     from .modules import (
@@ -118,6 +119,8 @@ async def main():
     bot_loop.create_task(rclone_serve_booter())
     bot_loop.create_task(search_images())
     SessionReaper.start()
+    if Config.KUMA_URL:
+        bot_loop.create_task(kuma_heartbeat())
 
 
 bot_loop.run_until_complete(main())
