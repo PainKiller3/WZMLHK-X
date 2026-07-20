@@ -125,6 +125,7 @@ DEFAULT_DESP = {
     "COLORED_BTNS": "Use colored inline buttons. Default: False.",
     "DEFAULT_LANG": "Default bot language code. Default: en.",
     "DATABASE_URL": "MongoDB connection string for persistent storage.",
+    "KUMA_URL": "Optional Uptime Kuma push monitor URL. When set, the bot pings it every 60 seconds.",
     "DEFAULT_UPLOAD": "Default upload destination: gd (Google Drive) or rc (rclone). Default: rc.",
     "DELETE_LINKS": "Auto-delete source links/messages on task start. Default: False.",
     "DEBRID_LINK_API": "Debrid-link.com API key for premium hoster support.",
@@ -273,6 +274,7 @@ RESTART_VARS = {
     "TG_PROXY",
     "AUTHORIZED_CHATS",
     "DATABASE_URL",
+    "KUMA_URL",
 }
 
 ONOFF_VARS = [
