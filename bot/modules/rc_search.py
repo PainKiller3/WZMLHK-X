@@ -17,7 +17,7 @@ from pyrogram.types import (
 from rapidfuzz import fuzz
 
 from .. import LOGGER
-from ..core.config_manager import Config
+from ..core.config_manager import Config, BinConfig
 
 # Get rclone configuration from Config
 RCLONE_REMOTE = getattr(Config, "RCLONE_REMOTE", "")
@@ -87,7 +87,7 @@ def refresh_global_index(force=False):
     try:
         result = run_rclone_command(
             [
-                "rclone",
+                BinConfig.RCLONE_NAME,
                 "--config",
                 "rclone.conf",  # Use local rclone.conf
                 "lsjson",
@@ -343,7 +343,7 @@ def get_folder_size(path):
     """
     try:
         cmd = [
-            "rclone",
+            BinConfig.RCLONE_NAME,
             "--config",
             "rclone.conf",
             "size",
@@ -432,7 +432,14 @@ def get_rclone_storage():
     Cached to avoid frequent calls.
     """
     try:
-        cmd = ["rclone", "--config", "rclone.conf", "about", RCLONE_REMOTE, "--json"]
+        cmd = [
+            BinConfig.RCLONE_NAME,
+            "--config",
+            "rclone.conf",
+            "about",
+            RCLONE_REMOTE,
+            "--json",
+        ]
 
         result = run_rclone_command(cmd, description="Getting rclone storage")
         if not result:
@@ -888,7 +895,7 @@ async def confirm_delete_callback(client: Client, callback_query: CallbackQuery)
         full_path = f"{RCLONE_REMOTE}{folder_path}"
 
         result = run_rclone_command(
-            ["rclone", "--config", "rclone.conf", "purge", full_path],
+            [BinConfig.RCLONE_NAME, "--config", "rclone.conf", "purge", full_path],
             description="Rclone purge folder",
         )
 
@@ -908,7 +915,7 @@ async def confirm_delete_callback(client: Client, callback_query: CallbackQuery)
         full_path = f"{RCLONE_REMOTE}{file_path}"
 
         result = run_rclone_command(
-            ["rclone", "--config", "rclone.conf", "delete", full_path],
+            [BinConfig.RCLONE_NAME, "--config", "rclone.conf", "delete", full_path],
             description="Rclone delete file",
         )
 
