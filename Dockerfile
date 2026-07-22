@@ -1,5 +1,4 @@
-FROM mysterysd/wzmlx:wzadv
-# COPY --from=mysterysd/wzmlx:m-tools /usr/local /usr/local
+FROM reignz3/wzmlhk:wzadv-3.1.10
 
 WORKDIR /usr/src/app
 
