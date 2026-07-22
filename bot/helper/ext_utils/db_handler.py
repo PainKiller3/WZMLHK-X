@@ -180,12 +180,13 @@ class DbManager:
             return
         await self.db.rss[TgClient.ID].delete_one({"_id": user_id})
 
-    async def add_incomplete_task(self, cid, link, tag):
+    async def add_incomplete_task(self, cid, link, tag, msg_id=None):
         if self._return:
             return
-        await self.db.tasks[TgClient.ID].insert_one(
-            {"_id": link, "cid": cid, "tag": tag}
-        )
+        doc = {"_id": link, "cid": cid, "tag": tag}
+        if msg_id is not None:
+            doc["msg_id"] = msg_id
+        await self.db.tasks[TgClient.ID].replace_one({"_id": link}, doc, upsert=True)
 
     async def get_pm_uids(self):
         if self._return:
@@ -211,11 +212,13 @@ class DbManager:
 
     async def get_incomplete_tasks(self):
         notifier_dict = {}
+        task_docs = []
         if self._return:
-            return notifier_dict
+            return notifier_dict, task_docs
         if await self.db.tasks[TgClient.ID].find_one():
             rows = self.db.tasks[TgClient.ID].find({})
             async for row in rows:
+                task_docs.append(row)
                 if row["cid"] in list(notifier_dict.keys()):
                     if row["tag"] in list(notifier_dict[row["cid"]]):
                         notifier_dict[row["cid"]][row["tag"]].append(row["_id"])
@@ -224,7 +227,7 @@ class DbManager:
                 else:
                     notifier_dict[row["cid"]] = {row["tag"]: [row["_id"]]}
         await self.db.tasks[TgClient.ID].drop()
-        return notifier_dict
+        return notifier_dict, task_docs
 
     async def trunc_table(self, name):
         if self._return:
