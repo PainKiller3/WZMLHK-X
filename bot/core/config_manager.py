@@ -46,6 +46,7 @@ class Config:
     INSTADL_API = ""
     IMDB_TEMPLATE = ""
     INCOMPLETE_TASK_NOTIFIER = False
+    INCOMPLETE_TASK_RESUME = False
     INDEX_URL = ""
     IS_TEAM_DRIVE = False
     JD_EMAIL = ""

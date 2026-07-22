@@ -118,11 +118,11 @@ class TaskListener(TaskConfig):
             )
         if (
             self.is_super_chat
-            and Config.INCOMPLETE_TASK_NOTIFIER
+            and (Config.INCOMPLETE_TASK_NOTIFIER or Config.INCOMPLETE_TASK_RESUME)
             and Config.DATABASE_URL
         ):
             await database.add_incomplete_task(
-                self.message.chat.id, self.message.link, self.tag
+                self.message.chat.id, self.message.link, self.tag, self.message.id
             )
 
     async def on_download_complete(self):
@@ -406,7 +406,7 @@ class TaskListener(TaskConfig):
         self.avg_upload_speed = self.size / upload_time if upload_time > 0 else 0
         if (
             self.is_super_chat
-            and Config.INCOMPLETE_TASK_NOTIFIER
+            and (Config.INCOMPLETE_TASK_NOTIFIER or Config.INCOMPLETE_TASK_RESUME)
             and Config.DATABASE_URL
         ):
             await database.rm_complete_task(self.message.link)
@@ -640,8 +640,9 @@ class TaskListener(TaskConfig):
 
         if (
             self.is_super_chat
-            and Config.INCOMPLETE_TASK_NOTIFIER
+            and (Config.INCOMPLETE_TASK_NOTIFIER or Config.INCOMPLETE_TASK_RESUME)
             and Config.DATABASE_URL
+            and not intervals.get("stopAll", False)
         ):
             await database.rm_complete_task(self.message.link)
 
@@ -678,8 +679,9 @@ class TaskListener(TaskConfig):
 
         if (
             self.is_super_chat
-            and Config.INCOMPLETE_TASK_NOTIFIER
+            and (Config.INCOMPLETE_TASK_NOTIFIER or Config.INCOMPLETE_TASK_RESUME)
             and Config.DATABASE_URL
+            and not intervals.get("stopAll", False)
         ):
             await database.rm_complete_task(self.message.link)
 

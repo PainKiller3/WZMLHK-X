@@ -284,8 +284,15 @@ async def edit_variable(_, message, pre_message, key):
         value = True
     elif value.lower() == "false":
         value = False
-        if key == "INCOMPLETE_TASK_NOTIFIER" and Config.DATABASE_URL:
-            await database.trunc_table("tasks")
+        if (
+            key in ["INCOMPLETE_TASK_NOTIFIER", "INCOMPLETE_TASK_RESUME"]
+            and Config.DATABASE_URL
+        ):
+            if (
+                not Config.INCOMPLETE_TASK_NOTIFIER
+                and not Config.INCOMPLETE_TASK_RESUME
+            ):
+                await database.trunc_table("tasks")
     elif key == "STATUS_UPDATE_INTERVAL":
         value = int(value)
         if len(task_dict) != 0 and (st := intervals["status"]):
@@ -699,8 +706,12 @@ async def edit_bot_settings(client, query):
         elif data[2] == "INDEX_URL":
             if drives_names and drives_names[0] == "Main":
                 index_urls[0] = ""
-        elif data[2] == "INCOMPLETE_TASK_NOTIFIER":
-            await database.trunc_table("tasks")
+        elif data[2] in ["INCOMPLETE_TASK_NOTIFIER", "INCOMPLETE_TASK_RESUME"]:
+            if (
+                not Config.INCOMPLETE_TASK_NOTIFIER
+                and not Config.INCOMPLETE_TASK_RESUME
+            ):
+                await database.trunc_table("tasks")
         elif data[2] in ["JD_EMAIL", "JD_PASS"]:
             await create_subprocess_exec("pkill", "-9", "-f", "java")
         elif data[2] == "USENET_SERVERS":
@@ -954,7 +965,7 @@ async def load_config():
         )
         await database.update_aria2("bt-stop-timeout", f"{Config.TORRENT_TIMEOUT}")
 
-    if not Config.INCOMPLETE_TASK_NOTIFIER:
+    if not Config.INCOMPLETE_TASK_NOTIFIER and not Config.INCOMPLETE_TASK_RESUME:
         await database.trunc_table("tasks")
 
     await (await create_subprocess_exec("pkill", "-9", "-f", "gunicorn")).wait()
