@@ -79,8 +79,11 @@ async def restart_notification():
 
     now = datetime.now(timezone("Asia/Kolkata"))
 
-    if Config.INCOMPLETE_TASK_NOTIFIER and Config.DATABASE_URL:
-        if notifier_dict := await database.get_incomplete_tasks():
+    if (
+        Config.INCOMPLETE_TASK_NOTIFIER or Config.INCOMPLETE_TASK_RESUME
+    ) and Config.DATABASE_URL:
+        notifier_dict, task_docs = await database.get_incomplete_tasks()
+        if Config.INCOMPLETE_TASK_NOTIFIER and notifier_dict:
             for cid, data in notifier_dict.items():
                 msg = f"""⌬ <b><i>{"Restarted Successfully!" if cid == chat_id else "Bot Restarted!"}</i></b>
 ┟ <b>Date:</b> {now.strftime("%d/%m/%y")}
@@ -96,6 +99,33 @@ async def restart_notification():
                             msg = ""
                 if msg:
                     await send_incomplete_task_message(cid, msg_id, msg)
+
+        if Config.INCOMPLETE_TASK_RESUME and task_docs:
+            for doc in task_docs:
+                try:
+                    cid = doc["cid"]
+                    m_id = doc.get("msg_id") or int(doc["_id"].rsplit("/", 1)[-1])
+                    message = await TgClient.bot.get_messages(
+                        chat_id=cid, message_ids=m_id
+                    )
+                    if message:
+                        for group in TgClient.bot.dispatcher.groups.values():
+                            for handler in group:
+                                try:
+                                    res = handler.check(TgClient.bot, message)
+                                    if hasattr(res, "__await__"):
+                                        res = await res
+                                    if res:
+                                        await handler.callback(TgClient.bot, message)
+                                        break
+                                except Exception as err:
+                                    LOGGER.error(
+                                        f"Error checking handler for auto-resume: {err}"
+                                    )
+                except Exception as e:
+                    LOGGER.error(
+                        f"Failed to auto-resume incomplete task ({doc.get('_id')}): {e}"
+                    )
 
     if await aiopath.isfile(".restartmsg"):
         try:
