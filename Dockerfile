@@ -1,4 +1,4 @@
-FROM mysterysd/wzmlx:v3
+FROM reignz3/wzmlhk:latest
 
 WORKDIR /usr/src/app
 
