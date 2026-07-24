@@ -117,13 +117,18 @@ class TorrentManager:
 
     @classmethod
     async def ensure_qbit(cls):
-        if cls.qbittorrent is None:
-            return await cls._start_qbit()
-        try:
-            await cls.qbittorrent.app.version()
-            return True
-        except Exception:
-            return await cls._start_qbit()
+        for _ in range(10):
+            if cls.qbittorrent is not None:
+                try:
+                    await cls.qbittorrent.app.version()
+                    return True
+                except Exception:
+                    pass
+            await cls._start_qbit()
+            if cls.qbittorrent is not None:
+                return True
+            await sleep(2)
+        return cls.qbittorrent is not None
 
     @classmethod
     async def _start_qbit(cls):
