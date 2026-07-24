@@ -85,6 +85,7 @@ DEFAULT_VALUES = {
     "LEECH_SPLIT_SIZE": TgClient.MAX_SPLIT_SIZE,
     "RSS_DELAY": 600,
     "STATUS_UPDATE_INTERVAL": 15,
+    "STAGED_TORRENT_STORAGE_PERCENT": 50,
     "SEARCH_LIMIT": 0,
     "UPSTREAM_BRANCH": "wzv3",
     "DEFAULT_UPLOAD": "rc",
@@ -279,6 +280,7 @@ DEFAULT_DESP = {
     "SET_COMMANDS": "Auto-set bot commands on start. Default: True.",
     "STATUS_LIMIT": "Number of status messages to show. Default: 10.",
     "STATUS_UPDATE_INTERVAL": "Status message refresh interval in seconds. Default: 15.",
+    "STAGED_TORRENT_STORAGE_PERCENT": "Percentage of current free storage usable by staged torrents. Range: 1-100. Default: 50.",
     "STOP_DUPLICATE": "Stop if file/folder already exists in GDrive/Rclone destination. Default: False.",
     "STREAMWISH_API": "StreamWish API key for uploads.",
     "SUDO_USERS": "User IDs with sudo access. Space-separated.",
@@ -784,6 +786,8 @@ async def edit_variable(_, message, pre_message, key):
                 intervals["status"][cid] = SetInterval(
                     value, update_status_message, cid
                 )
+    elif key == "STAGED_TORRENT_STORAGE_PERCENT":
+        value = max(1, min(int(value), 100))
     elif key == "TORRENT_TIMEOUT":
         await TorrentManager.change_aria2_option("bt-stop-timeout", value)
         value = int(value)

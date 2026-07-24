@@ -67,6 +67,12 @@ async def select(_, message):
     ):
         await send_message(message, "This task is not for you!")
         return
+    if getattr(task.listener, "is_staged_qbit", False):
+        await send_message(
+            message,
+            "Staged torrent selection is only available before the first batch starts. Use -s with the staged command.",
+        )
+        return
     if not iscoroutinefunction(task.status):
         await send_message(message, "The task has finished the download stage!")
         return
@@ -159,7 +165,9 @@ async def confirm_selection(_, query):
                 task.listener.size = tor_info.size
                 if await _selection_limit_exceeded(task, message):
                     return
-                if not task.queued:
+                if hasattr(task.listener, "staged_selection_event"):
+                    task.listener.staged_selection_event.set()
+                elif not task.queued:
                     await TorrentManager.qbittorrent.torrents.start([id_])
             else:
                 res = await TorrentManager.aria2.getFiles(id_)
@@ -188,4 +196,6 @@ async def confirm_selection(_, query):
         await delete_message(message)
     else:
         await delete_message(message)
+        if hasattr(task.listener, "staged_selection_event"):
+            task.listener.staged_selection_event.set()
         await task.cancel_task()

@@ -428,6 +428,34 @@ class Mirror(TaskListener):
             await delete_links(self.message)
             return
 
+        if getattr(self, "is_staged_qbit", False):
+            unsupported = []
+            for enabled, label in (
+                (self.seed, "seeding (-d)"),
+                (self.join, "joining (-j)"),
+                (self.extract, "extracting (-e)"),
+                (self.compress, "compression (-z)"),
+                (self.ffmpeg_cmds, "FFmpeg (-ff)"),
+                (self.screen_shots, "screenshots (-ss)"),
+                (self.sample_video, "sample video (-sv)"),
+                (self.convert_audio, "audio conversion (-ca)"),
+                (self.convert_video, "video conversion (-cv)"),
+                (self.name_swap, "name substitution (-ns)"),
+                (args["-meta"], "metadata processing (-meta)"),
+                (self.folder_name, "same-directory grouping (-m)"),
+            ):
+                if enabled:
+                    unsupported.append(label)
+            if self.up_dest == "mega:":
+                unsupported.append("Mega upload destination")
+            if unsupported:
+                await send_message(
+                    self.message,
+                    "Staged torrents cannot safely use: " + ", ".join(unsupported),
+                )
+                await delete_links(self.message)
+                return
+
         self._set_mode_engine()
 
         if self.is_alldebrid and (
@@ -536,7 +564,14 @@ class Mirror(TaskListener):
         elif self.is_jd:
             await add_jd_download(self, path)
         elif self.is_qbit:
-            await add_qb_torrent(self, path, ratio, seed_time)
+            if getattr(self, "is_staged_qbit", False):
+                from ..helper.mirror_leech_utils.download_utils.staged_qbit_download import (
+                    add_staged_qb_torrent,
+                )
+
+                await add_staged_qb_torrent(self, path)
+            else:
+                await add_qb_torrent(self, path, ratio, seed_time)
         elif self.is_nzb:
             await add_nzb(self, path)
         elif self.is_seedr:

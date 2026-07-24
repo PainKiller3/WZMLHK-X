@@ -418,10 +418,12 @@ def get_bot_commands():
     static_commands = {
         "Mirror": "[link/file] Mirror to Upload Destination",
         "QbMirror": "[magnet/torrent] Mirror to Upload Destination using qbit",
+        "QbStreamMirror": "[magnet/torrent] Storage-safe staged qbit mirror",
         "Ytdl": "[link] Mirror YouTube, m3u8, Social Media and yt-dlp supported urls",
         "UpHoster": "[link/file] Upload to DDL Servers",
         "Leech": "[link/file] Leech files to Upload to Telegram",
         "QbLeech": "[magnet/torrent] Leech files to Upload to Telegram using qbit",
+        "QbStreamLeech": "[magnet/torrent] Storage-safe staged qbit leech",
         "YtdlLeech": "[link] Leech YouTube, m3u8, Social Media and yt-dlp supported urls",
         "Clone": "[link] Clone files/folders to GDrive",
         "UserSet": "User personal settings",
@@ -488,6 +490,11 @@ def get_help_string():
             help_lines.append(f"{cmd_str}: Start mirroring to cloud.")
         elif key == "QbMirror":
             help_lines.append(f"{cmd_str}: Start Mirroring to cloud using qBittorrent.")
+        elif key == "QbStreamMirror":
+            help_lines.append(
+                f"{cmd_str}: Download fitting torrent files in batches, upload, then delete them. "
+                "Each selected file must fit local free storage; seeding and processing flags are unsupported."
+            )
         elif key == "JdMirror":
             help_lines.append(f"{cmd_str}: Start Mirroring to cloud using JDownloader.")
         elif key == "NzbMirror":
@@ -500,6 +507,11 @@ def get_help_string():
             help_lines.append(f"{cmd_str}: Start leeching to Telegram.")
         elif key == "QbLeech":
             help_lines.append(f"{cmd_str}: Start leeching using qBittorrent.")
+        elif key == "QbStreamLeech":
+            help_lines.append(
+                f"{cmd_str}: Storage-safe staged qBittorrent leech to Telegram. "
+                "Each selected file must fit local free storage."
+            )
         elif key == "JdLeech":
             help_lines.append(f"{cmd_str}: Start leeching using JDownloader.")
         elif key == "NzbLeech":
