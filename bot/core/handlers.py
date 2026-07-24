@@ -175,7 +175,8 @@ async def add_handlers():
     TgClient.bot.add_handler(
         MessageHandler(
             rcrefreshindex_command,
-            filters=command("rcrefreshindex", case_sensitive=True) & CustomFilters.sudo,
+            filters=command(BotCommands.RcRefreshIndexCommand, case_sensitive=True)
+            & CustomFilters.sudo,
         )
     )
     TgClient.bot.add_handler(
