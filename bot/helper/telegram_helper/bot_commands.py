@@ -9,6 +9,7 @@ class BotCommands:
     _static_commands = {
         "Mirror": ["mirror", "m"],
         "QbMirror": ["qbmirror", "qm"],
+        "QbStreamMirror": ["qbstreammirror", "qsm"],
         "JdMirror": ["jdmirror", "jm"],
         "SeedrMirror": ["seedr", "sr"],
         "Ytdl": ["ytdl", "y"],
@@ -16,6 +17,7 @@ class BotCommands:
         "NzbMirror": ["nzbmirror", "nm"],
         "Leech": ["leech", "l"],
         "QbLeech": ["qbleech", "ql"],
+        "QbStreamLeech": ["qbstreamleech", "qsl"],
         "JdLeech": ["jdleech", "jl"],
         "SeedrLeech": ["seedrleech", "srl"],
         "SeedrLink": ["seedrlink", "slink", "srlink"],

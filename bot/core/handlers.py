@@ -9,6 +9,7 @@ from ..helper.ext_utils.help_messages import BOT_COMMANDS
 from ..helper.telegram_helper.bot_commands import BotCommands
 from ..helper.telegram_helper.filters import CustomFilters
 from ..modules import *
+from ..modules.staged_torrent import qb_stream_leech, qb_stream_mirror
 from .tg_client import TgClient
 
 
@@ -233,6 +234,13 @@ async def add_handlers():
     )
     TgClient.bot.add_handler(
         MessageHandler(
+            qb_stream_mirror,
+            filters=command(BotCommands.QbStreamMirrorCommand, case_sensitive=True)
+            & CustomFilters.authorized,
+        )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
             jd_mirror,
             filters=command(BotCommands.JdMirrorCommand, case_sensitive=True)
             & CustomFilters.authorized,
@@ -256,6 +264,13 @@ async def add_handlers():
         MessageHandler(
             qb_leech,
             filters=command(BotCommands.QbLeechCommand, case_sensitive=True)
+            & CustomFilters.authorized,
+        )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
+            qb_stream_leech,
+            filters=command(BotCommands.QbStreamLeechCommand, case_sensitive=True)
             & CustomFilters.authorized,
         )
     )
