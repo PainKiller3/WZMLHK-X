@@ -4,6 +4,8 @@ from os import path as ospath
 from time import time
 
 from aiofiles.os import path as aiopath
+from niquests import utils as rutils
+from pyrogram.enums import ButtonStyle
 
 from .. import (
     bot_loop,
@@ -24,6 +26,7 @@ from ..helper.ext_utils.task_manager import start_from_queued
 from ..helper.mirror_leech_utils.gdrive_utils.upload import GoogleDriveUpload
 from ..helper.mirror_leech_utils.rclone_utils.transfer import RcloneTransferHelper
 from ..helper.mirror_leech_utils.upload_utils.telegram_uploader import TelegramUploader
+from ..helper.telegram_helper.button_build import ButtonMaker
 from ..helper.telegram_helper.message_utils import (
     delete_links,
     send_message,
@@ -146,16 +149,45 @@ class StagedMirror(Mirror):
             f"\n┠ <b>Files</b> → {total_files}"
             f"\n┠ <b>Mode</b> → Staged qBittorrent"
             f"\n┠ <b>Time Taken</b> → {get_readable_time(time() - self.message.date.timestamp())}"
-            f"\n┖ <b>Task By</b> → {self.tag}"
         )
+        button = None
         if self.is_leech and self.staged_links:
             lines = [msg, "\n<b>Files List:</b>"]
             for index, (link, name) in enumerate(self.staged_links.items(), 1):
                 lines.append(f"{index}. <a href='{link}'>{escape(name)}</a>")
             msg = "\n".join(lines)
         elif self.staged_results and self.staged_results[0][0]:
-            msg += f"\n\n<a href='{self.staged_results[0][0]}'>Cloud Link</a>"
-        await send_message(self.message, msg)
+            buttons = ButtonMaker()
+            link = self.staged_results[0][0]
+            if Config.SHOW_CLOUD_LINK:
+                if "mega.nz" in link:
+                    btn_label = "🔗 Mega Link"
+                else:
+                    btn_label = "☁️ Cloud Link"
+                buttons.url_button(btn_label, link, style=ButtonStyle.PRIMARY)
+            if self.staged_drive_root:
+                INDEX_URL = self.user_dict.get("INDEX_URL", "") or ""
+                if not INDEX_URL:
+                    INDEX_URL = Config.INDEX_URL or ""
+                if INDEX_URL and self.name:
+                    safe_name = rutils.quote(self.name.strip("/"))
+                    share_url = f"{INDEX_URL}/{safe_name}"
+                    if self.staged_results[0][3] == "Folder":
+                        share_url += "/"
+                    buttons.url_button(
+                        "⚡ Index Link", share_url, style=ButtonStyle.PRIMARY
+                    )
+                    if self.staged_results[0][3].startswith(
+                        ("image", "video", "audio")
+                    ):
+                        buttons.url_button(
+                            "🌐 View Link",
+                            f"{share_url}?a=view",
+                            style=ButtonStyle.PRIMARY,
+                        )
+            button = buttons.build_menu(2)
+        msg += f"\n┃\n┖ <b>Task By</b> → {self.tag}"
+        await send_message(self.message, msg, button)
         await clean_download(self.dir)
         await self._finish_staged_cleanup()
 
