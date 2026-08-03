@@ -22,6 +22,7 @@ from .. import (
     aria2_options,
     drives_ids,
     drives_names,
+    blacklisted_keywords,
     index_urls,
     intervals,
     jd_listener_lock,
@@ -320,6 +321,11 @@ async def edit_variable(_, message, pre_message, key):
         for x in fx:
             x = x.lstrip(".")
             excluded_extensions.append(x.strip().lower())
+    elif key == "BLACKLISTED_KEYWORDS":
+        kw_list = value.split()
+        blacklisted_keywords.clear()
+        for x in kw_list:
+            blacklisted_keywords.append(x.strip().lower())
     elif key == "GDRIVE_ID":
         if drives_names and drives_names[0] == "Main":
             drives_ids[0] = value
