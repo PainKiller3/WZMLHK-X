@@ -16,7 +16,13 @@ from pyrogram.enums import ChatType
 from pyrogram.handlers import MessageHandler
 
 
-from .. import auth_chats, excluded_extensions, sudo_users, user_data
+from .. import (
+    auth_chats,
+    excluded_extensions,
+    blacklisted_keywords,
+    sudo_users,
+    user_data,
+)
 from ..core.config_manager import Config
 from ..core.seedr_client import SeedrClient
 from ..core.tg_client import TgClient
@@ -224,6 +230,11 @@ A dict works too: <code>{'Movies': -1001234567890}</code></i>
         "Space separated",
         "Extensions never uploaded, written without the dot. <code>aria2</code> and <code>!qB</code> are always kept on top of yours. Applies to leech and mirror, not to /clone.",
         "Send excluded extensions separated by space without dot at beginning. </i> \n┖ <b>Time Left :</b> <code>60 sec</code>",
+    ),
+    "BLACKLISTED_KEYWORDS": (
+        "",
+        "",
+        "Send blacklisted keywords separated by space (e.g. hdcam camrip hdtc). </i> \n┖ <b>Time Left :</b> <code>60 sec</code>",
     ),
     "NAME_SWAP": (
         "pattern:replace|...",
@@ -1207,6 +1218,9 @@ async def get_user_settings(from_user, stype="main"):
         buttons.data_button(
             "Excluded Extensions", f"userset {user_id} menu EXCLUDED_EXTENSIONS"
         )
+        buttons.data_button(
+            "Blacklisted Keywords", f"userset {user_id} menu BLACKLISTED_KEYWORDS"
+        )
         if user_dict.get("EXCLUDED_EXTENSIONS", False):
             ex_ex = user_dict["EXCLUDED_EXTENSIONS"]
         elif "EXCLUDED_EXTENSIONS" not in user_dict:
@@ -1216,6 +1230,16 @@ async def get_user_settings(from_user, stype="main"):
 
         if ex_ex != "None":
             ex_ex = ", ".join(ex_ex)
+
+        if user_dict.get("BLACKLISTED_KEYWORDS", False):
+            bl_kw = user_dict["BLACKLISTED_KEYWORDS"]
+        elif "BLACKLISTED_KEYWORDS" not in user_dict:
+            bl_kw = blacklisted_keywords
+        else:
+            bl_kw = "None"
+
+        if bl_kw != "None":
+            bl_kw = ", ".join(bl_kw)
 
         ns_msg = (
             f"<code>{swap}</code>"
@@ -1243,6 +1267,7 @@ async def get_user_settings(from_user, stype="main"):
 ┃
 ┠ <b>Auto Name Swaps</b> → {ns_msg}
 ┠ <b>Excluded Extensions</b> → <code>{ex_ex}</code>
+┠ <b>Blacklisted Keywords</b> → <code>{bl_kw}</code>
 ┖ <b>Upload Paths</b> → <b>{upload_paths}</b>"""
     elif stype == "ytdlp":
         buttons.data_button(
@@ -1605,6 +1630,11 @@ async def set_option(_, message, option, rfunc):
         value = ["aria2", "!qB"]
         for x in fx:
             x = x.lstrip(".")
+            value.append(x.strip().lower())
+    elif option == "BLACKLISTED_KEYWORDS":
+        kw_list = value.split()
+        value = []
+        for x in kw_list:
             value.append(x.strip().lower())
     elif option == "YT_TAGS":
         if isinstance(value, str):
