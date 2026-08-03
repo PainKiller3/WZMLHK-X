@@ -21,6 +21,9 @@ STREAMWISH_API = ""
 ALLDEBRID_API_KEY = ""
 ALLDEBRID_NO_SEED_TIMEOUT = 180
 EXCLUDED_EXTENSIONS = ""
+BLACKLISTED_KEYWORDS = (
+    "hdcam camrip hdtc hdts predvd hc-hd 2160phd 1080phd 720phd hd-cam cam-rip telesync"
+)
 INC_TASK_NOTIFY = False
 INC_TASK_RESUME = False
 YT_DLP_OPTIONS = ""
