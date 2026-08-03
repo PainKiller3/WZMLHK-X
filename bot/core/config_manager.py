@@ -27,6 +27,7 @@ class Config:
     DISABLE_PLUGINS = False
     EQUAL_SPLITS = False
     EXCLUDED_EXTENSIONS = ""
+    BLACKLISTED_KEYWORDS = ""
     FFMPEG_CMDS = {}
     FILELION_API = ""
     MEDIA_STORE = True
