@@ -16,6 +16,7 @@ from .. import (
     LOGGER,
     categories_dict,
     excluded_extensions,
+    blacklisted_keywords,
     intervals,
     multi_tags,
     task_dict,
@@ -336,6 +337,9 @@ class TaskConfig:
         if self.is_tg_clone:
             await self._set_clone_options()
             return
+        self.blacklisted_keywords = self.user_dict.get("BLACKLISTED_KEYWORDS") or (
+            blacklisted_keywords if "BLACKLISTED_KEYWORDS" not in self.user_dict else []
+        )
         if not self.rc_flags:
             if self.user_dict.get("RCLONE_FLAGS"):
                 self.rc_flags = self.user_dict["RCLONE_FLAGS"]
