@@ -23,6 +23,7 @@ class Config:
     DISABLE_BULK = False
     DISABLE_MULTI = False
     DISABLE_SEED = False
+    DISABLE_SEEDR = True
     DISABLE_FF_MODE = False
     EQUAL_SPLITS = False
     EXCLUDED_EXTENSIONS = ""
@@ -52,6 +53,9 @@ class Config:
     IS_TEAM_DRIVE = False
     JD_EMAIL = ""
     JD_PASS = ""
+    SEEDR_EMAIL = ""
+    SEEDR_PASSWORD = ""
+    SEEDR_DELETE_FOLDER = False
     MEGA_EMAIL = ""
     MEGA_PASSWORD = ""
     DIRECT_LIMIT = 0
@@ -62,6 +66,7 @@ class Config:
     CLONE_LIMIT = 0
     JD_LIMIT = 0
     NZB_LIMIT = 0
+    SEEDR_LIMIT = 0
     YTDLP_LIMIT = 0
     PLAYLIST_LIMIT = 0
     LEECH_LIMIT = 0
