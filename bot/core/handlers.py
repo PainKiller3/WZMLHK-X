@@ -265,6 +265,32 @@ def add_handlers():
     )
     TgClient.bot.add_handler(
         MessageHandler(
+            seedr_link,
+            filters=command(BotCommands.SeedrLinkCommand, case_sensitive=True)
+            & CustomFilters.authorized,
+        )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
+            seedr_clean,
+            filters=command(BotCommands.SeedrCleanCommand, case_sensitive=True)
+            & CustomFilters.authorized,
+        )
+    )
+    TgClient.bot.add_handler(
+        CallbackQueryHandler(seedr_clean_cb, filters=regex("^seedrclean"))
+    )
+    TgClient.bot.add_handler(
+        CallbackQueryHandler(seedr_del_cb, filters=regex("^seedrdel"))
+    )
+    TgClient.bot.add_handler(
+        CallbackQueryHandler(seedrsync_cb, filters=regex("^seedrsync"))
+    )
+    TgClient.bot.add_handler(
+        CallbackQueryHandler(seedrcancel_cb, filters=regex("^seedrcancel"))
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
             uphoster,
             filters=command(BotCommands.UpHosterCommand, case_sensitive=True)
             & CustomFilters.authorized,
@@ -446,6 +472,20 @@ def add_handlers():
                 "JdLeech",
                 "[link/file] Leech files to Upload to Telegram using JDownloader",
                 6,
+            )
+
+        if not Config.DISABLE_SEEDR:
+            BOT_COMMANDS = insert_at(
+                BOT_COMMANDS,
+                "SeedrLink",
+                "[magnet] Get direct Seedr HTTP download links",
+                7,
+            )
+            BOT_COMMANDS = insert_at(
+                BOT_COMMANDS,
+                "SeedrClean",
+                "Clean or delete active Seedr cloud downloads",
+                10,
             )
 
         if len(Config.USENET_SERVERS) != 0:
