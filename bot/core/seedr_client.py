@@ -11,29 +11,40 @@ CLIENT_ID = "seedr_chrome"
 
 
 class SeedrClient:
-    def __init__(self):
+    def __init__(self, email="", password=""):
+        self.email = email
+        self.password = password
         self._access_token = ""
         self._refresh_token = ""
         self.is_connected = False
         self.error = "Seedr Credentials not provided!"
 
-    async def login(self):
-        if not Config.SEEDR_EMAIL or not Config.SEEDR_PASSWORD:
+    async def login(self, email="", password=""):
+        if email:
+            self.email = email
+        if password:
+            self.password = password
+        usr = self.email or Config.SEEDR_EMAIL
+        pwd = self.password or Config.SEEDR_PASSWORD
+        if not usr or not pwd:
             self.is_connected = False
             self.error = "Seedr Credentials not provided!"
             raise ValueError(self.error)
         self.error = ""
         result = await self._token_request(
             {
-                "username": Config.SEEDR_EMAIL,
-                "password": Config.SEEDR_PASSWORD,
+                "username": usr,
+                "password": pwd,
                 "grant_type": "password",
                 "client_id": CLIENT_ID,
                 "type": "login",
             }
         )
         if "access_token" not in result:
-            self.error = f"Seedr Login Failed: {result}"
+            error_desc = (
+                result.get("error_description") or result.get("error") or result
+            )
+            self.error = f"Seedr Login Failed: {error_desc}"
             raise ValueError(self.error)
         self._access_token = result["access_token"]
         self._refresh_token = result.get("refresh_token", "")
@@ -84,16 +95,45 @@ class SeedrClient:
                 result = resp.json()
         return result
 
+    async def get_space(self):
+        res = await self.list_contents("0")
+        if isinstance(res, dict):
+            space_max = int(res.get("space_max", 0) or 0)
+            space_used = int(res.get("space_used", 0) or 0)
+            return space_max, space_used
+        return 0, 0
+
     async def add_torrent(self, magnet):
         result = await self._api(
             "add_torrent", {"torrent_magnet": magnet, "folder_id": "0"}
         )
-        if (
-            result.get("error")
-            or result.get("result") is False
-            or result.get("status_code")
-        ):
-            raise ValueError(f"Seedr add_torrent failed: {result}")
+        if not isinstance(result, dict):
+            raise ValueError(f"Seedr API returned invalid response: {result}")
+
+        torrent_id = result.get("torrent_id") or result.get("user_torrent_id")
+        res_val = result.get("result")
+        err_val = result.get("error")
+
+        if err_val or res_val is not True or not torrent_id:
+            raw_err = err_val or res_val or result.get("code") or result
+            err_str = str(raw_err).lower()
+            if "not_enough_space" in err_str or "space" in err_str:
+                space_max, space_used = await self.get_space()
+                from ..helper.ext_utils.status_utils import get_readable_file_size
+
+                free_space = get_readable_file_size(max(0, space_max - space_used))
+                max_space = get_readable_file_size(space_max)
+                raise ValueError(
+                    f"Not enough space in Seedr account! (Free: {free_space} / Total: {max_space})"
+                )
+            elif "queue_full" in err_str:
+                raise ValueError(
+                    "Seedr account download queue is full! Please clear existing downloads."
+                )
+            elif "invalid" in err_str:
+                raise ValueError("Invalid magnet link or torrent!")
+            raise ValueError(f"Seedr add torrent failed: {raw_err}")
+
         return result
 
     async def list_contents(self, content_id="0"):

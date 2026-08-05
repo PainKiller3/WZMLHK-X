@@ -9,9 +9,10 @@ from ...ext_utils.status_utils import (
 
 
 class SeedrStatus:
-    def __init__(self, listener, torrent_id):
+    def __init__(self, listener, torrent_id, seedr_client=None):
         self.listener = listener
         self._torrent_id = torrent_id
+        self._seedr = seedr_client or seedr
         self._info = {}
         self.engine = EngineStatus().STATUS_SEEDR
 
@@ -50,7 +51,7 @@ class SeedrStatus:
         self.listener.is_cancelled = True
         LOGGER.info(f"Cancelling Download: {self.name()}")
         try:
-            await seedr.delete("torrent", self._torrent_id)
+            await self._seedr.delete("torrent", self._torrent_id)
         except Exception as e:
             LOGGER.error(f"Failed to delete seedr torrent {self._torrent_id}: {e}")
         await self.listener.on_download_error("Cancelled by user!")

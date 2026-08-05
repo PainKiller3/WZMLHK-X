@@ -23,6 +23,7 @@ from .. import (
     user_data,
 )
 from ..core.config_manager import Config
+from ..core.seedr_client import SeedrClient
 from ..core.tg_client import TgClient
 from ..helper.ext_utils.bot_utils import (
     get_size_bytes,
@@ -78,6 +79,7 @@ advanced_options = [
     "USER_COOKIE_FILE",
 ]
 yt_options = ["YT_DESP", "YT_TAGS", "YT_CATEGORY_ID", "YT_PRIVACY_STATUS"]
+seedr_options = ["SEEDR_EMAIL", "SEEDR_PASSWORD", "SEEDR_DELETE_FOLDER"]
 
 user_settings_text = {
     "THUMBNAIL": (
@@ -322,6 +324,16 @@ Here I will explain how to use mltb.* which is reference to files you want to wo
         "String",
         "VikingFile Folder Name",
         "<i>Send your VikingFile folder name/path. Leave empty to upload to root.</i> \n┖ <b>Time Left :</b> <code>60 sec</code>",
+    ),
+    "SEEDR_EMAIL": (
+        "String",
+        "Your Seedr.cc account email for personal magnet downloads.",
+        "<i>Send your Seedr.cc email address.</i> \n┖ <b>Time Left :</b> <code>60 sec</code>",
+    ),
+    "SEEDR_PASSWORD": (
+        "String",
+        "Your Seedr.cc account password for personal magnet downloads.",
+        "<i>Send your Seedr.cc account password.</i> \n┖ <b>Time Left :</b> <code>60 sec</code>",
     ),
 }
 
@@ -834,6 +846,7 @@ async def get_user_settings(from_user, stype="main"):
             sd_msg = "Disabled"
 
         buttons.data_button("YT Up Tools", f"userset {user_id} yttools")
+        buttons.data_button("Seedr Tools", f"userset {user_id} seedr")
         buttons.data_button("Back", f"userset {user_id} back", "footer")
         buttons.data_button(
             "Close", f"userset {user_id} close", "footer", style=ButtonStyle.DANGER
@@ -850,6 +863,88 @@ async def get_user_settings(from_user, stype="main"):
 ┠ <b>Index Link</b> → <code>{index}</code>
 ┖ <b>Stop Duplicate</b> → <b>{sd_msg}</b>
 """
+
+    elif stype == "seedr":
+        seedr_email = user_dict.get("SEEDR_EMAIL", "")
+        seedr_password = user_dict.get("SEEDR_PASSWORD", "")
+        seedr_delete = (
+            user_dict.get("SEEDR_DELETE_FOLDER")
+            if "SEEDR_DELETE_FOLDER" in user_dict
+            else Config.SEEDR_DELETE_FOLDER
+        )
+        has_creds = bool(seedr_email and seedr_password)
+        masked_pass = (
+            (
+                seedr_password[:2]
+                + "*" * (len(seedr_password) - 4)
+                + seedr_password[-2:]
+                if len(seedr_password) > 6
+                else "****"
+            )
+            if seedr_password
+            else ""
+        )
+
+        buttons.data_button("Seedr Email", f"userset {user_id} menu SEEDR_EMAIL")
+        if seedr_email:
+            buttons.data_button(
+                "Seedr Password", f"userset {user_id} menu SEEDR_PASSWORD"
+            )
+
+        del_state = "✓" if seedr_delete else ""
+        buttons.data_button(
+            f"Auto-Delete Cloud Folder {del_state}",
+            f"userset {user_id} tog SEEDR_DELETE_FOLDER {'f' if seedr_delete else 't'}",
+        )
+
+        space_disp = "<i>Not Configured (Using Global Account)</i>"
+        if has_creds:
+            buttons.data_button(
+                "Clear Storage",
+                f"userset {user_id} clear_seedr",
+                position="l_body",
+            )
+            try:
+                sc = SeedrClient(seedr_email, seedr_password)
+                await sc.login()
+                s_max, s_used = await sc.get_space()
+                s_free = max(0, s_max - s_used)
+                space_disp = f"<code>{get_readable_file_size(s_free)} / {get_readable_file_size(s_max)} Free</code>"
+            except Exception as e:
+                space_disp = f"<i>Error ({escape(str(e))})</i>"
+
+        if has_creds:
+            buttons.data_button(
+                "Reset Seedr Account",
+                f"userset {user_id} reset SEEDR_EMAIL",
+                position="l_body",
+            )
+
+        buttons.data_button("Back", f"userset {user_id} back mirror", "footer")
+        buttons.data_button(
+            "Close", f"userset {user_id} close", "footer", style=ButtonStyle.DANGER
+        )
+        btns = buttons.build_menu(2)
+
+        email_disp = (
+            f"<code>{escape(seedr_email)}</code>"
+            if seedr_email
+            else "<i>Not Set (Uses Global)</i>"
+        )
+        pass_disp = (
+            f"<code>{escape(masked_pass)}</code>"
+            if masked_pass
+            else "<i>Not Set (Uses Global)</i>"
+        )
+        delete_disp = "Enabled" if seedr_delete else "Disabled"
+
+        text = f"""⌬ <b>Seedr Tools :</b>
+┟ <b>Name</b> → {user_name}
+┃
+┠ <b>Seedr Email</b> → {email_disp}
+┠ <b>Seedr Password</b> → {pass_disp}
+┠ <b>Storage Space</b> → {space_disp}
+┖ <b>Auto-Delete Cloud Folder</b> → <b>{delete_disp}</b>"""
 
     elif stype == "ffset":
         buttons.data_button(
@@ -1282,6 +1377,8 @@ async def get_menu(option, message, user_id):
         back_to = "ffset"
     elif option in advanced_options:
         back_to = "advanced"
+    elif option in seedr_options:
+        back_to = "seedr"
     else:
         back_to = "back"
     buttons.data_button("Back", f"userset {user_id} {back_to}", "footer")
@@ -1411,12 +1508,30 @@ async def edit_user_settings(client, query):
         "advanced",
         "gdrive",
         "rclone",
+        "seedr",
     ]:
         await query.answer()
         await update_user_settings(query, data[2])
     elif data[2] == "yttools":
         await query.answer()
         await update_user_settings(query, data[2])
+    elif data[2] == "clear_seedr":
+        await query.answer("Clearing Seedr Storage...", show_alert=False)
+        seedr_email = user_dict.get("SEEDR_EMAIL") or Config.SEEDR_EMAIL
+        seedr_password = user_dict.get("SEEDR_PASSWORD") or Config.SEEDR_PASSWORD
+        if seedr_email and seedr_password:
+            try:
+                from .mirror_leech import clear_seedr_account
+
+                t_c, f_c = await clear_seedr_account(seedr_email, seedr_password)
+                await query.answer(
+                    f"Cleared {t_c} torrents & {f_c} folders!", show_alert=True
+                )
+            except Exception as e:
+                await query.answer(f"Error: {e}", show_alert=True)
+        else:
+            await query.answer("No credentials configured!", show_alert=True)
+        await update_user_settings(query, "seedr")
     elif data[2] == "uphoster_destinations":
         await query.answer()
         user_dict = user_data.get(user_id, {})
@@ -1474,6 +1589,8 @@ async def edit_user_settings(client, query):
             back_to = "gdrive"
         elif data[3] in ["USER_TOKENS", "USE_DEFAULT_COOKIE"]:
             back_to = "general"
+        elif data[3] == "SEEDR_DELETE_FOLDER":
+            back_to = "seedr"
         else:
             back_to = "leech"
         await update_user_settings(query, stype=back_to)
@@ -1550,6 +1667,8 @@ async def edit_user_settings(client, query):
     elif data[2] == "reset":
         await query.answer("Reset Done!", show_alert=True)
         user_dict.pop(data[3], None)
+        if data[3] == "SEEDR_EMAIL":
+            user_dict.pop("SEEDR_PASSWORD", None)
         await database.update_user_data(user_id)
         await get_menu(data[3], message, user_id)
     elif data[2] == "confirm_reset_all":
