@@ -9,6 +9,7 @@ from ...ext_utils.task_manager import (
     stop_duplicate_check,
     limit_checker,
 )
+from ...ext_utils.links_utils import is_magnet
 from ...listeners.direct_listener import DirectListener
 from ...mirror_leech_utils.status_utils.direct_status import DirectStatus
 from ...mirror_leech_utils.status_utils.queue_status import QueueStatus
@@ -52,7 +53,8 @@ async def add_seedr_download(listener, path):
     gid = token_hex(5)
     try:
         await seedr.login()
-        LOGGER.info(f"Adding Seedr Torrent: {listener.link}")
+        log_link = f"{listener.link[:60]}..." if is_magnet(listener.link) else listener.link
+        LOGGER.info(f"Adding Seedr Torrent: {log_link}")
         result = await seedr.add_torrent(listener.link)
         torrent_id = result.get("torrent_id") or result.get("user_torrent_id")
         title = result.get("title") or ""

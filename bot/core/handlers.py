@@ -516,7 +516,7 @@ async def add_handlers():
                 6,
             )
 
-        if Config.SEEDR_EMAIL and Config.SEEDR_PASSWORD:
+        if not Config.DISABLE_SEEDR:
             BOT_COMMANDS = insert_at(
                 BOT_COMMANDS,
                 "SeedrMirror",

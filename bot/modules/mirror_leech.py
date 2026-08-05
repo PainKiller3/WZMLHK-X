@@ -375,7 +375,10 @@ class Mirror(TaskListener):
             return
 
         if len(self.link) > 0:
-            LOGGER.info(self.link)
+            if is_magnet(self.link):
+                LOGGER.info(f"Magnet link provided: {self.link[:60]}...")
+            else:
+                LOGGER.info(self.link)
 
         try:
             await self.before_start()
@@ -538,6 +541,9 @@ async def seedr(client, message):
     if Config.DISABLE_SEEDR:
         await message.reply("Seedr is currently disabled by the Bot Owner.")
         return
+    if not Config.SEEDR_EMAIL or not Config.SEEDR_PASSWORD:
+        await message.reply("Seedr credentials are not configured! Please set SEEDR_EMAIL and SEEDR_PASSWORD.")
+        return
     bot_loop.create_task(Mirror(client, message, is_seedr=True).new_event())
 
 
@@ -547,6 +553,9 @@ async def seedr_leech(client, message):
         return
     if Config.DISABLE_LEECH:
         await message.reply("The Leech command is currently disabled.")
+        return
+    if not Config.SEEDR_EMAIL or not Config.SEEDR_PASSWORD:
+        await message.reply("Seedr credentials are not configured! Please set SEEDR_EMAIL and SEEDR_PASSWORD.")
         return
     bot_loop.create_task(
         Mirror(client, message, is_leech=True, is_seedr=True).new_event()
