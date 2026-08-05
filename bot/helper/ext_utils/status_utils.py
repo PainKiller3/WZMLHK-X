@@ -55,6 +55,7 @@ class EngineStatus:
         self.STATUS_SABNZBD = f"SABnzbd+ v{ver.get('SABnzbd+', 'N/A')}"
         self.STATUS_QUEUE = "QSystem v2"
         self.STATUS_JD = "JDownloader v2"
+        self.STATUS_SEEDR = "Seedr"
         self.STATUS_YT = "Youtube-Api"
         self.STATUS_METADATA = "Metadata"
         self.STATUS_UPHOSTER = "Uphoster"

@@ -31,6 +31,7 @@ class Config:
     DISABLE_MEGA = False
     DISABLE_JD = True
     DISABLE_NZB = True
+    DISABLE_SEEDR = True
     DISABLE_RSS = False
     DISABLE_SEARCH = False
     DISABLE_YTDLP = False
@@ -68,6 +69,9 @@ class Config:
     IS_TEAM_DRIVE = False
     JD_EMAIL = ""
     JD_PASS = ""
+    SEEDR_EMAIL = ""
+    SEEDR_PASSWORD = ""
+    SEEDR_DELETE_FOLDER = False
     KUMA_URL = ""
     MEGA_EMAIL = ""
     MEGA_PASSWORD = ""
@@ -79,6 +83,7 @@ class Config:
     CLONE_LIMIT = 0
     JD_LIMIT = 0
     NZB_LIMIT = 0
+    SEEDR_LIMIT = 0
     YTDLP_LIMIT = 0
     PLAYLIST_LIMIT = 0
     LEECH_LIMIT = 0

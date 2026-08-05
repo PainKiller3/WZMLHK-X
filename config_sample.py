@@ -51,6 +51,7 @@ DISABLE_SEED = False
 DISABLE_FF_MODE = False
 DISABLE_JD = False
 DISABLE_NZB = False
+DISABLE_SEEDR = False
 DISABLE_RSS = False
 DISABLE_SEARCH = False
 DISABLE_YTDLP = False
@@ -68,6 +69,7 @@ RC_DL_LIMIT = 0
 CLONE_LIMIT = 0
 JD_LIMIT = 0
 NZB_LIMIT = 0
+SEEDR_LIMIT = 0
 YTDLP_LIMIT = 0
 PLAYLIST_LIMIT = 0
 LEECH_LIMIT = 0
@@ -150,6 +152,12 @@ REMOTE_BASE_PATH = ""
 # JDownloader
 JD_EMAIL = ""
 JD_PASS = ""
+
+# Seedr (magnet mirroring via seedr.cc)
+SEEDR_EMAIL = ""
+SEEDR_PASSWORD = ""
+# Delete the folder from Seedr after the files are downloaded locally. Default: False
+SEEDR_DELETE_FOLDER = False
 
 # Sabnzbd
 USENET_SERVERS = [
