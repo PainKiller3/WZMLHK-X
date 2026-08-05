@@ -40,6 +40,9 @@ from ..helper.mirror_leech_utils.download_utils.qbit_download import add_qb_torr
 from ..helper.mirror_leech_utils.download_utils.rclone_download import (
     add_rclone_download,
 )
+from ..helper.mirror_leech_utils.download_utils.seedr_download import (
+    add_seedr_download,
+)
 from ..helper.mirror_leech_utils.download_utils.telegram_download import (
     TelegramDownloadHelper,
 )
@@ -60,6 +63,7 @@ class Mirror(TaskListener):
         is_leech=False,
         is_jd=False,
         is_nzb=False,
+        is_seedr=False,
         is_uphoster=False,
         same_dir=None,
         bulk=None,
@@ -82,6 +86,7 @@ class Mirror(TaskListener):
         self.is_leech = is_leech
         self.is_jd = is_jd
         self.is_nzb = is_nzb
+        self.is_seedr = is_seedr
         self.is_uphoster = is_uphoster
 
     async def new_event(self):
@@ -307,6 +312,7 @@ class Mirror(TaskListener):
                 self.is_leech,
                 self.is_jd,
                 self.is_nzb,
+                self.is_seedr,
                 self.is_uphoster,
                 self.same_dir,
                 self.bulk,
@@ -420,6 +426,8 @@ class Mirror(TaskListener):
             await add_direct_download(self, path)
         elif self.is_jd:
             await add_jd_download(self, path)
+        elif self.is_seedr:
+            await add_seedr_download(self, path)
         elif self.is_qbit:
             await add_qb_torrent(self, path, ratio, seed_time)
         elif self.is_nzb:
@@ -508,6 +516,25 @@ async def nzb_leech(client, message):
     if nzb_id:
         mirror_task.nzb_id = nzb_id
     bot_loop.create_task(mirror_task.new_event())
+
+
+async def seedr(client, message):
+    if Config.DISABLE_SEEDR:
+        await message.reply("Seedr is currently disabled by the Bot Owner.")
+        return
+    bot_loop.create_task(Mirror(client, message, is_seedr=True).new_event())
+
+
+async def seedr_leech(client, message):
+    if Config.DISABLE_SEEDR:
+        await message.reply("Seedr is currently disabled by the Bot Owner.")
+        return
+    if Config.DISABLE_LEECH:
+        await message.reply("The Leech command is currently disabled.")
+        return
+    bot_loop.create_task(
+        Mirror(client, message, is_leech=True, is_seedr=True).new_event()
+    )
 
 
 async def uphoster(client, message):
