@@ -529,6 +529,57 @@ async def nzb_leech(client, message):
     bot_loop.create_task(mirror_task.new_event())
 
 
+async def clear_seedr_account(email, password):
+    client = SeedrClient(email, password)
+    await client.login()
+    res = await client.list_contents("0")
+    if not isinstance(res, dict):
+        return 0, 0
+    t_count = 0
+    f_count = 0
+    for t in res.get("torrents", []):
+        t_id = t.get("id") or t.get("user_torrent_id")
+        if t_id:
+            try:
+                await client.delete("torrent", t_id)
+                t_count += 1
+            except Exception:
+                pass
+    for f in res.get("folders", []):
+        f_id = f.get("id")
+        if f_id:
+            try:
+                await client.delete("folder", f_id)
+                f_count += 1
+            except Exception:
+                pass
+    return t_count, f_count
+
+
+@new_task
+async def seedr_clear(client, message):
+    if Config.DISABLE_SEEDR:
+        await message.reply("Seedr is currently disabled by the Bot Owner.")
+        return
+    user_dict = user_data.get(message.from_user.id, {})
+    email = user_dict.get("SEEDR_EMAIL") or Config.SEEDR_EMAIL
+    password = user_dict.get("SEEDR_PASSWORD") or Config.SEEDR_PASSWORD
+    if not email or not password:
+        await message.reply(
+            "Seedr credentials are not configured! Please set SEEDR_EMAIL and SEEDR_PASSWORD in /usetting or bot config."
+        )
+        return
+    msg = await send_message(message, "<i>Clearing Seedr Cloud Storage...</i>")
+    try:
+        t_count, f_count = await clear_seedr_account(email, password)
+        await edit_message(
+            msg,
+            f"<b>Seedr Storage Cleared!</b>\nRemoved <b>{t_count}</b> active torrent(s) and <b>{f_count}</b> folder(s).",
+        )
+    except Exception as e:
+        await edit_message(msg, f"<b>Failed to clear Seedr account:</b> {escape(str(e))}")
+
+
 async def seedr(client, message):
     if Config.DISABLE_SEEDR:
         await message.reply("Seedr is currently disabled by the Bot Owner.")
@@ -538,6 +589,10 @@ async def seedr(client, message):
     password = user_dict.get("SEEDR_PASSWORD") or Config.SEEDR_PASSWORD
     if not email or not password:
         await message.reply("Seedr credentials are not configured! Please set SEEDR_EMAIL and SEEDR_PASSWORD in /usetting or bot config.")
+        return
+    args = message.text.split(maxsplit=1)
+    if len(args) > 1 and args[1].strip().lower() in ("clear", "clean", "delete", "-clear", "-delete"):
+        await seedr_clear(client, message)
         return
     bot_loop.create_task(Mirror(client, message, is_seedr=True).new_event())
 
