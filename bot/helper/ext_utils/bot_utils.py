@@ -58,6 +58,7 @@ def decrypt_secret(text: str) -> str:
     except Exception:
         return text
 
+
 COMMAND_USAGE = {}
 
 THREAD_POOL = ThreadPoolExecutor(max_workers=500)

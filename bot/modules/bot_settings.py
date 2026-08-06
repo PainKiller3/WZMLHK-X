@@ -75,6 +75,7 @@ DEFAULT_VALUES = {
     "USER_MAX_TASKS": 0,
 }
 
+
 async def get_buttons(key=None, edit_type=None, edit_mode=False):
     buttons = ButtonMaker()
     if key is None:

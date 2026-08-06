@@ -584,7 +584,9 @@ async def seedr_clear(client, message):
             f"<b>Seedr Storage Cleared!</b>\nRemoved <b>{t_count}</b> active torrent(s) and <b>{f_count}</b> folder(s).",
         )
     except Exception as e:
-        await edit_message(msg, f"<b>Failed to clear Seedr account:</b> {escape(str(e))}")
+        await edit_message(
+            msg, f"<b>Failed to clear Seedr account:</b> {escape(str(e))}"
+        )
 
 
 async def seedr(client, message):
@@ -605,7 +607,13 @@ async def seedr(client, message):
         )
         return
     args = message.text.split(maxsplit=1)
-    if len(args) > 1 and args[1].strip().lower() in ("clear", "clean", "delete", "-clear", "-delete"):
+    if len(args) > 1 and args[1].strip().lower() in (
+        "clear",
+        "clean",
+        "delete",
+        "-clear",
+        "-delete",
+    ):
         await seedr_clear(client, message)
         return
     bot_loop.create_task(Mirror(client, message, is_seedr=True).new_event())
@@ -710,16 +718,13 @@ async def seedr_link(client, message):
                 (
                     t
                     for t in res.get("torrents", [])
-                    if t.get("id") == torrent_id or t.get("user_torrent_id") == torrent_id
+                    if t.get("id") == torrent_id
+                    or t.get("user_torrent_id") == torrent_id
                 ),
                 None,
             )
             folder = next(
-                (
-                    f
-                    for f in res.get("folders", [])
-                    if title and f.get("name") == title
-                ),
+                (f for f in res.get("folders", []) if title and f.get("name") == title),
                 None,
             )
 
@@ -749,7 +754,7 @@ async def seedr_link(client, message):
 
         buttons = ButtonMaker()
         text_lines = [
-            f"<b><u>Seedr Direct Links:</u></b>",
+            "<b><u>Seedr Direct Links:</u></b>",
             f"<b>Title:</b> <code>{escape(title or contents[0]['filename'])}</code>",
             f"<b>Total Size:</b> <code>{get_readable_file_size(total_size)}</code>\n",
         ]
@@ -765,7 +770,10 @@ async def seedr_link(client, message):
 
         out_text = "\n".join(text_lines)
         if len(out_text) > 4000:
-            out_text = out_text[:3900] + "\n\n<i>(Links truncated due to length. Use buttons below)</i>"
+            out_text = (
+                out_text[:3900]
+                + "\n\n<i>(Links truncated due to length. Use buttons below)</i>"
+            )
 
         await edit_message(msg, out_text, buttons.build_menu(2))
 

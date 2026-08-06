@@ -65,7 +65,9 @@ async def add_seedr_download(listener, path):
     seedr_client = SeedrClient(email, password)
     try:
         await seedr_client.login()
-        log_link = f"{listener.link[:60]}..." if is_magnet(listener.link) else listener.link
+        log_link = (
+            f"{listener.link[:60]}..." if is_magnet(listener.link) else listener.link
+        )
         LOGGER.info(f"Adding Seedr Torrent: {log_link}")
         result = await seedr_client.add_torrent(listener.link)
         torrent_id = result.get("torrent_id") or result.get("user_torrent_id")
