@@ -21,6 +21,43 @@ from .help_messages import (
 )
 from .telegraph_helper import telegraph
 
+_SECRET_SALT = b"wzmlx_v3_secret_salt"
+
+
+def _get_encryption_key():
+    token = (Config.BOT_TOKEN or "WZML_SECRET_KEY").encode("utf-8")
+    return sha256(_SECRET_SALT + token).digest()
+
+
+def encrypt_secret(text: str) -> str:
+    if not text:
+        return ""
+    if text.startswith("enc:"):
+        return text
+    key = _get_encryption_key()
+    data_bytes = text.encode("utf-8")
+    cipher_bytes = bytes([b ^ key[i % len(key)] for i, b in enumerate(data_bytes)])
+    from base64 import urlsafe_b64encode
+
+    return "enc:" + urlsafe_b64encode(cipher_bytes).decode("utf-8")
+
+
+def decrypt_secret(text: str) -> str:
+    if not text:
+        return ""
+    if not text.startswith("enc:"):
+        return text
+    try:
+        raw_b64 = text[4:]
+        from base64 import urlsafe_b64decode
+
+        cipher_bytes = urlsafe_b64decode(raw_b64.encode("utf-8"))
+        key = _get_encryption_key()
+        plain_bytes = bytes([b ^ key[i % len(key)] for i, b in enumerate(cipher_bytes)])
+        return plain_bytes.decode("utf-8")
+    except Exception:
+        return text
+
 COMMAND_USAGE = {}
 
 THREAD_POOL = ThreadPoolExecutor(max_workers=500)

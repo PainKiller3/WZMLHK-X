@@ -9,6 +9,7 @@ from ...ext_utils.task_manager import (
     stop_duplicate_check,
     limit_checker,
 )
+from ...ext_utils.bot_utils import decrypt_secret
 from ...ext_utils.links_utils import is_magnet
 from ...listeners.direct_listener import DirectListener
 from ...mirror_leech_utils.status_utils.direct_status import DirectStatus
@@ -59,7 +60,7 @@ async def add_seedr_download(listener, path):
     gid = token_hex(5)
     user_dict = user_data.get(listener.user_id, {})
     email = user_dict.get("SEEDR_EMAIL") or Config.SEEDR_EMAIL
-    password = user_dict.get("SEEDR_PASSWORD") or Config.SEEDR_PASSWORD
+    password = decrypt_secret(user_dict.get("SEEDR_PASSWORD")) or Config.SEEDR_PASSWORD
     delete_folder = user_dict.get("SEEDR_DELETE_FOLDER", Config.SEEDR_DELETE_FOLDER)
     seedr_client = SeedrClient(email, password)
     try:
