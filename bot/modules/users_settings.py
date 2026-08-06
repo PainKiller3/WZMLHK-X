@@ -23,6 +23,7 @@ from .. import (
     user_data,
 )
 from ..core.config_manager import Config
+from ..core.seedr_client import SeedrClient
 from ..core.tg_client import TgClient
 from ..helper.ext_utils.bot_utils import (
     get_size_bytes,
@@ -957,6 +958,22 @@ async def get_user_settings(from_user, stype="main"):
             f"userset {user_id} tog SEEDR_DELETE_FOLDER {'f' if seedr_delete else 't'}",
         )
 
+        space_disp = "<i>Not Configured (Using Global Account)</i>"
+        if has_creds:
+            buttons.data_button(
+                "Clear Storage",
+                f"userset {user_id} clear_seedr",
+                position="l_body",
+            )
+            try:
+                sc = SeedrClient(seedr_email, seedr_password)
+                await sc.login()
+                s_max, s_used = await sc.get_space()
+                s_free = max(0, s_max - s_used)
+                space_disp = f"<code>{get_readable_file_size(s_free)} / {get_readable_file_size(s_max)} Free</code>"
+            except Exception as e:
+                space_disp = f"<i>Error ({escape(str(e))})</i>"
+
         if has_creds:
             buttons.data_button(
                 "Reset Seedr Account",
@@ -979,6 +996,7 @@ async def get_user_settings(from_user, stype="main"):
 ┃
 ┠ <b>Seedr Email</b> → {email_disp}
 ┠ <b>Seedr Password</b> → {pass_disp}
+┠ <b>Storage Space</b> → {space_disp}
 ┖ <b>Auto-Delete Cloud Folder</b> → <b>{delete_disp}</b>"""
 
     elif stype == "ffset":
@@ -1608,6 +1626,20 @@ async def edit_user_settings(client, query):
     elif data[2] == "yttools":
         await query.answer()
         await update_user_settings(query, data[2])
+    elif data[2] == "clear_seedr":
+        await query.answer("Clearing Seedr Storage...", show_alert=False)
+        seedr_email = user_dict.get("SEEDR_EMAIL") or Config.SEEDR_EMAIL
+        seedr_password = user_dict.get("SEEDR_PASSWORD") or Config.SEEDR_PASSWORD
+        if seedr_email and seedr_password:
+            try:
+                from .mirror_leech import clear_seedr_account
+                t_c, f_c = await clear_seedr_account(seedr_email, seedr_password)
+                await query.answer(f"Cleared {t_c} torrents & {f_c} folders!", show_alert=True)
+            except Exception as e:
+                await query.answer(f"Error: {e}", show_alert=True)
+        else:
+            await query.answer("No credentials configured!", show_alert=True)
+        await update_user_settings(query, "seedr")
     elif data[2] == "uphoster_destinations":
         await query.answer()
         user_dict = user_data.get(user_id, {})
