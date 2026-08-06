@@ -19,23 +19,28 @@ from ...telegram_helper.message_utils import send_status_message
 
 async def _build_contents(seedr_client, torrent_download_dir):
     contents = []
+    total_size = 0
 
     async def walk(folder_id, prefix=""):
+        nonlocal total_size
         result = await seedr_client.list_contents(folder_id)
         for folder in result.get("folders", []):
             await walk(folder["id"], f"{prefix}/{folder['name']}")
         for file_ in result.get("files", []):
             url = await seedr_client.fetch_file(file_["folder_file_id"])
+            file_size = int(file_.get("size", 0) or 0)
+            total_size += file_size
             contents.append(
                 {
                     "url": url,
                     "filename": file_["name"],
                     "path": prefix.strip("/"),
+                    "size": file_size,
                 }
             )
 
     await walk(torrent_download_dir)
-    return contents
+    return contents, total_size
 
 
 async def _delete_seedr_folder(seedr_client, torrent_download_dir):
@@ -50,6 +55,7 @@ async def _delete_seedr_folder(seedr_client, torrent_download_dir):
 
 async def add_seedr_download(listener, path):
     torrent_id = None
+    torrent_download_dir = None
     gid = token_hex(5)
     user_dict = user_data.get(listener.user_id, {})
     email = user_dict.get("SEEDR_EMAIL") or Config.SEEDR_EMAIL
@@ -62,6 +68,8 @@ async def add_seedr_download(listener, path):
         LOGGER.info(f"Adding Seedr Torrent: {log_link}")
         result = await seedr_client.add_torrent(listener.link)
         torrent_id = result.get("torrent_id") or result.get("user_torrent_id")
+        if not torrent_id:
+            raise ValueError("Failed to obtain Seedr torrent ID!")
         title = result.get("title") or ""
         LOGGER.info(f"Seedr Torrent Added: {torrent_id}")
 
@@ -138,11 +146,14 @@ async def add_seedr_download(listener, path):
             await _delete_seedr_folder(seedr_client, torrent_download_dir)
             return
 
-        contents = await _build_contents(seedr_client, torrent_download_dir)
+        contents, total_size = await _build_contents(seedr_client, torrent_download_dir)
         if not contents:
             raise ValueError("Seedr torrent has no files to download!")
 
-        listener.size = status._info.get("size", 0) or 0
+        if total_size > 0:
+            listener.size = total_size
+        else:
+            listener.size = status._info.get("size", 0) or 0
         if not listener.name:
             listener.name = status._info.get("name", "")
 

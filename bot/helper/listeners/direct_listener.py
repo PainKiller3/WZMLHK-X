@@ -33,6 +33,7 @@ class DirectListener:
 
     async def download(self, contents):
         self.is_downloading = True
+        last_error = ""
         for content in contents:
             if self.listener.is_cancelled:
                 break
@@ -48,6 +49,7 @@ class DirectListener:
                 )
             except (TimeoutError, ClientError, Exception) as e:
                 self._failed += 1
+                last_error = str(e)
                 LOGGER.error(f"Unable to download {filename} due to: {e}")
                 continue
             self.download_task = await TorrentManager.aria2.tellStatus(gid)
@@ -59,6 +61,7 @@ class DirectListener:
                 self.download_task = await TorrentManager.aria2.tellStatus(gid)
                 if error_message := self.download_task.get("errorMessage"):
                     self._failed += 1
+                    last_error = error_message
                     LOGGER.error(
                         f"Unable to download {aria2_name(self.download_task)} due to: {error_message}"
                     )
@@ -73,7 +76,8 @@ class DirectListener:
         if self.listener.is_cancelled:
             return
         if self._failed == len(contents):
-            await self.listener.on_download_error("All files are failed to download!")
+            err_msg = f"Download Failed: {last_error}" if last_error else "All files are failed to download!"
+            await self.listener.on_download_error(err_msg)
             return
         await self.listener.on_download_complete()
         return
