@@ -11,29 +11,38 @@ CLIENT_ID = "seedr_chrome"
 
 
 class SeedrClient:
-    def __init__(self):
+    def __init__(self, email="", password=""):
+        self.email = email
+        self.password = password
         self._access_token = ""
         self._refresh_token = ""
         self.is_connected = False
         self.error = "Seedr Credentials not provided!"
 
-    async def login(self):
-        if not Config.SEEDR_EMAIL or not Config.SEEDR_PASSWORD:
+    async def login(self, email="", password=""):
+        if email:
+            self.email = email
+        if password:
+            self.password = password
+        usr = self.email or Config.SEEDR_EMAIL
+        pwd = self.password or Config.SEEDR_PASSWORD
+        if not usr or not pwd:
             self.is_connected = False
             self.error = "Seedr Credentials not provided!"
             raise ValueError(self.error)
         self.error = ""
         result = await self._token_request(
             {
-                "username": Config.SEEDR_EMAIL,
-                "password": Config.SEEDR_PASSWORD,
+                "username": usr,
+                "password": pwd,
                 "grant_type": "password",
                 "client_id": CLIENT_ID,
                 "type": "login",
             }
         )
         if "access_token" not in result:
-            self.error = f"Seedr Login Failed: {result}"
+            error_desc = result.get("error_description") or result.get("error") or result
+            self.error = f"Seedr Login Failed: {error_desc}"
             raise ValueError(self.error)
         self._access_token = result["access_token"]
         self._refresh_token = result.get("refresh_token", "")

@@ -5,7 +5,7 @@ from re import match as re_match
 from aiofiles.os import path as aiopath
 from bot.core.config_manager import Config
 
-from .. import DOWNLOAD_DIR, LOGGER, bot_loop, task_dict_lock
+from .. import DOWNLOAD_DIR, LOGGER, bot_loop, task_dict_lock, user_data
 from ..helper.ext_utils.bot_utils import (
     COMMAND_USAGE,
     arg_parser,
@@ -541,8 +541,11 @@ async def seedr(client, message):
     if Config.DISABLE_SEEDR:
         await message.reply("Seedr is currently disabled by the Bot Owner.")
         return
-    if not Config.SEEDR_EMAIL or not Config.SEEDR_PASSWORD:
-        await message.reply("Seedr credentials are not configured! Please set SEEDR_EMAIL and SEEDR_PASSWORD.")
+    user_dict = user_data.get(message.from_user.id, {})
+    email = user_dict.get("SEEDR_EMAIL") or Config.SEEDR_EMAIL
+    password = user_dict.get("SEEDR_PASSWORD") or Config.SEEDR_PASSWORD
+    if not email or not password:
+        await message.reply("Seedr credentials are not configured! Please set SEEDR_EMAIL and SEEDR_PASSWORD in /usetting or bot config.")
         return
     bot_loop.create_task(Mirror(client, message, is_seedr=True).new_event())
 
@@ -554,8 +557,11 @@ async def seedr_leech(client, message):
     if Config.DISABLE_LEECH:
         await message.reply("The Leech command is currently disabled.")
         return
-    if not Config.SEEDR_EMAIL or not Config.SEEDR_PASSWORD:
-        await message.reply("Seedr credentials are not configured! Please set SEEDR_EMAIL and SEEDR_PASSWORD.")
+    user_dict = user_data.get(message.from_user.id, {})
+    email = user_dict.get("SEEDR_EMAIL") or Config.SEEDR_EMAIL
+    password = user_dict.get("SEEDR_PASSWORD") or Config.SEEDR_PASSWORD
+    if not email or not password:
+        await message.reply("Seedr credentials are not configured! Please set SEEDR_EMAIL and SEEDR_PASSWORD in /usetting or bot config.")
         return
     bot_loop.create_task(
         Mirror(client, message, is_leech=True, is_seedr=True).new_event()

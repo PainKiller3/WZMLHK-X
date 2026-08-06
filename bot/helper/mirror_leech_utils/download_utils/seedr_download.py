@@ -1,9 +1,9 @@
 from asyncio import sleep
 from secrets import token_hex
 
-from .... import LOGGER, task_dict, task_dict_lock
+from .... import LOGGER, task_dict, task_dict_lock, user_data
 from ....core.config_manager import Config
-from ....core.seedr_client import seedr
+from ....core.seedr_client import SeedrClient
 from ...ext_utils.task_manager import (
     check_running_tasks,
     stop_duplicate_check,
@@ -17,15 +17,15 @@ from ...mirror_leech_utils.status_utils.seedr_status import SeedrStatus
 from ...telegram_helper.message_utils import send_status_message
 
 
-async def _build_contents(torrent_download_dir):
+async def _build_contents(seedr_client, torrent_download_dir):
     contents = []
 
     async def walk(folder_id, prefix=""):
-        result = await seedr.list_contents(folder_id)
+        result = await seedr_client.list_contents(folder_id)
         for folder in result.get("folders", []):
             await walk(folder["id"], f"{prefix}/{folder['name']}")
         for file_ in result.get("files", []):
-            url = await seedr.fetch_file(file_["folder_file_id"])
+            url = await seedr_client.fetch_file(file_["folder_file_id"])
             contents.append(
                 {
                     "url": url,
@@ -38,11 +38,11 @@ async def _build_contents(torrent_download_dir):
     return contents
 
 
-async def _delete_seedr_folder(torrent_download_dir):
+async def _delete_seedr_folder(seedr_client, torrent_download_dir):
     if not torrent_download_dir:
         return
     try:
-        await seedr.delete("folder", torrent_download_dir)
+        await seedr_client.delete("folder", torrent_download_dir)
         LOGGER.info(f"Deleted Seedr folder: {torrent_download_dir}")
     except Exception as e:
         LOGGER.error(f"Failed to delete Seedr folder {torrent_download_dir}: {e}")
@@ -51,16 +51,21 @@ async def _delete_seedr_folder(torrent_download_dir):
 async def add_seedr_download(listener, path):
     torrent_id = None
     gid = token_hex(5)
+    user_dict = user_data.get(listener.user_id, {})
+    email = user_dict.get("SEEDR_EMAIL") or Config.SEEDR_EMAIL
+    password = user_dict.get("SEEDR_PASSWORD") or Config.SEEDR_PASSWORD
+    delete_folder = user_dict.get("SEEDR_DELETE_FOLDER", Config.SEEDR_DELETE_FOLDER)
+    seedr_client = SeedrClient(email, password)
     try:
-        await seedr.login()
+        await seedr_client.login()
         log_link = f"{listener.link[:60]}..." if is_magnet(listener.link) else listener.link
         LOGGER.info(f"Adding Seedr Torrent: {log_link}")
-        result = await seedr.add_torrent(listener.link)
+        result = await seedr_client.add_torrent(listener.link)
         torrent_id = result.get("torrent_id") or result.get("user_torrent_id")
         title = result.get("title") or ""
         LOGGER.info(f"Seedr Torrent Added: {torrent_id}")
 
-        status = SeedrStatus(listener, torrent_id)
+        status = SeedrStatus(listener, torrent_id, seedr_client)
         async with task_dict_lock:
             task_dict[listener.mid] = status
 
@@ -72,7 +77,7 @@ async def add_seedr_download(listener, path):
         not_found_count = 0
         while not listener.is_cancelled:
             await sleep(5)
-            result = await seedr.list_contents("0")
+            result = await seedr_client.list_contents("0")
 
             torrent = next(
                 (
@@ -109,7 +114,7 @@ async def add_seedr_download(listener, path):
 
             if folder is not None:
                 not_found_count = 0
-                folder_contents = await seedr.list_contents(folder["id"])
+                folder_contents = await seedr_client.list_contents(folder["id"])
                 if folder_contents.get("files"):
                     torrent_download_dir = folder["id"]
                     status._info.update(
@@ -130,10 +135,10 @@ async def add_seedr_download(listener, path):
                     )
 
         if not torrent_download_dir or listener.is_cancelled:
-            await _delete_seedr_folder(torrent_download_dir)
+            await _delete_seedr_folder(seedr_client, torrent_download_dir)
             return
 
-        contents = await _build_contents(torrent_download_dir)
+        contents = await _build_contents(seedr_client, torrent_download_dir)
         if not contents:
             raise ValueError("Seedr torrent has no files to download!")
 
@@ -143,12 +148,12 @@ async def add_seedr_download(listener, path):
 
         msg, button = await stop_duplicate_check(listener)
         if msg:
-            await _delete_seedr_folder(torrent_download_dir)
+            await _delete_seedr_folder(seedr_client, torrent_download_dir)
             await listener.on_download_error(msg, button)
             return
 
         if limit_exceeded := await limit_checker(listener):
-            await _delete_seedr_folder(torrent_download_dir)
+            await _delete_seedr_folder(seedr_client, torrent_download_dir)
             await listener.on_download_error(limit_exceeded, is_limit=True)
             return
 
@@ -161,7 +166,7 @@ async def add_seedr_download(listener, path):
                 await send_status_message(listener.message)
             await event.wait()
             if listener.is_cancelled:
-                await _delete_seedr_folder(torrent_download_dir)
+                await _delete_seedr_folder(seedr_client, torrent_download_dir)
                 return
 
         path = f"{path}/{listener.name}"
@@ -178,13 +183,13 @@ async def add_seedr_download(listener, path):
 
         await directListener.download(contents)
 
-        if Config.SEEDR_DELETE_FOLDER and not listener.is_cancelled:
-            await _delete_seedr_folder(torrent_download_dir)
+        if delete_folder and not listener.is_cancelled:
+            await _delete_seedr_folder(seedr_client, torrent_download_dir)
     except Exception as e:
         if torrent_id:
             try:
-                await seedr.delete("torrent", torrent_id)
+                await seedr_client.delete("torrent", torrent_id)
             except Exception:
                 pass
-        await _delete_seedr_folder(torrent_download_dir)
+        await _delete_seedr_folder(seedr_client, torrent_download_dir)
         await listener.on_download_error(f"{e}".strip())
