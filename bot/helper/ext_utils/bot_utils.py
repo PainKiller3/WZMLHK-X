@@ -74,6 +74,7 @@ def decrypt_secret(text: str) -> str:
     except Exception:
         return text
 
+
 _cached_secret_bytes = None
 
 

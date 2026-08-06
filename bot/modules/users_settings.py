@@ -940,7 +940,9 @@ async def get_user_settings(from_user, stype="main"):
         has_creds = bool(seedr_email and seedr_password)
         masked_pass = (
             (
-                seedr_password[:2] + "*" * (len(seedr_password) - 4) + seedr_password[-2:]
+                seedr_password[:2]
+                + "*" * (len(seedr_password) - 4)
+                + seedr_password[-2:]
                 if len(seedr_password) > 6
                 else "****"
             )
@@ -989,8 +991,16 @@ async def get_user_settings(from_user, stype="main"):
         )
         btns = buttons.build_menu(2)
 
-        email_disp = f"<code>{escape(seedr_email)}</code>" if seedr_email else "<i>Not Set (Uses Global)</i>"
-        pass_disp = f"<code>{escape(masked_pass)}</code>" if masked_pass else "<i>Not Set (Uses Global)</i>"
+        email_disp = (
+            f"<code>{escape(seedr_email)}</code>"
+            if seedr_email
+            else "<i>Not Set (Uses Global)</i>"
+        )
+        pass_disp = (
+            f"<code>{escape(masked_pass)}</code>"
+            if masked_pass
+            else "<i>Not Set (Uses Global)</i>"
+        )
         delete_disp = "Enabled" if seedr_delete else "Disabled"
 
         text = f"""⌬ <b>Seedr Tools :</b>
@@ -1633,12 +1643,17 @@ async def edit_user_settings(client, query):
     elif data[2] == "clear_seedr":
         await query.answer("Clearing Seedr Storage...", show_alert=False)
         seedr_email = user_dict.get("SEEDR_EMAIL") or Config.SEEDR_EMAIL
-        seedr_password = decrypt_secret(user_dict.get("SEEDR_PASSWORD")) or Config.SEEDR_PASSWORD
+        seedr_password = (
+            decrypt_secret(user_dict.get("SEEDR_PASSWORD")) or Config.SEEDR_PASSWORD
+        )
         if seedr_email and seedr_password:
             try:
                 from .mirror_leech import clear_seedr_account
+
                 t_c, f_c = await clear_seedr_account(seedr_email, seedr_password)
-                await query.answer(f"Cleared {t_c} torrents & {f_c} folders!", show_alert=True)
+                await query.answer(
+                    f"Cleared {t_c} torrents & {f_c} folders!", show_alert=True
+                )
             except Exception as e:
                 await query.answer(f"Error: {e}", show_alert=True)
         else:

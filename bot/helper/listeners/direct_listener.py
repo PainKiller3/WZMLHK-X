@@ -76,7 +76,11 @@ class DirectListener:
         if self.listener.is_cancelled:
             return
         if self._failed == len(contents):
-            err_msg = f"Download Failed: {last_error}" if last_error else "All files are failed to download!"
+            err_msg = (
+                f"Download Failed: {last_error}"
+                if last_error
+                else "All files are failed to download!"
+            )
             await self.listener.on_download_error(err_msg)
             return
         await self.listener.on_download_complete()

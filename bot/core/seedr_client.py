@@ -41,7 +41,9 @@ class SeedrClient:
             }
         )
         if "access_token" not in result:
-            error_desc = result.get("error_description") or result.get("error") or result
+            error_desc = (
+                result.get("error_description") or result.get("error") or result
+            )
             self.error = f"Seedr Login Failed: {error_desc}"
             raise ValueError(self.error)
         self._access_token = result["access_token"]
