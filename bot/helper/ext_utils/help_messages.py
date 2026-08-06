@@ -386,6 +386,9 @@ def get_bot_commands():
     static_commands = {
         "Mirror": "[link/file] Mirror to Upload Destination",
         "QbMirror": "[magnet/torrent] Mirror to Upload Destination using qbit",
+        "SeedrMirror": "[magnet] Mirror files using Seedr",
+        "SeedrLeech": "[magnet] Leech files using Seedr",
+        "SeedrLink": "[magnet] Get direct Seedr HTTP download links",
         "Ytdl": "[link] Mirror YouTube, m3u8, Social Media and yt-dlp supported urls",
         "UpHoster": "[link/file] Upload to DDL Servers",
         "Leech": "[link/file] Leech files to Upload to Telegram",
@@ -478,6 +481,8 @@ def get_help_string():
             help_lines.append(f"{cmd_str}: Start Mirroring to cloud using Seedr.")
         elif key == "SeedrLeech":
             help_lines.append(f"{cmd_str}: Start leeching using Seedr.")
+        elif key == "SeedrLink":
+            help_lines.append(f"{cmd_str}: Get direct Seedr HTTP download links.")
         elif key == "YtdlLeech":
             help_lines.append(f"{cmd_str}: Leech yt-dlp supported link.")
         elif key == "Clone":
