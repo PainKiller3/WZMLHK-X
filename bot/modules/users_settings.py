@@ -29,6 +29,8 @@ from ..helper.ext_utils.bot_utils import (
     get_size_bytes,
     new_task,
     update_user_ldata,
+    encrypt_secret,
+    decrypt_secret,
 )
 from ..helper.ext_utils.db_handler import database
 from ..helper.ext_utils.mega_utils import get_mega_account_info
@@ -929,7 +931,7 @@ async def get_user_settings(from_user, stype="main"):
 
     elif stype == "seedr":
         seedr_email = user_dict.get("SEEDR_EMAIL", "")
-        seedr_password = user_dict.get("SEEDR_PASSWORD", "")
+        seedr_password = decrypt_secret(user_dict.get("SEEDR_PASSWORD", ""))
         seedr_delete = (
             user_dict.get("SEEDR_DELETE_FOLDER")
             if "SEEDR_DELETE_FOLDER" in user_dict
@@ -1403,6 +1405,8 @@ async def set_option(_, message, option, rfunc):
         else:
             await send_message(message, "It must be dict!")
             return
+    if option == "SEEDR_PASSWORD":
+        value = encrypt_secret(value)
     update_user_ldata(user_id, option, value)
     await delete_message(message)
     await rfunc()
@@ -1629,7 +1633,7 @@ async def edit_user_settings(client, query):
     elif data[2] == "clear_seedr":
         await query.answer("Clearing Seedr Storage...", show_alert=False)
         seedr_email = user_dict.get("SEEDR_EMAIL") or Config.SEEDR_EMAIL
-        seedr_password = user_dict.get("SEEDR_PASSWORD") or Config.SEEDR_PASSWORD
+        seedr_password = decrypt_secret(user_dict.get("SEEDR_PASSWORD")) or Config.SEEDR_PASSWORD
         if seedr_email and seedr_password:
             try:
                 from .mirror_leech import clear_seedr_account

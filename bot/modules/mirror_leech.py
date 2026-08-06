@@ -15,6 +15,7 @@ from ..helper.ext_utils.bot_utils import (
     get_content_type,
     sync_to_async,
     new_task,
+    decrypt_secret,
 )
 from ..helper.ext_utils.status_utils import get_readable_file_size
 from ..helper.telegram_helper.button_build import ButtonMaker
@@ -580,7 +581,7 @@ async def seedr_clear(client, message):
         return
     user_dict = user_data.get(message.from_user.id, {})
     email = user_dict.get("SEEDR_EMAIL") or Config.SEEDR_EMAIL
-    password = user_dict.get("SEEDR_PASSWORD") or Config.SEEDR_PASSWORD
+    password = decrypt_secret(user_dict.get("SEEDR_PASSWORD")) or Config.SEEDR_PASSWORD
     uset_cmd = (
         f"/{BotCommands.UserSetCommand[0]}"
         if isinstance(BotCommands.UserSetCommand, list)
@@ -608,7 +609,7 @@ async def seedr(client, message):
         return
     user_dict = user_data.get(message.from_user.id, {})
     email = user_dict.get("SEEDR_EMAIL") or Config.SEEDR_EMAIL
-    password = user_dict.get("SEEDR_PASSWORD") or Config.SEEDR_PASSWORD
+    password = decrypt_secret(user_dict.get("SEEDR_PASSWORD")) or Config.SEEDR_PASSWORD
     uset_cmd = (
         f"/{BotCommands.UserSetCommand[0]}"
         if isinstance(BotCommands.UserSetCommand, list)
@@ -635,7 +636,7 @@ async def seedr_leech(client, message):
         return
     user_dict = user_data.get(message.from_user.id, {})
     email = user_dict.get("SEEDR_EMAIL") or Config.SEEDR_EMAIL
-    password = user_dict.get("SEEDR_PASSWORD") or Config.SEEDR_PASSWORD
+    password = decrypt_secret(user_dict.get("SEEDR_PASSWORD")) or Config.SEEDR_PASSWORD
     uset_cmd = (
         f"/{BotCommands.UserSetCommand[0]}"
         if isinstance(BotCommands.UserSetCommand, list)
@@ -663,7 +664,7 @@ async def seedr_link(client, message):
     user_id = message.from_user.id
     user_dict = user_data.get(user_id, {})
     email = user_dict.get("SEEDR_EMAIL") or Config.SEEDR_EMAIL
-    password = user_dict.get("SEEDR_PASSWORD") or Config.SEEDR_PASSWORD
+    password = decrypt_secret(user_dict.get("SEEDR_PASSWORD")) or Config.SEEDR_PASSWORD
     uset_cmd = (
         f"/{BotCommands.UserSetCommand[0]}"
         if isinstance(BotCommands.UserSetCommand, list)
