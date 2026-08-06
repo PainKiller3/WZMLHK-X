@@ -18,6 +18,7 @@ from ..helper.ext_utils.bot_utils import (
 )
 from ..helper.ext_utils.status_utils import get_readable_file_size
 from ..helper.telegram_helper.button_build import ButtonMaker
+from ..helper.telegram_helper.bot_commands import BotCommands
 from ..helper.ext_utils.exceptions import DirectDownloadLinkException
 from ..helper.ext_utils.links_utils import (
     is_gdrive_id,
@@ -580,9 +581,14 @@ async def seedr_clear(client, message):
     user_dict = user_data.get(message.from_user.id, {})
     email = user_dict.get("SEEDR_EMAIL") or Config.SEEDR_EMAIL
     password = user_dict.get("SEEDR_PASSWORD") or Config.SEEDR_PASSWORD
+    uset_cmd = (
+        f"/{BotCommands.UserSetCommand[0]}"
+        if isinstance(BotCommands.UserSetCommand, list)
+        else f"/{BotCommands.UserSetCommand}"
+    )
     if not email or not password:
         await message.reply(
-            "Seedr credentials are not configured! Please set SEEDR_EMAIL and SEEDR_PASSWORD in /usetting or bot config."
+            f"Seedr credentials are not configured! Please set SEEDR_EMAIL and SEEDR_PASSWORD in {uset_cmd} or bot config."
         )
         return
     msg = await send_message(message, "<i>Clearing Seedr Cloud Storage...</i>")
@@ -603,8 +609,15 @@ async def seedr(client, message):
     user_dict = user_data.get(message.from_user.id, {})
     email = user_dict.get("SEEDR_EMAIL") or Config.SEEDR_EMAIL
     password = user_dict.get("SEEDR_PASSWORD") or Config.SEEDR_PASSWORD
+    uset_cmd = (
+        f"/{BotCommands.UserSetCommand[0]}"
+        if isinstance(BotCommands.UserSetCommand, list)
+        else f"/{BotCommands.UserSetCommand}"
+    )
     if not email or not password:
-        await message.reply("Seedr credentials are not configured! Please set SEEDR_EMAIL and SEEDR_PASSWORD in /usetting or bot config.")
+        await message.reply(
+            f"Seedr credentials are not configured! Please set SEEDR_EMAIL and SEEDR_PASSWORD in {uset_cmd} or bot config."
+        )
         return
     args = message.text.split(maxsplit=1)
     if len(args) > 1 and args[1].strip().lower() in ("clear", "clean", "delete", "-clear", "-delete"):
@@ -623,8 +636,15 @@ async def seedr_leech(client, message):
     user_dict = user_data.get(message.from_user.id, {})
     email = user_dict.get("SEEDR_EMAIL") or Config.SEEDR_EMAIL
     password = user_dict.get("SEEDR_PASSWORD") or Config.SEEDR_PASSWORD
+    uset_cmd = (
+        f"/{BotCommands.UserSetCommand[0]}"
+        if isinstance(BotCommands.UserSetCommand, list)
+        else f"/{BotCommands.UserSetCommand}"
+    )
     if not email or not password:
-        await message.reply("Seedr credentials are not configured! Please set SEEDR_EMAIL and SEEDR_PASSWORD in /usetting or bot config.")
+        await message.reply(
+            f"Seedr credentials are not configured! Please set SEEDR_EMAIL and SEEDR_PASSWORD in {uset_cmd} or bot config."
+        )
         return
     bot_loop.create_task(
         Mirror(client, message, is_leech=True, is_seedr=True).new_event()
@@ -644,9 +664,19 @@ async def seedr_link(client, message):
     user_dict = user_data.get(user_id, {})
     email = user_dict.get("SEEDR_EMAIL") or Config.SEEDR_EMAIL
     password = user_dict.get("SEEDR_PASSWORD") or Config.SEEDR_PASSWORD
+    uset_cmd = (
+        f"/{BotCommands.UserSetCommand[0]}"
+        if isinstance(BotCommands.UserSetCommand, list)
+        else f"/{BotCommands.UserSetCommand}"
+    )
+    seedrlink_cmd = (
+        f"/{BotCommands.SeedrLinkCommand[0]}"
+        if isinstance(BotCommands.SeedrLinkCommand, list)
+        else f"/{BotCommands.SeedrLinkCommand}"
+    )
     if not email or not password:
         await message.reply(
-            "Seedr credentials are not configured! Please set SEEDR_EMAIL and SEEDR_PASSWORD in /usetting or bot config."
+            f"Seedr credentials are not configured! Please set SEEDR_EMAIL and SEEDR_PASSWORD in {uset_cmd} or bot config."
         )
         return
 
@@ -660,7 +690,7 @@ async def seedr_link(client, message):
 
     if not link or not (is_magnet(link) or is_url(link) or link.endswith(".torrent")):
         await message.reply(
-            "Please provide a valid magnet link or .torrent URL!\n\n<b>Usage:</b> <code>/seedrlink magnet:...</code> or <code>/seedrlink https://.../file.torrent</code>"
+            f"Please provide a valid magnet link or .torrent URL!\n\n<b>Usage:</b> <code>{seedrlink_cmd} magnet:...</code> or <code>{seedrlink_cmd} https://.../file.torrent</code>"
         )
         return
 
