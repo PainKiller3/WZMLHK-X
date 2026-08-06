@@ -268,6 +268,13 @@ def add_handlers():
     )
     TgClient.bot.add_handler(
         MessageHandler(
+            seedr_link,
+            filters=command(BotCommands.SeedrLinkCommand, case_sensitive=True)
+            & CustomFilters.authorized,
+        )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
             uphoster,
             filters=command(BotCommands.UpHosterCommand, case_sensitive=True)
             & CustomFilters.authorized,
@@ -463,6 +470,12 @@ def add_handlers():
                 "SeedrLeech",
                 "[magnet] Leech files to Upload to Telegram using Seedr",
                 6,
+            )
+            BOT_COMMANDS = insert_at(
+                BOT_COMMANDS,
+                "SeedrLink",
+                "[magnet] Get direct Seedr HTTP download links",
+                7,
             )
 
         if len(Config.USENET_SERVERS) != 0:
