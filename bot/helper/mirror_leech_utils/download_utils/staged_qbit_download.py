@@ -309,6 +309,8 @@ async def add_staged_qb_torrent(listener, path):
         await TorrentManager.qbittorrent.torrents.add(form.build())
         info = []
         while not info:
+            if listener.is_cancelled:
+                return
             info = await TorrentManager.qbittorrent.torrents.info(tag=f"{listener.mid}")
             await sleep(1)
     except Exception as error:
@@ -327,9 +329,12 @@ async def add_staged_qb_torrent(listener, path):
         await TorrentManager.qbittorrent.torrents.start([torrent.hash])
     metadata_started = time()
     while True:
-        torrent = (
-            await TorrentManager.qbittorrent.torrents.info(hashes=[torrent.hash])
-        )[0]
+        if listener.is_cancelled:
+            return
+        info = await TorrentManager.qbittorrent.torrents.info(hashes=[torrent.hash])
+        if not info:
+            return
+        torrent = info[0]
         if torrent.state not in ("metaDL", "checkingResumeData"):
             break
         if (
