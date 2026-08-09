@@ -125,7 +125,7 @@ async def _notify_tasks(notifier_dict, restart_chat_id, now):
         for tag, tasks in data.items():
             entry = f"\n➲ <b>User:</b> {tag}\n┖ <b>Tasks:</b>"
             for index, task in enumerate(tasks, start=1):
-                link = task.get("link", "")
+                link = str(task.get("link") or "")
                 entry += f" {index}. <a href='{link}'>L</a> |"
             if len((msg + entry).encode()) > 4000:
                 await _send_msg(cid, msg)

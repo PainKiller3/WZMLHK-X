@@ -36,7 +36,9 @@ class StagedQbitStatus:
     def name(self):
         done = self.coordinator.completed_files
         total = len(self.coordinator.files)
-        return f"[{self.coordinator.phase} | Files: {done}/{total}] {self.listener.name}"
+        return (
+            f"[{self.coordinator.phase} | Files: {done}/{total}] {self.listener.name}"
+        )
 
     def progress(self):
         total = self.coordinator.total_bytes or 1
