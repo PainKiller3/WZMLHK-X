@@ -72,6 +72,8 @@ class StagedQbitCoordinator:
         ):
             with suppress(Exception):
                 await self.active_uploader.cancel_task()
+        with suppress(Exception):
+            await TorrentManager.ensure_qbit()
         if TorrentManager.qbittorrent is not None:
             await TorrentManager.qbittorrent.torrents.stop([self.hash])
             await TorrentManager.qbittorrent.torrents.delete([self.hash], True)
@@ -83,6 +85,7 @@ class StagedQbitCoordinator:
         return (await sync_to_async(disk_usage, DOWNLOAD_DIR)).free
 
     async def load_manifest(self):
+        await TorrentManager.ensure_qbit()
         raw_files = await TorrentManager.qbittorrent.torrents.files(self.hash)
         selected = [
             StagedFile(f.index, f.name, f.size) for f in raw_files if f.priority != 0
@@ -269,14 +272,19 @@ class StagedQbitCoordinator:
             if self.listener.is_cancelled:
                 raise RuntimeError("Staged torrent was cancelled.")
             self.phase = "Finalizing"
-            await TorrentManager.qbittorrent.torrents.delete([self.hash], True)
-            await TorrentManager.qbittorrent.torrents.delete_tags(
-                [f"{self.listener.mid}"]
-            )
+            with suppress(Exception):
+                await TorrentManager.ensure_qbit()
+            if TorrentManager.qbittorrent is not None:
+                await TorrentManager.qbittorrent.torrents.delete([self.hash], True)
+                await TorrentManager.qbittorrent.torrents.delete_tags(
+                    [f"{self.listener.mid}"]
+                )
             await self.listener.staged_complete()
         except Exception as error:
             LOGGER.error(f"Staged torrent failed: {error}")
             clean_local = True
+            with suppress(Exception):
+                await TorrentManager.ensure_qbit()
             if TorrentManager.qbittorrent is not None:
                 await gather(
                     TorrentManager.qbittorrent.torrents.stop([self.hash]),
@@ -298,6 +306,7 @@ async def add_staged_qb_torrent(listener, path):
     if Config.DISABLE_TORRENTS:
         await listener.on_download_error("Torrents are disabled in the configuration.")
         return
+    await TorrentManager.ensure_qbit()
     try:
         form = AddFormBuilder.with_client(TorrentManager.qbittorrent)
         if await aiopath.exists(listener.link):
