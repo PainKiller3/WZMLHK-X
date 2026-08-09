@@ -23,9 +23,11 @@ from ...ext_utils.db_handler import database
 from ...ext_utils.files_utils import clean_download
 from ...ext_utils.status_utils import get_readable_file_size
 from ...ext_utils.task_manager import (
+    check_blacklisted_keywords,
     check_running_tasks,
     limit_checker,
     start_from_queued,
+    stop_duplicate_check,
 )
 from ...telegram_helper.message_utils import send_message, send_status_message
 from ..status_utils.staged_qbit_status import StagedQbitStatus
@@ -35,6 +37,13 @@ from .staged_qbit_planner import StagedFile, plan_batch, preflight_error, usable
 
 FILE_PRIORITY_SKIP = 0
 FILE_PRIORITY_NORMAL = 1
+
+
+async def get_qbit():
+    await TorrentManager.ensure_qbit()
+    if TorrentManager.qbittorrent is None:
+        raise RuntimeError("qBittorrent client is unavailable.")
+    return TorrentManager.qbittorrent
 
 
 class StagedQbitCoordinator:
@@ -62,6 +71,34 @@ class StagedQbitCoordinator:
         self.payload_started = False
         self._stage_dir = f"{self.listener.dir}-stage"
 
+    async def _qbit(self):
+        return await get_qbit()
+
+    async def _ensure_torrent_added(self):
+        qbt = await self._qbit()
+        with suppress(Exception):
+            info = await qbt.torrents.info(hashes=[self.hash])
+            if info:
+                return
+        LOGGER.info(f"Re-adding missing torrent {self.hash} to qBittorrent...")
+        form = AddFormBuilder.with_client(qbt)
+        if await aiopath.exists(self.listener.link):
+            from aiofiles import open as aiopen
+
+            async with aiopen(self.listener.link, "rb") as torrent_file:
+                form = form.include_file(await torrent_file.read())
+        else:
+            form = form.include_url(self.listener.link)
+        form = form.savepath(self.listener.dir).tags([f"{self.listener.mid}"])
+        with suppress(Exception):
+            await qbt.torrents.add(form.build())
+        for _ in range(20):
+            with suppress(Exception):
+                info = await qbt.torrents.info(hashes=[self.hash])
+                if info and info[0].state not in ("metaDL", "checkingResumeData"):
+                    break
+            await sleep(1)
+
     async def cancel(self):
         self.cancelled = True
         self.listener.is_cancelled = True
@@ -73,20 +110,30 @@ class StagedQbitCoordinator:
             with suppress(Exception):
                 await self.active_uploader.cancel_task()
         with suppress(Exception):
-            await TorrentManager.ensure_qbit()
-        if TorrentManager.qbittorrent is not None:
-            await TorrentManager.qbittorrent.torrents.stop([self.hash])
-            await TorrentManager.qbittorrent.torrents.delete([self.hash], True)
-            await TorrentManager.qbittorrent.torrents.delete_tags(
-                [f"{self.listener.mid}"]
-            )
+            qbt = await self._qbit()
+            await qbt.torrents.stop([self.hash])
+            await qbt.torrents.delete([self.hash], True)
+            await qbt.torrents.delete_tags([f"{self.listener.mid}"])
 
     async def _free(self):
         return (await sync_to_async(disk_usage, DOWNLOAD_DIR)).free
 
     async def load_manifest(self):
-        await TorrentManager.ensure_qbit()
-        raw_files = await TorrentManager.qbittorrent.torrents.files(self.hash)
+        await self._ensure_torrent_added()
+        qbt = await self._qbit()
+        raw_files = []
+        for _ in range(15):
+            if self.cancelled or self.listener.is_cancelled:
+                raise RuntimeError("Staged torrent was cancelled.")
+            try:
+                raw_files = await qbt.torrents.files(self.hash)
+                if raw_files:
+                    break
+            except Exception:
+                pass
+            await sleep(1)
+        if not raw_files:
+            raise RuntimeError("Could not retrieve file list from qBittorrent.")
         selected = [
             StagedFile(f.index, f.name, f.size) for f in raw_files if f.priority != 0
         ]
@@ -140,31 +187,40 @@ class StagedQbitCoordinator:
             raise ValueError(limit_message)
 
     async def _set_batch_priorities(self, batch: list[StagedFile]):
+        qbt = await self._qbit()
         all_ids = [item.index for item in self.files]
-        await TorrentManager.qbittorrent.torrents.file_prio(
-            self.hash, all_ids, FILE_PRIORITY_SKIP
-        )
-        await TorrentManager.qbittorrent.torrents.file_prio(
+        await qbt.torrents.file_prio(self.hash, all_ids, FILE_PRIORITY_SKIP)
+        await qbt.torrents.file_prio(
             self.hash, [item.index for item in batch], FILE_PRIORITY_NORMAL
         )
 
     async def _wait_for_batch(self):
         while not self.cancelled and not self.listener.is_cancelled:
-            info = await TorrentManager.qbittorrent.torrents.files(
-                self.hash, [item.index for item in self.current_batch]
-            )
-            with suppress(Exception):
-                tor_list = await TorrentManager.qbittorrent.torrents.info(
-                    hashes=[self.hash]
+            try:
+                await self._ensure_torrent_added()
+                qbt = await self._qbit()
+                info = await qbt.torrents.files(
+                    self.hash, [item.index for item in self.current_batch]
                 )
-                if tor_list:
-                    tor = tor_list[0]
-                    self.speed = tor.dlspeed
-                    self.num_seeds = tor.num_seeds
-                    self.num_leechs = tor.num_leechs
-            self.current_bytes = sum(int(item.size * item.progress) for item in info)
-            if info and all(item.progress >= 1 for item in info):
-                return
+                with suppress(Exception):
+                    tor_list = await qbt.torrents.info(hashes=[self.hash])
+                    if tor_list:
+                        tor = tor_list[0]
+                        self.speed = tor.dlspeed
+                        self.num_seeds = tor.num_seeds
+                        self.num_leechs = tor.num_leechs
+                self.current_bytes = sum(
+                    int(item.size * item.progress) for item in info
+                )
+                if info and all(item.progress >= 1 for item in info):
+                    return
+            except Exception as e:
+                LOGGER.debug(f"Staged batch poll error: {e}")
+                with suppress(Exception):
+                    await self._ensure_torrent_added()
+                    await self._set_batch_priorities(self.current_batch)
+                    qbt = await self._qbit()
+                    await qbt.torrents.start([self.hash])
             await sleep(3)
         raise RuntimeError("Staged torrent was cancelled.")
 
@@ -215,9 +271,11 @@ class StagedQbitCoordinator:
                 self.current_bytes = 0
                 await self._set_batch_priorities(self.current_batch)
                 self.payload_started = True
-                await TorrentManager.qbittorrent.torrents.start([self.hash])
+                qbt = await self._qbit()
+                await qbt.torrents.start([self.hash])
                 await self._wait_for_batch()
-                await TorrentManager.qbittorrent.torrents.stop([self.hash])
+                qbt = await self._qbit()
+                await qbt.torrents.stop([self.hash])
                 self.phase = "Uploading batch"
                 upload_queued, upload_event = await check_running_tasks(
                     self.listener, "up"
@@ -273,27 +331,19 @@ class StagedQbitCoordinator:
                 raise RuntimeError("Staged torrent was cancelled.")
             self.phase = "Finalizing"
             with suppress(Exception):
-                await TorrentManager.ensure_qbit()
-            if TorrentManager.qbittorrent is not None:
-                await TorrentManager.qbittorrent.torrents.delete([self.hash], True)
-                await TorrentManager.qbittorrent.torrents.delete_tags(
-                    [f"{self.listener.mid}"]
-                )
+                qbt = await self._qbit()
+                await qbt.torrents.delete([self.hash], True)
+                await qbt.torrents.delete_tags([f"{self.listener.mid}"])
             await self.listener.staged_complete()
         except Exception as error:
             LOGGER.error(f"Staged torrent failed: {error}")
             clean_local = True
             with suppress(Exception):
-                await TorrentManager.ensure_qbit()
-            if TorrentManager.qbittorrent is not None:
+                qbt = await self._qbit()
                 await gather(
-                    TorrentManager.qbittorrent.torrents.stop([self.hash]),
-                    TorrentManager.qbittorrent.torrents.delete(
-                        [self.hash], clean_local
-                    ),
-                    TorrentManager.qbittorrent.torrents.delete_tags(
-                        [f"{self.listener.mid}"]
-                    ),
+                    qbt.torrents.stop([self.hash]),
+                    qbt.torrents.delete([self.hash], clean_local),
+                    qbt.torrents.delete_tags([f"{self.listener.mid}"]),
                     return_exceptions=True,
                 )
             await self.listener.staged_error(
@@ -306,9 +356,22 @@ async def add_staged_qb_torrent(listener, path):
     if Config.DISABLE_TORRENTS:
         await listener.on_download_error("Torrents are disabled in the configuration.")
         return
-    await TorrentManager.ensure_qbit()
+    is_bl, bl_kw = await check_blacklisted_keywords(
+        listener, listener.name or listener.link
+    )
+    if is_bl:
+        await listener.on_download_error(
+            f"Task cancelled! Name/Link contains blacklisted keyword: <code>{bl_kw}</code>"
+        )
+        return
+    if listener.name:
+        msg, button = await stop_duplicate_check(listener)
+        if msg:
+            await listener.on_download_error(msg, button)
+            return
     try:
-        form = AddFormBuilder.with_client(TorrentManager.qbittorrent)
+        qbt = await get_qbit()
+        form = AddFormBuilder.with_client(qbt)
         if await aiopath.exists(listener.link):
             from aiofiles import open as aiopen
 
@@ -323,12 +386,13 @@ async def add_staged_qb_torrent(listener, path):
             .stopped(add_to_queue)
             .stop_condition(StopCondition.METADATA_RECEIVED)
         )
-        await TorrentManager.qbittorrent.torrents.add(form.build())
+        await qbt.torrents.add(form.build())
         info = []
         while not info:
             if listener.is_cancelled:
                 return
-            info = await TorrentManager.qbittorrent.torrents.info(tag=f"{listener.mid}")
+            qbt = await get_qbit()
+            info = await qbt.torrents.info(tag=f"{listener.mid}")
             await sleep(1)
     except Exception as error:
         await listener.on_download_error(f"Unable to add staged torrent: {error}")
@@ -343,12 +407,14 @@ async def add_staged_qb_torrent(listener, path):
         await event.wait()
         if listener.is_cancelled:
             return
-        await TorrentManager.qbittorrent.torrents.start([torrent.hash])
+        qbt = await get_qbit()
+        await qbt.torrents.start([torrent.hash])
     metadata_started = time()
     while True:
         if listener.is_cancelled:
             return
-        info = await TorrentManager.qbittorrent.torrents.info(hashes=[torrent.hash])
+        qbt = await get_qbit()
+        info = await qbt.torrents.info(hashes=[torrent.hash])
         if not info:
             return
         torrent = info[0]
@@ -358,11 +424,12 @@ async def add_staged_qb_torrent(listener, path):
             Config.TORRENT_TIMEOUT
             and time() - metadata_started >= Config.TORRENT_TIMEOUT
         ):
-            await TorrentManager.qbittorrent.torrents.delete([torrent.hash], True)
+            await qbt.torrents.delete([torrent.hash], True)
             await listener.on_download_error("Torrent metadata timed out.")
             return
         await sleep(1)
-    await TorrentManager.qbittorrent.torrents.stop([torrent.hash])
+    qbt = await get_qbit()
+    await qbt.torrents.stop([torrent.hash])
     if listener.select:
         from ...ext_utils.bot_utils import bt_selection_buttons
 
