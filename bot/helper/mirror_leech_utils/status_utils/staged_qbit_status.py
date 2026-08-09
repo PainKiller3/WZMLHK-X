@@ -70,7 +70,11 @@ class StagedQbitStatus:
         uploader = self.coordinator.active_uploader
         if uploader is not None and hasattr(uploader, "speed"):
             value = uploader.speed
-            return value if isinstance(value, str) else f"{get_readable_file_size(value)}/s"
+            return (
+                value
+                if isinstance(value, str)
+                else f"{get_readable_file_size(value)}/s"
+            )
         return f"{get_readable_file_size(self.coordinator.speed)}/s"
 
     def eta(self):

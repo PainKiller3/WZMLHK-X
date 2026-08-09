@@ -19,6 +19,7 @@ from .. import (
 )
 from ..core.config_manager import Config
 from ..helper.ext_utils.bot_utils import SetInterval, sync_to_async
+from ..helper.ext_utils.db_handler import database
 from ..helper.ext_utils.files_utils import clean_download, get_mime_type
 from ..helper.ext_utils.links_utils import is_gdrive_id
 from ..helper.ext_utils.status_utils import get_readable_file_size, get_readable_time
@@ -57,9 +58,7 @@ class StagedMirror(Mirror):
         if self.is_leech and isinstance(files, dict):
             self.staged_links.update(files)
             if mime_type:
-                self.staged_upload_error = (
-                    f"Telegram could not upload {mime_type} file(s). The local batch was kept."
-                )
+                self.staged_upload_error = f"Telegram could not upload {mime_type} file(s). The local batch was kept."
                 if self._staged_upload_event:
                     self._staged_upload_event.set()
                 return
@@ -141,6 +140,7 @@ class StagedMirror(Mirror):
                 update_status_message(self.message.chat.id), uploader.upload(stage_root)
             )
             await self._staged_upload_event.wait()
+
     async def staged_complete(self):
         total_files = len(self.staged_coordinator.files)
         msg = (
@@ -154,7 +154,19 @@ class StagedMirror(Mirror):
         if self.is_leech and self.staged_links:
             lines = [msg, "\n<b>Files List:</b>"]
             for index, (link, name) in enumerate(self.staged_links.items(), 1):
-                lines.append(f"{index}. <a href='{link}'>{escape(name)}</a>")
+                item_line = f"{index}. <a href='{link}'>{escape(name)}</a>"
+                if (
+                    sum(len(line) + 1 for line in lines)
+                    + len(item_line)
+                    + len(self.tag)
+                    + 30
+                    > 3900
+                ):
+                    lines.append(
+                        f"...and {len(self.staged_links) - index + 1} more files."
+                    )
+                    break
+                lines.append(item_line)
             msg = "\n".join(lines)
         elif self.staged_results and self.staged_results[0][0]:
             buttons = ButtonMaker()
@@ -196,7 +208,9 @@ class StagedMirror(Mirror):
             result[1] for result in self.staged_results if isinstance(result[1], int)
         )
         suffix = f"\nAlready uploaded files: {uploaded}" if uploaded else ""
-        await send_message(self.message, f"Staged torrent failed: {escape(error)}{suffix}")
+        await send_message(
+            self.message, f"Staged torrent failed: {escape(error)}{suffix}"
+        )
         if cleanup:
             await clean_download(self.dir)
         await self._finish_staged_cleanup()
@@ -204,6 +218,8 @@ class StagedMirror(Mirror):
     async def _finish_staged_cleanup(self):
         await clean_download(f"{self.dir}-stage")
         await delete_links(self.message)
+        if Config.DATABASE_URL:
+            await database.rm_complete_task(self.message.link)
         async with task_dict_lock:
             task_dict.pop(self.mid, None)
         async with queue_dict_lock:

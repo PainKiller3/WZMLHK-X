@@ -226,6 +226,33 @@ class DbManager:
             {"$set": {"dump_msg_id": dump_msg_id, "dump_chat": dump_chat}},
         )
 
+    async def update_staged_task_progress(
+        self,
+        link,
+        completed_indices=None,
+        staged_drive_root="",
+        staged_links=None,
+        staged_results=None,
+        completed_bytes=0,
+    ):
+        if self._return:
+            return
+        update_data = {}
+        if completed_indices is not None:
+            update_data["staged_completed_indices"] = list(completed_indices)
+        if staged_drive_root:
+            update_data["staged_drive_root"] = staged_drive_root
+        if staged_links is not None:
+            update_data["staged_links"] = staged_links
+        if staged_results is not None:
+            update_data["staged_results"] = staged_results
+        if completed_bytes:
+            update_data["staged_completed_bytes"] = completed_bytes
+        if update_data:
+            await self.db.tasks[_part()].update_one(
+                {"link": link}, {"$set": update_data}
+            )
+
     async def get_pm_uids(self):
         if self._return:
             return
@@ -267,6 +294,11 @@ class DbManager:
                     "reply_to_msg_id": row.get("reply_to_msg_id", 0),
                     "dump_msg_id": row.get("dump_msg_id", 0),
                     "dump_chat": row.get("dump_chat", 0),
+                    "staged_completed_indices": row.get("staged_completed_indices", []),
+                    "staged_drive_root": row.get("staged_drive_root", ""),
+                    "staged_links": row.get("staged_links", {}),
+                    "staged_results": row.get("staged_results", []),
+                    "staged_completed_bytes": row.get("staged_completed_bytes", 0),
                 }
                 if cid in notifier_dict:
                     if tag in notifier_dict[cid]:
