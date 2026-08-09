@@ -2,7 +2,7 @@ from asyncio import Event, gather, sleep
 from contextlib import suppress
 from os import link as hardlink
 from pathlib import Path
-from shutil import disk_usage
+from shutil import copyfile, disk_usage
 from time import time
 
 from aiofiles.os import makedirs, path as aiopath, remove
@@ -19,6 +19,7 @@ from .... import (
 from ....core.config_manager import Config
 from ....core.torrent_manager import TorrentManager
 from ...ext_utils.bot_utils import sync_to_async
+from ...ext_utils.db_handler import database
 from ...ext_utils.files_utils import clean_download
 from ...ext_utils.status_utils import get_readable_file_size
 from ...ext_utils.task_manager import (
@@ -98,9 +99,38 @@ class StagedQbitCoordinator:
                 error += " Staged mode cannot split files because splitting needs extra storage."
             raise ValueError(error)
         self.files = selected
-        self.pending = selected.copy()
         self.total_bytes = sum(item.size for item in selected)
         self.listener.size = self.total_bytes
+
+        if Config.DATABASE_URL:
+            tasks_dict = await database.get_incomplete_tasks()
+            chat_id = self.listener.message.chat.id
+            tag = self.listener.tag
+            link = self.listener.message.link
+            completed_indices = set()
+            if chat_id in tasks_dict and tag in tasks_dict[chat_id]:
+                for task_entry in tasks_dict[chat_id][tag]:
+                    if task_entry.get("link") == link or (
+                        task_entry.get("command")
+                        and task_entry.get("command") == self.listener.message.text
+                    ):
+                        completed_indices = set(
+                            task_entry.get("staged_completed_indices", [])
+                        )
+                        if saved_root := task_entry.get("staged_drive_root"):
+                            self.listener.staged_drive_root = saved_root
+                        if saved_links := task_entry.get("staged_links"):
+                            self.listener.staged_links.update(saved_links)
+                        if saved_results := task_entry.get("staged_results"):
+                            self.listener.staged_results = saved_results
+                        if saved_bytes := task_entry.get("staged_completed_bytes"):
+                            self.completed_bytes = saved_bytes
+                            self.completed_files = len(completed_indices)
+                        break
+            if completed_indices:
+                selected = [f for f in selected if f.index not in completed_indices]
+
+        self.pending = selected.copy()
         if limit_message := await limit_checker(self.listener):
             raise ValueError(limit_message)
 
@@ -134,7 +164,10 @@ class StagedQbitCoordinator:
             source = Path(self.content_root) / item.name
             target = Path(self._stage_dir) / item.name
             await makedirs(str(target.parent), exist_ok=True)
-            await sync_to_async(hardlink, source, target)
+            try:
+                await sync_to_async(hardlink, source, target)
+            except OSError:
+                await sync_to_async(copyfile, source, target)
         return str(root if root.exists() else Path(self._stage_dir))
 
     async def _delete_batch(self):
@@ -199,6 +232,18 @@ class StagedQbitCoordinator:
                     item for item in self.pending if item.index not in batch_ids
                 ]
                 self.current_batch = []
+                if Config.DATABASE_URL:
+                    all_completed = {
+                        f.index for f in self.files if f not in self.pending
+                    }
+                    await database.update_staged_task_progress(
+                        self.listener.message.link,
+                        completed_indices=all_completed,
+                        staged_drive_root=self.listener.staged_drive_root,
+                        staged_links=self.listener.staged_links,
+                        staged_results=self.listener.staged_results,
+                        completed_bytes=self.completed_bytes,
+                    )
                 async with queue_dict_lock:
                     non_queued_up.discard(self.listener.mid)
                 await start_from_queued()
@@ -223,7 +268,7 @@ class StagedQbitCoordinator:
             await self.listener.staged_complete()
         except Exception as error:
             LOGGER.error(f"Staged torrent failed: {error}")
-            clean_local = self.listener.is_cancelled or not self.payload_started
+            clean_local = True
             if TorrentManager.qbittorrent is not None:
                 await gather(
                     TorrentManager.qbittorrent.torrents.stop([self.hash]),
