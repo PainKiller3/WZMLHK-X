@@ -53,6 +53,8 @@ class StagedQbitCoordinator:
         self.total_bytes = 0
         self.phase = "Preparing"
         self.speed = 0
+        self.num_seeds = 0
+        self.num_leechs = 0
         self.current_bytes = 0
         self.cancelled = False
         self._queue_event = None
@@ -144,14 +146,20 @@ class StagedQbitCoordinator:
         )
 
     async def _wait_for_batch(self):
-        previous = 0
         while not self.cancelled and not self.listener.is_cancelled:
             info = await TorrentManager.qbittorrent.torrents.files(
                 self.hash, [item.index for item in self.current_batch]
             )
+            with suppress(Exception):
+                tor_list = await TorrentManager.qbittorrent.torrents.info(
+                    hashes=[self.hash]
+                )
+                if tor_list:
+                    tor = tor_list[0]
+                    self.speed = tor.dlspeed
+                    self.num_seeds = tor.num_seeds
+                    self.num_leechs = tor.num_leechs
             self.current_bytes = sum(int(item.size * item.progress) for item in info)
-            self.speed = max(0, self.current_bytes - previous) // 3
-            previous = self.current_bytes
             if info and all(item.progress >= 1 for item in info):
                 return
             await sleep(3)

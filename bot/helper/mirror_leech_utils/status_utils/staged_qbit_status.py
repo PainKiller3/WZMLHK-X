@@ -36,7 +36,7 @@ class StagedQbitStatus:
     def name(self):
         done = self.coordinator.completed_files
         total = len(self.coordinator.files)
-        return f"[{self.coordinator.phase} {done}/{total}] {self.listener.name}"
+        return f"[{self.coordinator.phase} | Files: {done}/{total}] {self.listener.name}"
 
     def progress(self):
         total = self.coordinator.total_bytes or 1
@@ -111,7 +111,7 @@ class StagedQbitStatus:
         await self.coordinator.cancel()
 
     def seeders_num(self):
-        return 0
+        return getattr(self.coordinator, "num_seeds", 0)
 
     def leechers_num(self):
-        return 0
+        return getattr(self.coordinator, "num_leechs", 0)
