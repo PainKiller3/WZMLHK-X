@@ -430,6 +430,23 @@ async def add_staged_qb_torrent(listener, path):
         await sleep(1)
     qbt = await get_qbit()
     await qbt.torrents.stop([torrent.hash])
+    listener.name = listener.name or torrent.name
+    msg, button = await stop_duplicate_check(listener)
+    if msg:
+        await sleep(0.3)
+        await qbt.torrents.delete([torrent.hash], True)
+        await qbt.torrents.delete_tags([f"{listener.mid}"])
+        await listener.on_download_error(msg, button)
+        return
+    is_bl, bl_kw = await check_blacklisted_keywords(listener, listener.name)
+    if is_bl:
+        await sleep(0.3)
+        await qbt.torrents.delete([torrent.hash], True)
+        await qbt.torrents.delete_tags([f"{listener.mid}"])
+        await listener.on_download_error(
+            f"Task cancelled! Name contains blacklisted keyword: <code>{bl_kw}</code>"
+        )
+        return
     if listener.select:
         from ...ext_utils.bot_utils import bt_selection_buttons
 
