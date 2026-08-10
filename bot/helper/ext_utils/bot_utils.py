@@ -658,7 +658,7 @@ def _build_command_map():
 
 
 def resolve_command(command_str):
-    cmd_name = command_str.strip().lstrip("/").split(maxsplit=1)[0]
+    cmd_name = command_str.strip().lstrip("/").split(maxsplit=1)[0].split("@")[0]
     mapping = _build_command_map()
     handler = mapping.get(cmd_name)
     if handler is None and Config.CMD_SUFFIX:
