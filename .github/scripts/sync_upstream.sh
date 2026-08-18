@@ -474,6 +474,10 @@ for local_line in "${LOCAL_COMMITS[@]}"; do
     
     [ -z "$LOCAL_MSG" ] && continue
     
+    # Normalize local commit message by stripping trailing PR numbers (e.g. " (#580)")
+    NORM_LOCAL_MSG=$(echo "$LOCAL_MSG" | sed -E 's/ \(_*#[0-9]+\)$//')
+    NORM_LOCAL_MSG=$(echo "$NORM_LOCAL_MSG" | sed -E 's/ \(#[0-9]+\)$//')
+    
     # Check if this local commit is a revert commit
     if [[ "$LOCAL_MSG" =~ ^Revert\ \"(.*)\"$ ]]; then
         REVERTED_MSG="${BASH_REMATCH[1]}"
@@ -485,7 +489,8 @@ for local_line in "${LOCAL_COMMITS[@]}"; do
     # If this commit message was reverted, skip matching it
     IS_REVERTED="false"
     for rev in "${REVERTED_LIST[@]}"; do
-        if [ "$rev" = "$LOCAL_MSG" ]; then
+        NORM_REV=$(echo "$rev" | sed -E 's/ \(#[0-9]+\)$//')
+        if [ "$NORM_REV" = "$NORM_LOCAL_MSG" ]; then
             IS_REVERTED="true"
             break
         fi
@@ -500,8 +505,9 @@ for local_line in "${LOCAL_COMMITS[@]}"; do
         SEARCH_COUNT=$((SEARCH_COUNT + 1))
         UPSTREAM_HASH="${upstream_line%%|*}"
         UPSTREAM_MSG="${upstream_line#*|}"
+        NORM_UPSTREAM_MSG=$(echo "$UPSTREAM_MSG" | sed -E 's/ \(#[0-9]+\)$//')
         
-        if [ "$UPSTREAM_MSG" = "$LOCAL_MSG" ]; then
+        if [ "$NORM_UPSTREAM_MSG" = "$NORM_LOCAL_MSG" ]; then
             MATCH_HASH="$UPSTREAM_HASH"
             MATCH_LOCAL_HASH="$LOCAL_HASH"
             MATCH_MSG="$LOCAL_MSG"
@@ -536,7 +542,25 @@ success "Found match at upstream commit ${MATCH_HASH:0:10} (matching local commi
 # ── Step 4: Identify New Commits ──────────────────────────────────────────
 step "Step 4: Identifying New Commits"
 
-mapfile -t COMMITS < <(git log --no-merges --format='%H' --reverse "${MATCH_HASH}..${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}")
+mapfile -t RAW_COMMITS < <(git log --no-merges --format='%H' --reverse "${MATCH_HASH}..${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}")
+
+# Filter out commits whose patches are already applied to local branch (detected via git cherry)
+mapfile -t APPLIED_HASHES < <(git cherry "$LOCAL_BRANCH" "${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}" 2>/dev/null | grep '^-' | awk '{print $2}')
+
+COMMITS=()
+for commit in "${RAW_COMMITS[@]}"; do
+    IS_APPLIED="false"
+    for app_hash in "${APPLIED_HASHES[@]}"; do
+        if [ "$commit" = "$app_hash" ]; then
+            IS_APPLIED="true"
+            break
+        fi
+    done
+    if [ "$IS_APPLIED" = "false" ]; then
+        COMMITS+=("$commit")
+    fi
+done
+
 TOTAL=${#COMMITS[@]}
 
 if [ "$TOTAL" -eq 0 ]; then
