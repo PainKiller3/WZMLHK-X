@@ -16,6 +16,7 @@ sabnzbd/*
 list_drives.txt
 shortener.txt
 cookies.txt
+terabox.txt
 downloads/*
 .github/instructions/*
 .github/skills/*
