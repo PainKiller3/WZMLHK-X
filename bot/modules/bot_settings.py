@@ -92,6 +92,7 @@ BOOL_VARS = [
     "DISABLE_FF_MODE",
     "DISABLE_JD",
     "DISABLE_LEECH",
+    "DISABLE_MIRROR",
     "DISABLE_MULTI",
     "DISABLE_NZB",
     "DISABLE_SEEDR",
@@ -136,6 +137,7 @@ DEFAULT_DESP = {
     "ALLDEBRID_API_KEY": "AllDebrid API key, used by the -ad flag to unlock links/magnets.",
     "DISABLE_TORRENTS": "Disable all torrent downloads. Default: False.",
     "DISABLE_LEECH": "Disable all leech (download to Telegram) tasks. Default: False.",
+    "DISABLE_MIRROR": "Disable all mirror (upload to cloud) tasks. Default: False.",
     "DISABLE_BULK": "Disable bulk (zip/unzip) operations. Default: False.",
     "DISABLE_MULTI": "Disable multi-part splits. Default: False.",
     "DISABLE_SEED": "Disable seeding after torrent download. Default: False.",
@@ -292,6 +294,7 @@ RESTART_VARS = {
 ONOFF_VARS = [
     "DISABLE_TORRENTS",
     "DISABLE_LEECH",
+    "DISABLE_MIRROR",
     "DISABLE_BULK",
     "DISABLE_MULTI",
     "DISABLE_SEED",
