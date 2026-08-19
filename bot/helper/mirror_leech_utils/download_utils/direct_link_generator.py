@@ -1,10 +1,11 @@
 from cloudscraper import create_scraper
+from functools import lru_cache
 from hashlib import sha256
 from http.cookiejar import MozillaCookieJar
 from json import loads
 from lxml.etree import HTML
 from os import path as ospath
-from re import findall, match, search
+from re import findall, match, search, sub
 from requests import Session, post, get
 from requests.adapters import HTTPAdapter
 from time import sleep, time
@@ -1502,6 +1503,18 @@ def linkBox(url: str):
     return details
 
 
+@lru_cache(1)
+def _gofile_salt(_slot):
+    try:
+        js = get("https://gofile.io/js/wt.obf.js", timeout=15).text
+        js = sub(r"\\x([0-9a-f]{2})", lambda m: chr(int(m[1], 16)), js)
+        if salt := search(r"'([0-9a-f]{14})'", js[js.index("generateWT") :]):
+            return salt[1]
+    except Exception:
+        pass
+    return "12af056dacea0b"
+
+
 def gofile(url):
     try:
         if "::" in url:
@@ -1533,7 +1546,7 @@ def gofile(url):
     def __fetch_links(session, _id, folderPath=""):
         _url = f"https://api.gofile.io/contents/{_id}?cache=true"
         time_slot = int(time()) // 14400
-        raw = f"{user_agent}::en-US::{token}::{time_slot}::12af056dacea0b"
+        raw = f"{user_agent}::en-US::{token}::{time_slot}::{_gofile_salt(time_slot)}"
         wt = sha256(raw.encode()).hexdigest()
         headers = {
             "User-Agent": user_agent,
