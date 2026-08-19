@@ -173,6 +173,7 @@ async def get_buttons(key=None, edit_type=None, edit_mode=False):
                     "list_drives.txt",
                     "shortener.txt",
                     "cookies.txt",
+                    "terabox.txt",
                     ".netrc",
                 ]
             ]
