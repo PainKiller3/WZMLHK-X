@@ -4,7 +4,12 @@ from re import IGNORECASE, findall, search
 
 from imdbio import search_title, get_movie, get_akas, get_media_gallery
 from pycountry import countries as conn
-from pyrogram.errors import MediaEmpty, PhotoInvalidDimensions, WebpageMediaEmpty
+from pyrogram.errors import (
+    MediaEmpty,
+    PhotoInvalidDimensions,
+    WebpageMediaEmpty,
+    RPCError,
+)
 
 from ..core.tg_client import TgClient
 from ..core.config_manager import Config
@@ -554,7 +559,7 @@ async def imdb_callback(_, query):
 
         template = Config.IMDB_TEMPLATE
         if template:
-            cap = template.format(**imdb, **locals())
+            cap = template.format(**{**imdb, **locals()})
             if poster:
                 try:
                     await TgClient.bot.send_photo(
@@ -602,12 +607,35 @@ async def imdb_callback(_, query):
 
 <a href="{url}">Open on IMDb</a>"""
 
-            await TgClient.bot.send_message(
-                reply_to.chat.id,
-                rich_text=rich_html,
-                reply_to_message_id=reply_to.id,
-                reply_markup=buttons,
-            )
+            try:
+                await TgClient.bot.send_message(
+                    reply_to.chat.id,
+                    rich_text=rich_html,
+                    reply_to_message_id=reply_to.id,
+                    reply_markup=buttons,
+                )
+            except RPCError:
+                if gallery_html:
+                    rich_html_no_gallery = rich_html.replace(gallery_html, "")
+                    try:
+                        await TgClient.bot.send_message(
+                            reply_to.chat.id,
+                            rich_text=rich_html_no_gallery,
+                            reply_to_message_id=reply_to.id,
+                            reply_markup=buttons,
+                        )
+                    except RPCError:
+                        await send_message(
+                            reply_to,
+                            f"<b>{title} ({year_text})</b>\n\n{plot}",
+                            buttons,
+                        )
+                else:
+                    await send_message(
+                        reply_to,
+                        f"<b>{title} ({year_text})</b>\n\n{plot}",
+                        buttons,
+                    )
         await delete_message(message)
     else:
         await query.answer()
