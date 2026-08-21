@@ -631,12 +631,8 @@ async def imdb_callback(_, query):
                     peer=peer,
                     message="",
                     random_id=TgClient.bot.rnd_id(),
-                    reply_to=raw.types.InputReplyToMessage(
-                        reply_to_msg_id=reply_to.id
-                    ),
-                    reply_markup=await buttons.write(TgClient.bot)
-                    if buttons
-                    else None,
+                    reply_to=raw.types.InputReplyToMessage(reply_to_msg_id=reply_to.id),
+                    reply_markup=await buttons.write(TgClient.bot) if buttons else None,
                     rich_message=raw.types.InputRichMessageHTML(
                         html=rich_html,
                         files=rich_files or None,
