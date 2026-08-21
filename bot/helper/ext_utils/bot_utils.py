@@ -416,6 +416,25 @@ def new_task(func):
     return wrapper
 
 
+def is_restart_interruption_error(err):
+    """True when an exception is an artifact of the app being restarted while a
+    download/upload was still in flight.
+
+    ``TgClient.stop()`` tears down every Pyrogram session (and its in-memory
+    storage). Coroutines that are still unwinding then try to use the closed
+    session: pyrogram's auto-restart re-opens an empty in-memory database whose
+    ``api_id`` is ``None``, which explodes in ``Int.__new__`` as
+    ``'NoneType' object has no attribute 'to_bytes'``. Cancelled downloads can
+    additionally surface ``FileNotFoundError`` when the app already removed the
+    ``.temp`` file/directory the pyrogram downloader was about to delete.
+    """
+    if isinstance(err, AttributeError) and "to_bytes" in str(err):
+        return True
+    if isinstance(err, FileNotFoundError):
+        return ".temp" in str(err)
+    return False
+
+
 async def sync_to_async(func, *args, wait=True, **kwargs):
     pfunc = partial(func, *args, **kwargs)
     future = bot_loop.run_in_executor(THREAD_POOL, pfunc)

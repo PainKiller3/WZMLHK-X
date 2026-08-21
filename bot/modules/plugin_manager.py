@@ -307,7 +307,7 @@ async def edit_plugins_menu(client: Client, query):
         await query.answer("Error occurred", show_alert=True)
 
 
-def register_plugin_commands():
+async def register_plugin_commands():
     from ..core.handlers import TgClient
     from ..helper.telegram_helper.bot_commands import BotCommands
 

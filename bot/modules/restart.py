@@ -228,6 +228,7 @@ async def confirm_restart(_, query):
             if scheduler.running:
                 scheduler.shutdown(wait=False)
 
+            await _cancel_running_tasks()
             await mega_cleanup()
 
             sabnzbd_task = None
@@ -311,6 +312,44 @@ async def confirm_restart(_, query):
             osexecl(executable, executable, "-m", "bot")
     else:
         await delete_message(message, reply_to)
+
+
+async def _cancel_running_tasks():
+    """Cancel in-flight application tasks before the Pyrogram clients are stopped.
+
+    Stopping the clients while download/upload coroutines are still running
+    makes pyrogram auto-restart its sessions against a closed in-memory
+    storage, which crashes with ``'NoneType' object has no attribute
+    'to_bytes'`` (and ``FileNotFoundError`` on already-cleaned ``.temp`` files)
+    and spams crash reports on every restart. Cancelling the app-level tasks
+    first lets them unwind cleanly while the clients are still alive. Pyrogram
+    internals (session/dispatcher workers) are left untouched so that the
+    clients can still be stopped gracefully afterwards.
+    """
+    import asyncio
+    from os import path as ospath
+
+    app_root = ospath.dirname(ospath.dirname(ospath.dirname(ospath.abspath(__file__))))
+    current = asyncio.current_task()
+    cancelled = 0
+    for task in asyncio.all_tasks():
+        if task is current:
+            continue
+        coro = task.get_coro()
+        filename = ""
+        if coro is not None and getattr(coro, "cr_code", None) is not None:
+            filename = coro.cr_code.co_filename or ""
+        if not filename or not filename.startswith(app_root):
+            continue
+        try:
+            task.cancel()
+            cancelled += 1
+        except Exception:
+            pass
+    if cancelled:
+        LOGGER.info(f"Cancelled {cancelled} in-flight task(s) before restart")
+        # Give the loop a chance to unwind the cancelled tasks before teardown.
+        await sleep(1)
 
 
 async def _runtime_reload():
