@@ -27,9 +27,10 @@ from pyrogram.types import (
     ReplyParameters,
 )
 
+from .... import intervals
 from ....core.config_manager import Config
 from ....core.tg_client import TgClient
-from ...ext_utils.bot_utils import sync_to_async
+from ...ext_utils.bot_utils import is_restart_interruption_error, sync_to_async
 from ...ext_utils.files_utils import get_base_name, is_archive
 from ...ext_utils.status_utils import get_readable_file_size, get_readable_time
 
@@ -443,6 +444,10 @@ class TelegramUploader:
         except StopTransmission:
             return None
         except Exception as err:
+            if is_restart_interruption_error(err) and intervals["stopAll"]:
+                # Client session was torn down while the app is restarting;
+                # the upload can't proceed and there is nobody to notify.
+                return None
             LOGGER.error(f"{err}. Path: {f_path}", exc_info=True)
             self._error = str(err)
             self._corrupted += 1
@@ -634,6 +639,10 @@ class TelegramUploader:
         except StopTransmission:
             raise
         except Exception as err:
+            if is_restart_interruption_error(err) and intervals["stopAll"]:
+                # Client session was torn down while the app is restarting;
+                # treat it like a transmission stop so the task unwinds quietly.
+                raise StopTransmission
             err_type = "RPCError: " if isinstance(err, RPCError) else ""
             LOGGER.error(f"{err_type}{err}. Path: {o_path}", exc_info=True)
             raise err

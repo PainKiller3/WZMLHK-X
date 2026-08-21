@@ -17,7 +17,7 @@ from time import localtime
 
 from pytz import timezone
 
-from . import LOGGER, bot_loop
+from . import LOGGER, bot_loop, intervals
 
 for _h in getLogger().handlers:
     if isinstance(_h, FileHandler):
@@ -27,6 +27,7 @@ for _h in getLogger().handlers:
             pass
         break
 from .core.tg_client import TgClient
+from .helper.ext_utils.bot_utils import is_restart_interruption_error
 from .helper.ext_utils.crash_reporter import (
     send_unhandled_exception,
     send_async_exception,
@@ -131,6 +132,12 @@ def _handle_asyncio_exception(loop, context):
         if "unknown constructor" in msg_lower or "server sent an unknown" in msg_lower:
             LOGGER.warning(f"Pyrogram schema mismatch (tg side): {msg}")
             return
+    if intervals["stopAll"] or (exc and is_restart_interruption_error(exc)):
+        # App is restarting/shutting down; exceptions from in-flight tasks
+        # unwinding after the clients were stopped are expected noise.
+        LOGGER.warning(f"Suppressed exception during shutdown: {exc}")
+        loop.default_exception_handler(context)
+        return
     send_async_exception(context)
     loop.default_exception_handler(context)
 
@@ -166,7 +173,10 @@ from .modules.plugin_manager import register_plugin_commands
 
 plugin_manager = get_plugin_manager()
 plugin_manager.bot = TgClient.bot
-register_plugin_commands()
+# add_handler schedules the registration as a background task and requires a
+# running event loop; without one the coroutine leaks and Python warns
+# "coroutine 'Dispatcher.add_handler.<locals>.fn' was never awaited".
+bot_loop.run_until_complete(register_plugin_commands())
 
 from pyrogram.filters import regex
 from pyrogram.handlers import CallbackQueryHandler
@@ -181,6 +191,15 @@ from .helper.telegram_helper.message_utils import (
 )
 
 
+async def add_session_restart_handler():
+    TgClient.bot.add_handler(
+        CallbackQueryHandler(
+            restart_sessions_confirm,
+            filters=regex("^sessionrestart") & CustomFilters.sudo,
+        )
+    )
+
+
 @new_task
 async def restart_sessions_confirm(_, query):
     data = query.data.split()
@@ -191,23 +210,14 @@ async def restart_sessions_confirm(_, query):
         await delete_message(message)
         await TgClient.reload()
         await add_handlers()
-        TgClient.bot.add_handler(
-            CallbackQueryHandler(
-                restart_sessions_confirm,
-                filters=regex("^sessionrestart") & CustomFilters.sudo,
-            )
-        )
+        await add_session_restart_handler()
         await edit_message(restart_message, "Session(s) Restarted Successfully!")
     else:
         await delete_message(message)
 
 
-TgClient.bot.add_handler(
-    CallbackQueryHandler(
-        restart_sessions_confirm,
-        filters=regex("^sessionrestart") & CustomFilters.sudo,
-    )
-)
+# Must run inside the event loop, see add_session_restart_handler().
+bot_loop.run_until_complete(add_session_restart_handler())
 
 from .helper.ext_utils.bot_utils import derive_service_password
 
