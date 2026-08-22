@@ -12,7 +12,7 @@ from traceback import format_exception
 from niquests import AsyncSession
 from pytz import timezone as tz_lookup
 
-from bot import LOGGER, bot_loop
+from bot import LOGGER, bot_loop, intervals
 from bot.core.config_manager import Config
 from bot.helper.ext_utils.bot_utils import git_info
 from bot.version import get_version
@@ -48,6 +48,10 @@ class _ErrorTriggerHandler(Handler):
         if _sending_report or record.levelno < ERROR:
             return
         if not Config.ENABLE_TELEMETRY:
+            return
+        if intervals["stopAll"]:
+            # App is restarting/shutting down: errors raised by in-flight
+            # tasks unwinding after the clients were stopped are expected.
             return
         exc_type = record.exc_info[0] if record.exc_info else None
         key = (exc_type.__name__ if exc_type else "no_exc", record.name)
@@ -91,10 +95,18 @@ def _make_payload(exc_type, exc_value, exc_traceback):
     }
 
 
+def _reporting_disabled():
+    # App is restarting/shutting down: errors raised by in-flight tasks
+    # unwinding after the clients were stopped are expected noise.
+    return bool(intervals["stopAll"])
+
+
 def send_unhandled_exception(exc_type, exc_value, exc_traceback):
     tb = "".join(format_exception(exc_type, exc_value, exc_traceback))
     print(tb, file=stderr)
     if not Config.ENABLE_TELEMETRY:
+        return
+    if _reporting_disabled():
         return
     payload = _make_payload(exc_type, exc_value, exc_traceback)
     bot_loop.create_task(_post_report(payload))
@@ -108,6 +120,8 @@ def send_async_exception(context):
     if not Config.ENABLE_TELEMETRY:
         return
     if not exc:
+        return
+    if _reporting_disabled():
         return
     payload = _make_payload(type(exc), exc, exc.__traceback__)
     message = context.get("message", "")

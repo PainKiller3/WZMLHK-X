@@ -12,11 +12,13 @@ except ImportError:
 
 from .... import (
     LOGGER,
+    intervals,
     task_dict,
     task_dict_lock,
 )
 from ....core.tg_client import TgClient
 from ....core.config_manager import Config
+from ...ext_utils.bot_utils import is_restart_interruption_error
 from ...ext_utils.task_manager import check_running_tasks, stop_duplicate_check
 from ...mirror_leech_utils.status_utils.queue_status import QueueStatus
 from ...mirror_leech_utils.status_utils.telegram_status import TelegramStatus
@@ -143,6 +145,14 @@ class TelegramDownloadHelper:
             await self._download(message, path)
             return
         except Exception as e:
+            if (
+                is_restart_interruption_error(e)
+                and (self._listener.is_cancelled or intervals["stopAll"])
+            ):
+                # Client session was torn down while the app is restarting or
+                # the .temp file was already cleaned up after a user cancel.
+                # The task was already reported as stopped; nothing to do.
+                return
             LOGGER.error(str(e), exc_info=True)
             await self._on_download_error(str(e))
             return

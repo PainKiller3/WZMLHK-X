@@ -12,9 +12,10 @@ except ImportError:
 from os import path as ospath
 from aiofiles.os import path as aiopath, remove
 
-from ... import LOGGER
+from ... import LOGGER, intervals
 from ...core.config_manager import Config
 from ...core.tg_client import TgClient
+from .bot_utils import is_restart_interruption_error
 from ..telegram_helper.tg_transfer import HypertgTransfer
 from ..ext_utils.media_utils import (
     get_audio_thumbnail,
@@ -168,6 +169,9 @@ class HypertgUpload(HypertgTransfer):
             LOGGER.warning(f"HypertgUL cancelled {self._up_file}")
             raise
         except Exception as e:
+            if is_restart_interruption_error(e) and intervals["stopAll"]:
+                # Session torn down while the app is restarting; unwind quietly.
+                raise
             LOGGER.error(f"HypertgUL fail {self._up_file}: {type(e).__name__}: {e}")
             raise
         finally:
