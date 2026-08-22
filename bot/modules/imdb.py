@@ -1,15 +1,11 @@
 from contextlib import suppress
+from pyrogram import raw
 from pyrogram.enums import ButtonStyle
 from re import IGNORECASE, findall, search
 
 from imdbio import search_title, get_movie, get_akas, get_media_gallery
 from pycountry import countries as conn
-from pyrogram.errors import (
-    MediaEmpty,
-    PhotoInvalidDimensions,
-    WebpageMediaEmpty,
-    RPCError,
-)
+from pyrogram.errors import MediaEmpty, PhotoInvalidDimensions, WebpageMediaEmpty
 
 from ..core.tg_client import TgClient
 from ..core.config_manager import Config
@@ -441,7 +437,6 @@ async def imdb_callback(_, query):
             tagline_parts.append(f"<b>{certificate}</b>")
         tagline = " | ".join(tagline_parts)
 
-        gallery_html = ""
         all_images = [poster] if poster else []
         seen = set()
         if poster:
@@ -450,17 +445,12 @@ async def imdb_callback(_, query):
             gallery = await sync_to_async(get_media_gallery, data[3], locale="en")
             if gallery and gallery.items:
                 for item in gallery.items[:5]:
-                    url = item.url
-                    if url and url not in seen:
-                        seen.add(url)
-                        all_images.append(url)
+                    img_url = item.url
+                    if img_url and img_url not in seen:
+                        seen.add(img_url)
+                        all_images.append(img_url)
         except Exception:
             pass
-        if len(all_images) == 1:
-            gallery_html = f'<img src="{all_images[0]}"/>\n'
-        elif len(all_images) > 1:
-            slides = "\n".join(f'<img src="{img}"/>' for img in all_images)
-            gallery_html = f"<tg-slideshow>\n{slides}\n</tg-slideshow>\n"
 
         prod_html = ""
         if production_companies:
@@ -559,7 +549,7 @@ async def imdb_callback(_, query):
 
         template = Config.IMDB_TEMPLATE
         if template:
-            cap = template.format(**{**imdb, **locals()})
+            cap = template.format(**imdb, **locals())
             if poster:
                 try:
                     await TgClient.bot.send_photo(
@@ -580,6 +570,35 @@ async def imdb_callback(_, query):
                     "https://telegra.ph/file/5af8d90a479b0d11df298.jpg",
                 )
         else:
+            peer = await TgClient.bot.resolve_peer(reply_to.chat.id)
+            rich_files = []
+            for i, img in enumerate(all_images):
+                with suppress(Exception):
+                    uploaded = await TgClient.bot.invoke(
+                        raw.functions.messages.UploadMedia(
+                            peer=peer,
+                            media=raw.types.InputMediaPhotoExternal(url=img),
+                        )
+                    )
+                    rich_files.append(
+                        raw.types.InputRichFilePhoto(
+                            id=f"img{i}",
+                            photo=raw.types.InputPhoto(
+                                id=uploaded.photo.id,
+                                access_hash=uploaded.photo.access_hash,
+                                file_reference=uploaded.photo.file_reference,
+                            ),
+                        )
+                    )
+            gallery_html = ""
+            if len(rich_files) == 1:
+                gallery_html = f'<img src="tg://photo?id={rich_files[0].id}"/>\n'
+            elif len(rich_files) > 1:
+                slides = "\n".join(
+                    f'<img src="tg://photo?id={f.id}"/>' for f in rich_files
+                )
+                gallery_html = f"<tg-slideshow>\n{slides}\n</tg-slideshow>\n"
+
             rich_html = f"""<h1>{title}  ({year_text})</h1>
 <i>{aka}</i>
 
@@ -607,35 +626,19 @@ async def imdb_callback(_, query):
 
 <a href="{url}">Open on IMDb</a>"""
 
-            try:
-                await TgClient.bot.send_message(
-                    reply_to.chat.id,
-                    rich_text=rich_html,
-                    reply_to_message_id=reply_to.id,
-                    reply_markup=buttons,
+            await TgClient.bot.invoke(
+                raw.functions.messages.SendMessage(
+                    peer=peer,
+                    message="",
+                    random_id=TgClient.bot.rnd_id(),
+                    reply_to=raw.types.InputReplyToMessage(reply_to_msg_id=reply_to.id),
+                    reply_markup=await buttons.write(TgClient.bot) if buttons else None,
+                    rich_message=raw.types.InputRichMessageHTML(
+                        html=rich_html,
+                        files=rich_files or None,
+                    ),
                 )
-            except RPCError:
-                if gallery_html:
-                    rich_html_no_gallery = rich_html.replace(gallery_html, "")
-                    try:
-                        await TgClient.bot.send_message(
-                            reply_to.chat.id,
-                            rich_text=rich_html_no_gallery,
-                            reply_to_message_id=reply_to.id,
-                            reply_markup=buttons,
-                        )
-                    except RPCError:
-                        await send_message(
-                            reply_to,
-                            f"<b>{title} ({year_text})</b>\n\n{plot}",
-                            buttons,
-                        )
-                else:
-                    await send_message(
-                        reply_to,
-                        f"<b>{title} ({year_text})</b>\n\n{plot}",
-                        buttons,
-                    )
+            )
         await delete_message(message)
     else:
         await query.answer()
