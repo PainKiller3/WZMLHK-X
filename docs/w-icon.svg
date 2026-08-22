@@ -7,14 +7,13 @@
 
   <defs>
 
-    <!-- Background -->
     <radialGradient id="bg"
                     cx="50%"
                     cy="40%"
                     r="75%">
-      <stop offset="0" stop-color="#211342"/>
-      <stop offset="0.45" stop-color="#100820"/>
-      <stop offset="1" stop-color="#030208"/>
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.55" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#F2F4F8"/>
     </radialGradient>
 
     <!-- Main Purple / Cyan Gradient -->
@@ -287,8 +286,7 @@
         font-family="Exo 2, Arial, sans-serif"
         font-size="8"
         font-weight="800"
-        letter-spacing=""
-        fill="#F5F2FF">
+        fill="#111111">
     TELLY MIRROR
   </text>
 
