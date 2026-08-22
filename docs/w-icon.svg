@@ -1,18 +1,312 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 100 100" role="img" aria-label="W logo">
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="512"
+     height="512"
+     viewBox="0 0 100 100"
+     role="img"
+     aria-label="TELLY MIRROR Wave Signal Logo">
+
   <defs>
-    <linearGradient id="face" x1="50" y1="0" x2="50" y2="100" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FAF8FF"></stop>
-      <stop offset="0.46" stop-color="#F4F2FE"></stop>
-      <stop offset="1" stop-color="#EEEAFB"></stop>
+
+    <!-- Background -->
+    <radialGradient id="bg"
+                    cx="50%"
+                    cy="40%"
+                    r="75%">
+      <stop offset="0" stop-color="#211342"/>
+      <stop offset="0.45" stop-color="#100820"/>
+      <stop offset="1" stop-color="#030208"/>
+    </radialGradient>
+
+    <!-- Main Purple / Cyan Gradient -->
+    <linearGradient id="mirrorWave"
+                    x1="12" y1="78"
+                    x2="88" y2="22"
+                    gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#321078"/>
+      <stop offset="0.28" stop-color="#5520C2"/>
+      <stop offset="0.52" stop-color="#7845EA"/>
+      <stop offset="0.72" stop-color="#9B7AFF"/>
+      <stop offset="0.88" stop-color="#62D8FF"/>
+      <stop offset="1" stop-color="#C5F6FF"/>
     </linearGradient>
-<linearGradient id="wg" gradientUnits="userSpaceOnUse" x1="15" y1="70" x2="86" y2="30">
-      <stop offset="0" stop-color="#2A1178"></stop>
-      <stop offset="0.5" stop-color="#33188C"></stop>
-      <stop offset="0.76" stop-color="#5236CB"></stop>
-      <stop offset="0.92" stop-color="#907DFB"></stop>
-      <stop offset="1" stop-color="#B9A9FD"></stop>
+
+    <!-- Mirror Gradient -->
+    <linearGradient id="reflection"
+                    x1="0" y1="0"
+                    x2="0" y2="1">
+      <stop offset="0" stop-color="#BBA8FF" stop-opacity="0.55"/>
+      <stop offset="0.45" stop-color="#7650E8" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#4D27A8" stop-opacity="0"/>
     </linearGradient>
+
+    <!-- Glow -->
+    <filter id="glow"
+            x="-100%"
+            y="-100%"
+            width="300%"
+            height="300%">
+
+      <feGaussianBlur
+        stdDeviation="2.5"
+        result="blur"/>
+
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+
+    </filter>
+
+    <!-- Shadow -->
+    <filter id="shadow"
+            x="-50%"
+            y="-50%"
+            width="200%"
+            height="200%">
+
+      <feDropShadow
+        dx="0"
+        dy="2.5"
+        stdDeviation="1.8"
+        flood-color="#000000"
+        flood-opacity="0.8"/>
+
+    </filter>
+
+    <!-- Reflection Blur -->
+    <filter id="reflectionBlur"
+            x="-30%"
+            y="-30%"
+            width="160%"
+            height="180%">
+
+      <feGaussianBlur stdDeviation="0.8"/>
+
+    </filter>
+
   </defs>
-  <rect x="0" y="0" width="100" height="100" rx="22.5" ry="22.5" fill="url(#face)"></rect>
-  <path d="M 19.4 42.6 C 20.0 55.4 22.4 66.4 29.8 68.3 C 37.0 70.1 43.2 61.0 45.2 48.8 C 47.5 61.0 53.4 66.6 61.0 68.3 C 68.6 70.0 75.6 55.5 80.6 35.3" fill="none" stroke="url(#wg)" stroke-width="11.1" stroke-linecap="round" stroke-linejoin="round"></path>
+
+
+  <!-- ================================================= -->
+  <!-- BACKGROUND -->
+  <!-- ================================================= -->
+
+  <rect x="0"
+        y="0"
+        width="100"
+        height="100"
+        rx="22.5"
+        fill="url(#bg)"/>
+
+
+  <!-- Premium Border -->
+
+  <rect x="6"
+        y="6"
+        width="88"
+        height="88"
+        rx="20"
+        fill="none"
+        stroke="#8664F0"
+        stroke-width="0.45"
+        opacity="0.22"/>
+
+
+  <!-- Ambient Glow -->
+
+  <ellipse cx="50"
+           cy="43"
+           rx="34"
+           ry="20"
+           fill="#6D38E8"
+           opacity="0.12"
+           filter="url(#glow)"/>
+
+
+  <!-- ================================================= -->
+  <!-- MAIN TELLY SIGNAL -->
+  <!-- ================================================= -->
+
+  <!-- Glow Layer -->
+
+  <path d="
+      M16 30
+      H30
+
+      M23 30
+      V59
+
+      C23 66 27 69 32 64
+      L38 57
+
+      L43 66
+
+      C45 70 49 70 51 65
+      L57 51
+
+      L63 66
+
+      C65 70 69 70 72 65
+      L78 51
+
+      L84 63
+      L89 54
+  "
+  fill="none"
+  stroke="url(#mirrorWave)"
+  stroke-width="7"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  opacity="0.45"
+  filter="url(#glow)"/>
+
+
+  <!-- Main Wave -->
+
+  <path d="
+      M16 30
+      H30
+
+      M23 30
+      V59
+
+      C23 66 27 69 32 64
+      L38 57
+
+      L43 66
+
+      C45 70 49 70 51 65
+      L57 51
+
+      L63 66
+
+      C65 70 69 70 72 65
+      L78 51
+
+      L84 63
+      L89 54
+  "
+  fill="none"
+  stroke="url(#mirrorWave)"
+  stroke-width="3.8"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  filter="url(#shadow)"/>
+
+
+  <!-- ================================================= -->
+  <!-- MIRROR REFLECTION -->
+  <!-- ================================================= -->
+
+  <g opacity="0.28"
+     transform="translate(0,123) scale(1,-1)"
+     filter="url(#reflectionBlur)">
+
+    <path d="
+        M16 30
+        H30
+
+        M23 30
+        V59
+
+        C23 66 27 69 32 64
+        L38 57
+
+        L43 66
+
+        C45 70 49 70 51 65
+        L57 51
+
+        L63 66
+
+        C65 70 69 70 72 65
+        L78 51
+
+        L84 63
+        L89 54
+    "
+    fill="none"
+    stroke="url(#reflection)"
+    stroke-width="3.8"
+    stroke-linecap="round"
+    stroke-linejoin="round"/>
+
+  </g>
+
+
+  <!-- Mirror Divider -->
+
+  <path d="M20 72 H80"
+        fill="none"
+        stroke="#B9A5FF"
+        stroke-width="0.45"
+        stroke-dasharray="1.5 2"
+        opacity="0.28"/>
+
+
+  <!-- ================================================= -->
+  <!-- SIGNAL NODES -->
+  <!-- ================================================= -->
+
+  <circle cx="16"
+          cy="30"
+          r="1.35"
+          fill="#BCA9FF"
+          filter="url(#glow)"/>
+
+  <circle cx="38"
+          cy="57"
+          r="1"
+          fill="#A88AFF"/>
+
+  <circle cx="57"
+          cy="51"
+          r="1.15"
+          fill="#C7B8FF"
+          filter="url(#glow)"/>
+
+  <circle cx="78"
+          cy="51"
+          r="1"
+          fill="#86DFFF"/>
+
+  <circle cx="89"
+          cy="54"
+          r="1.4"
+          fill="#C5F6FF"
+          filter="url(#glow)"/>
+
+
+  <!-- ================================================= -->
+  <!-- TELLY MIRROR -->
+  <!-- ================================================= -->
+
+  <text x="50"
+        y="82"
+        text-anchor="middle"
+        font-family="Exo 2, Arial, sans-serif"
+        font-size="8"
+        font-weight="800"
+        letter-spacing=""
+        fill="#F5F2FF">
+    TELLY MIRROR
+  </text>
+
+  <!-- Brand Accent -->
+
+  <path d="M31 88 H69"
+        fill="none"
+        stroke="url(#mirrorWave)"
+        stroke-width="0.8"
+        stroke-linecap="round"/>
+
+
+  <!-- Center Reflection Point -->
+
+  <circle cx="50"
+          cy="88"
+          r="0.9"
+          fill="#C3B2FF"
+          filter="url(#glow)"/>
+
 </svg>
