@@ -4,7 +4,7 @@ from pyrogram.enums import ButtonStyle
 from re import findall
 from time import time
 
-from psutil import cpu_percent, disk_usage, virtual_memory
+from psutil import cpu_percent, disk_usage, virtual_memory, net_io_counters
 
 from ... import (
     DOWNLOAD_DIR,
@@ -209,6 +209,15 @@ def get_progress_bar_string(pct):
     return f"[{p_str}]"
 
 
+def get_bandwidth_string():
+    net_io = net_io_counters()
+    total_bandwidth = net_io.bytes_sent + net_io.bytes_recv
+    if Config.MONTHLY_BANDWIDTH:
+        mbw = Config.MONTHLY_BANDWIDTH * 1024 * 1024 * 1024
+        return f"{get_readable_file_size(total_bandwidth)} / {get_readable_file_size(mbw)} [{round((total_bandwidth / mbw) * 100, 1)}%]"
+    return get_readable_file_size(total_bandwidth)
+
+
 async def get_readable_message(sid, is_user, page_no=1, status="All", page_step=1):
     msg = ""
     button = None
@@ -329,5 +338,6 @@ async def get_readable_message(sid, is_user, page_no=1, status="All", page_step=
     )
     button = buttons.build_menu(8)
     msg += f"\n┟ <b>CPU</b> → {cpu_percent()}% | <b>F</b> → {get_readable_file_size(disk_usage(DOWNLOAD_DIR).free)} [{round(100 - disk_usage(DOWNLOAD_DIR).percent, 1)}%]"
-    msg += f"\n┖ <b>RAM</b> → {virtual_memory().percent}% | <b>UP</b> → {get_readable_time(time() - bot_start_time)}"
+    msg += f"\n┠ <b>RAM</b> → {virtual_memory().percent}% | <b>UP</b> → {get_readable_time(time() - bot_start_time)}"
+    msg += f"\n┖ <b>BW</b> → {get_bandwidth_string()}"
     return msg, button
