@@ -78,6 +78,7 @@ LEECH_LIMIT = 0
 EXTRACT_LIMIT = 0
 ARCHIVE_LIMIT = 0
 STORAGE_LIMIT = 0
+MONTHLY_BANDWIDTH = 0
 
 # Percentage of currently free storage available to staged torrent batches (1-100).
 STAGED_TORRENT_STORAGE_PERCENT = 50

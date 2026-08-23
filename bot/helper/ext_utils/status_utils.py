@@ -4,11 +4,13 @@ from pyrogram.enums import ButtonStyle
 from re import findall
 from time import time
 
-from psutil import cpu_percent, disk_usage, virtual_memory
+from psutil import cpu_percent, disk_usage, virtual_memory, net_io_counters
 
 from ... import (
     DOWNLOAD_DIR,
+    LOGGER,
     bot_cache,
+    bot_loop,
     bot_start_time,
     status_dict,
     task_dict,
@@ -208,6 +210,58 @@ def get_progress_bar_string(pct):
     return f"[{p_str}]"
 
 
+bandwidth_alerts_sent = set()
+
+
+def _send_bandwidth_alert(level, used_bytes, total_bytes):
+    if level not in bandwidth_alerts_sent:
+        bandwidth_alerts_sent.add(level)
+        used_str = get_readable_file_size(used_bytes)
+        total_str = get_readable_file_size(total_bytes)
+        LOGGER.warning(
+            f"Monthly Bandwidth Alert: {level}% reached ({used_str} / {total_str})"
+        )
+
+        async def _alert():
+            if Config.OWNER_ID:
+                try:
+                    from ...core.tg_client import TgClient
+
+                    msg = (
+                        f"⚠️ <b>Monthly Bandwidth Alert!</b>\n"
+                        f"Server bandwidth usage has reached <b>{level}%</b> of monthly limit!\n"
+                        f"<b>Usage:</b> {used_str} / {total_str}"
+                    )
+                    await TgClient.bot.send_message(chat_id=Config.OWNER_ID, text=msg)
+                except Exception as e:
+                    LOGGER.error(f"Failed to send bandwidth alert to OWNER_ID: {e}")
+
+        try:
+            bot_loop.create_task(_alert())
+        except Exception:
+            pass
+
+
+def get_bandwidth_string():
+    net_io = net_io_counters()
+    total_bandwidth = net_io.bytes_sent + net_io.bytes_recv
+    if Config.MONTHLY_BANDWIDTH:
+        mbw = Config.MONTHLY_BANDWIDTH * 1024 * 1024 * 1024
+        pct = round((total_bandwidth / mbw) * 100, 1)
+        alert = ""
+        if pct >= 100:
+            alert = " 🚨 <b>(LIMIT EXCEEDED!)</b>"
+            _send_bandwidth_alert(100, total_bandwidth, mbw)
+        elif pct >= 90:
+            alert = " ⚠️ <b>(CRITICAL)</b>"
+            _send_bandwidth_alert(90, total_bandwidth, mbw)
+        elif pct >= 80:
+            alert = " ⚠️"
+            _send_bandwidth_alert(80, total_bandwidth, mbw)
+        return f"{get_readable_file_size(total_bandwidth)} / {get_readable_file_size(mbw)} [{pct}%]{alert}"
+    return get_readable_file_size(total_bandwidth)
+
+
 async def get_readable_message(sid, is_user, page_no=1, status="All", page_step=1):
     msg = ""
     button = None
@@ -328,5 +382,6 @@ async def get_readable_message(sid, is_user, page_no=1, status="All", page_step=
     )
     button = buttons.build_menu(8)
     msg += f"\n┟ <b>CPU</b> → {cpu_percent()}% | <b>F</b> → {get_readable_file_size(disk_usage(DOWNLOAD_DIR).free)} [{round(100 - disk_usage(DOWNLOAD_DIR).percent, 1)}%]"
-    msg += f"\n┖ <b>RAM</b> → {virtual_memory().percent}% | <b>UP</b> → {get_readable_time(time() - bot_start_time)}"
+    msg += f"\n┠ <b>RAM</b> → {virtual_memory().percent}% | <b>UP</b> → {get_readable_time(time() - bot_start_time)}"
+    msg += f"\n┖ <b>BW</b> → {get_bandwidth_string()}"
     return msg, button
