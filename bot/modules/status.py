@@ -20,6 +20,7 @@ from ..helper.ext_utils.bot_utils import new_task
 from ..helper.ext_utils.status_utils import (
     EngineStatus,
     MirrorStatus,
+    get_bandwidth_string,
     get_readable_file_size,
     get_readable_time,
     speed_string_to_bytes,
@@ -46,7 +47,8 @@ async def task_status(_, message):
 
 ⌬ <b><u>Bot Stats</u></b>
 ┟ <b>CPU</b> → {cpu_percent()}% | <b>F</b> → {free} [{round(100 - disk_usage(DOWNLOAD_DIR).percent, 1)}%]
-┖ <b>RAM</b> → {virtual_memory().percent}% | <b>UP</b> → {currentTime}
+┠ <b>RAM</b> → {virtual_memory().percent}% | <b>UP</b> → {currentTime}
+┖ <b>BW</b> → {get_bandwidth_string()}
 """
         reply_message = await send_message(message, msg)
         await auto_delete_message(message, reply_message)
