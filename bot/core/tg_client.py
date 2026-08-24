@@ -178,9 +178,7 @@ class TgClient:
             await gather(
                 *(
                     cls.start_sclient(no, b_token)
-                    for no, b_token in enumerate(
-                        Config.STREAM_TOKENS.split(), start=1
-                    )
+                    for no, b_token in enumerate(Config.STREAM_TOKENS.split(), start=1)
                 )
             )
 
