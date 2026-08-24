@@ -57,7 +57,7 @@
 | Area | Details |
 |---|---|
 | Runtime | Python Telegram bot + web UI |
-| Deployment | Docker & Docker Compose (buildx) |
+| Deployment | Docker & Docker Compose |
 | Required config | `BOT_TOKEN`, `TELEGRAM_API`, `TELEGRAM_HASH`, `OWNER_ID`, `DATABASE_URL` |
 | License | [LICENSE](LICENSE) |
 
@@ -99,7 +99,7 @@ Deploy with Docker and provide the required configuration values. The container 
    cd WZML-X
    cp config_sample.py config.py
    # Edit config.py with your values
-   docker buildx compose up -d
+   docker compose up -d --build
    ```
 
    The bot runs behind a Cloudflare quick tunnel by default. Check the tunnel URL:
@@ -113,7 +113,7 @@ Deploy with Docker and provide the required configuration values. The container 
    To stop:
 
    ```bash
-   docker buildx compose down
+   docker compose down
    ```
 </details>
 
@@ -126,7 +126,7 @@ Deploy with Docker and provide the required configuration values. The container 
    4. Start:
 
    ```bash
-   docker buildx compose up -d
+   docker compose up -d --build
    ```
 
    All traffic (including the cloudflared tunnel) routes through the VPN.
@@ -143,7 +143,7 @@ Deploy with Docker and provide the required configuration values. The container 
    4. Start:
 
    ```bash
-   docker buildx compose up -d
+   docker compose up -d --build
    ```
 
    Each bot gets its own cloudflared tunnel URL. Admin ports (qBittorrent, SABnzbd) are mapped to different host ports (`127.0.0.1:8091`, etc.).
