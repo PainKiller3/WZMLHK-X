@@ -242,9 +242,34 @@ def _send_bandwidth_alert(level, used_bytes, total_bytes):
             pass
 
 
-def get_bandwidth_string():
+_historical_bw = 0
+_last_raw_bw = 0
+
+
+async def init_bandwidth():
+    global _historical_bw, _last_raw_bw
+    from .db_handler import database
+
     net_io = net_io_counters()
-    total_bandwidth = net_io.bytes_sent + net_io.bytes_recv
+    _last_raw_bw = net_io.bytes_sent + net_io.bytes_recv
+    if Config.DATABASE_URL:
+        _historical_bw = await database.get_bandwidth()
+
+
+def get_bandwidth_string():
+    global _historical_bw, _last_raw_bw
+    net_io = net_io_counters()
+    raw_bw = net_io.bytes_sent + net_io.bytes_recv
+    if raw_bw < _last_raw_bw:
+        _historical_bw += _last_raw_bw
+    _last_raw_bw = raw_bw
+    total_bandwidth = _historical_bw + raw_bw
+
+    if Config.DATABASE_URL and bot_loop and bot_loop.is_running():
+        from .db_handler import database
+
+        bot_loop.create_task(database.update_bandwidth(total_bandwidth))
+
     if Config.MONTHLY_BANDWIDTH:
         mbw = Config.MONTHLY_BANDWIDTH * 1024 * 1024 * 1024
         pct = round((total_bandwidth / mbw) * 100, 1)

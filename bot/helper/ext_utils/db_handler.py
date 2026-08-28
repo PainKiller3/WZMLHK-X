@@ -441,5 +441,18 @@ class DbManager:
             return
         await self.db[name][_part()].drop()
 
+    async def get_bandwidth(self):
+        if self._return:
+            return 0
+        doc = await self.db.bandwidth[_part()].find_one({"_id": "total_bw"})
+        return doc.get("bytes", 0) if doc else 0
+
+    async def update_bandwidth(self, bytes_count):
+        if self._return:
+            return
+        await self.db.bandwidth[_part()].update_one(
+            {"_id": "total_bw"}, {"$set": {"bytes": bytes_count}}, upsert=True
+        )
+
 
 database = DbManager()

@@ -97,12 +97,17 @@ async def update_nzb_options():
 
 
 async def load_settings():
+    from ..helper.ext_utils.status_utils import init_bandwidth
+
     if not Config.DATABASE_URL:
+        await init_bandwidth()
         return
     for p in ["thumbnails", "tokens", "rclone"]:
         if await aiopath.exists(p):
             await rmtree(p, ignore_errors=True)
     await database.connect()
+    await init_bandwidth()
+
     if database.db is not None:
         if TgClient.PARTITION:
             PART = str(TgClient.PARTITION)
