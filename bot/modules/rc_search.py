@@ -92,6 +92,7 @@ def refresh_global_index(force=False):
                 "rclone.conf",  # Use local rclone.conf
                 "lsjson",
                 RCLONE_REMOTE,
+                "--fast-list",
                 "--recursive",
             ],
             description="Refreshing global index",
