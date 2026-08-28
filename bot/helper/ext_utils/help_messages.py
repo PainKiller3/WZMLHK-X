@@ -448,6 +448,7 @@ def get_bot_commands():
         "Memory": "[SUDO] Memory usage, caches and an allocation profiler",
         "Restart": "[SUDO] Reboot bot",
         "RestartSessions": "[SUDO] Reboot User Sessions",
+        "RestartAria2": "[SUDO] Restart Aria2c Service",
     }
 
     commands = static_commands.copy()

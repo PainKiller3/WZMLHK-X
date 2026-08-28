@@ -1,4 +1,10 @@
-from asyncio import TimeoutError, create_subprocess_exec, gather, sleep
+from asyncio import (
+    TimeoutError,
+    create_subprocess_exec,
+    create_subprocess_shell,
+    gather,
+    sleep,
+)
 from contextlib import suppress
 from inspect import iscoroutinefunction
 from pathlib import Path
@@ -16,7 +22,7 @@ from tenacity import (
 )
 
 from .. import LOGGER, aria2_options
-from ..helper.ext_utils.bot_utils import derive_service_password
+from ..helper.ext_utils.bot_utils import derive_service_password, cmd_exec
 from .config_manager import BinConfig, Config
 
 
@@ -227,6 +233,38 @@ class TorrentManager:
         if key not in ["checksum", "index-out", "out", "pause", "select-file"]:
             await cls.aria2.changeGlobalOption({key: value})
             aria2_options[key] = value
+
+    @classmethod
+    async def restart_aria2(cls):
+        LOGGER.info("(Re)starting Aria2c...")
+        if cls.aria2:
+            with suppress(Exception):
+                await cls.aria2.close()
+            cls.aria2 = None
+
+        await cmd_exec(["pkill", "-9", "-f", BinConfig.ARIA2_NAME])
+        await sleep(1)
+
+        from .. import service_cores
+
+        cmd = f'chmod +x setpkgs.sh && ./setpkgs.sh {BinConfig.ARIA2_NAME} "{service_cores}" {Config.CPU_LIMIT}'
+        await (await create_subprocess_shell(cmd)).wait()
+        await sleep(2)
+
+        try:
+            cls.aria2 = await _connect_aria2()
+            from ..helper.listeners.aria2_listener import add_aria2_callbacks
+
+            add_aria2_callbacks()
+
+            from .startup import update_aria2_options
+
+            await update_aria2_options()
+            LOGGER.info("Aria2c (re)started successfully")
+            return True
+        except Exception as e:
+            LOGGER.error(f"Failed to (re)start Aria2c: {e}")
+            return False
 
 
 def aria2_name(download_info):

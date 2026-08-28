@@ -28,6 +28,7 @@ from ..helper.telegram_helper import button_build
 from ..helper.telegram_helper.message_utils import (
     delete_message,
     send_message,
+    edit_message,
 )
 
 
@@ -56,6 +57,35 @@ async def restart_sessions(_, message):
         "<i>Are you really sure you want to restart the session(s) ?!</i>",
         button,
     )
+
+
+@new_task
+async def restart_aria2(_, message):
+    buttons = button_build.ButtonMaker()
+    buttons.data_button("Yes!", "aria2restart confirm", style=ButtonStyle.SUCCESS)
+    buttons.data_button("No!", "aria2restart cancel", style=ButtonStyle.DANGER)
+    button = buttons.build_menu(2)
+    await send_message(
+        message,
+        "<i>Are you really sure you want to restart Aria2c ?!</i>",
+        button,
+    )
+
+
+@new_task
+async def confirm_restart_aria2(_, query):
+    await query.answer()
+    data = query.data.split()
+    message = query.message
+    reply_to = message.reply_to_message
+    await delete_message(message)
+    if data[1] == "confirm":
+        restart_message = await send_message(reply_to, "<i>Restarting Aria2c...</i>")
+        success = await TorrentManager.restart_aria2()
+        if success:
+            await edit_message(restart_message, "<b>Aria2c Restarted Successfully!</b>")
+        else:
+            await edit_message(restart_message, "<b>Failed to restart Aria2c!</b>")
 
 
 def _restart_header(now, is_restart_chat=False):

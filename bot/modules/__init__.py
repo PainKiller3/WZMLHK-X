@@ -51,6 +51,8 @@ from .restart import (
     restart_notification,
     confirm_restart,
     restart_sessions,
+    restart_aria2,
+    confirm_restart_aria2,
 )
 from .rss import get_rss_menu, rss_listener
 from .search import torrent_search, torrent_search_update, initiate_search_tools
@@ -115,6 +117,8 @@ __all__ = [
     "restart_notification",
     "confirm_restart",
     "restart_sessions",
+    "restart_aria2",
+    "confirm_restart_aria2",
     "get_rss_menu",
     "rss_listener",
     "torrent_search",

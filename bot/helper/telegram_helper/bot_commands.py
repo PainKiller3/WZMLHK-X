@@ -40,6 +40,7 @@ class BotCommands:
         "Ping": "ping",
         "Restart": ["restart", "r", "restartall"],
         "RestartSessions": ["restartses", "rses"],
+        "RestartAria2": ["restartaria2", "ra2"],
         "Broadcast": ["broadcast", "bc"],
         "Stats": ["stats", "st"],
         "Help": ["help", "h"],
