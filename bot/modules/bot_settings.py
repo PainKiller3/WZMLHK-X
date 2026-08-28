@@ -408,6 +408,7 @@ async def get_buttons(key=None, edit_type=None, edit_mode=False):
     if key is None:
         buttons.data_button("Config Variables", "botset var")
         buttons.data_button("Module Settings", "botset setonoff")
+        buttons.data_button("Bandwidth Manager", "botset bwmgr")
         buttons.data_button("Private Files", "botset private open")
         buttons.data_button("Qbit Settings", "botset qbit")
         buttons.data_button("Aria2c Settings", "botset aria")
@@ -415,6 +416,7 @@ async def get_buttons(key=None, edit_type=None, edit_mode=False):
         buttons.data_button("JDownloader Sync", "botset syncjd")
         buttons.data_button("Close", "botset close", style=ButtonStyle.DANGER)
         msg = "Bot Settings:"
+
     elif edit_type is not None:
         if edit_type == "ariavar":
             buttons.data_button("Back", "botset aria", style=ButtonStyle.PRIMARY)
@@ -504,6 +506,26 @@ async def get_buttons(key=None, edit_type=None, edit_mode=False):
                 f"{int(x / 10) + 1}", f"botset start var {x}", position="footer"
             )
         msg = f"⌬ <b><u>Config Variables</u></b> | <b><u>Page: {int(start / 10) + 1}</b></u>"
+    elif key == "bwmgr":
+        from ..helper.ext_utils.status_utils import get_bandwidth_string
+
+        bw_str = get_bandwidth_string()
+        if not edit_mode:
+            buttons.data_button(
+                "Set Bandwidth Base", "botset editbw", style=ButtonStyle.PRIMARY
+            )
+            buttons.data_button(
+                "Reset Bandwidth (0)", "botset resetbw", style=ButtonStyle.DANGER
+            )
+        else:
+            buttons.data_button("Stop Edit", "botset bwmgr")
+        buttons.data_button("Back", "botset back", position="footer")
+        buttons.data_button(
+            "Close", "botset close", position="footer", style=ButtonStyle.DANGER
+        )
+        msg = f"⌬ <b><u>Bandwidth Manager</u></b>\n\n<b>Current Bandwidth Usage:</b> <code>{bw_str}</code>\n\nClick <b>Set Bandwidth Base</b> to set starting usage (e.g. <code>150GB</code> or <code>1.5TB</code> from <code>vnstat</code>).\nClick <b>Reset Bandwidth</b> to reset tracked count to 0."
+        if edit_mode:
+            msg += "\n\n<i>Send a bandwidth size (e.g. 100GB, 1.2TB, 500MB).</i>\n┖ <b>Time Left :</b> <code>60 sec</code>"
     elif key == "setonoff":
         buttons.data_button("On/Off Settings", "botset settoggle")
         buttons.data_button("Limit Settings", "botset setlimit")
@@ -1373,7 +1395,29 @@ async def event_handler(client, query, pfunc, rfunc, document=False):
 
 
 @new_task
+async def set_bandwidth_value(_, message, pre_message):
+    handler_dict[message.chat.id] = False
+    text = message.text.strip()
+    from ..helper.ext_utils.status_utils import set_bandwidth, speed_string_to_bytes
+
+    bytes_val = speed_string_to_bytes(text)
+    if bytes_val > 0 or text == "0":
+        await set_bandwidth(bytes_val)
+        await send_message(
+            message, f"Bandwidth base set successfully to <code>{text}</code>!"
+        )
+    else:
+        await send_message(
+            message,
+            "Invalid size string! Example: <code>100GB</code>, <code>1.5TB</code>, <code>500MB</code>",
+        )
+    await delete_message(message)
+    await update_buttons(pre_message, "bwmgr")
+
+
+@new_task
 async def edit_bot_settings(client, query):
+
     data = query.data.split()
     message = query.message
     handler_dict[message.chat.id] = False
@@ -1408,11 +1452,25 @@ async def edit_bot_settings(client, query):
         "setonoff",
         "settoggle",
         "setlimit",
+        "bwmgr",
     ] or data[1].startswith("nzbser"):
         if data[1] in ("nzbserver", "setlimit"):
             globals()["start"] = 0
         await query.answer()
         await update_buttons(message, data[1])
+    elif data[1] == "resetbw":
+        await query.answer("Bandwidth usage reset to 0!", show_alert=True)
+        from ..helper.ext_utils.status_utils import set_bandwidth
+
+        await set_bandwidth(0)
+        await update_buttons(message, "bwmgr")
+    elif data[1] == "editbw":
+        await query.answer()
+        await update_buttons(message, "bwmgr", edit_mode=True)
+        pfunc = partial(set_bandwidth_value, pre_message=message)
+        rfunc = partial(update_buttons, message, "bwmgr")
+        await event_handler(client, query, pfunc, rfunc)
+
     elif data[1] == "resetvar":
         await query.answer()
         value = DEFAULT_CONFIG.get(data[2], "")
