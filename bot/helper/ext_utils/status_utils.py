@@ -256,6 +256,17 @@ async def init_bandwidth():
         _historical_bw = await database.get_bandwidth()
 
 
+async def set_bandwidth(bytes_count):
+    global _historical_bw, _last_raw_bw
+    from .db_handler import database
+
+    net_io = net_io_counters()
+    _last_raw_bw = net_io.bytes_sent + net_io.bytes_recv
+    _historical_bw = bytes_count
+    if Config.DATABASE_URL:
+        await database.update_bandwidth(bytes_count)
+
+
 def get_bandwidth_string():
     global _historical_bw, _last_raw_bw
     net_io = net_io_counters()
