@@ -203,11 +203,18 @@ class RcloneTransferHelper:
         await self._start_download(cmd, remote_type)
 
     async def _get_gdrive_link(self, config_path, destination, mime_type):
-        epath = destination.rsplit("/", 1)[0] if mime_type == "Folder" else destination
+        dest_path = destination.split(":", 1)[1]
+        if "/" in dest_path:
+            epath = destination.rsplit("/", 1)[0]
+        else:
+            epath = f"{destination.split(':', 1)[0]}:"
+
         cmd = [
             BinConfig.RCLONE_NAME,
             "lsjson",
             "--fast-list",
+            "--max-depth",
+            "1",
             "--no-mimetype",
             "--no-modtime",
             "--config",
