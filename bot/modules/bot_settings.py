@@ -474,6 +474,7 @@ async def get_buttons(key=None, edit_type=None, edit_mode=False):
         else:
             buttons.data_button("View", "botset view aria")
         buttons.data_button("Add new key", "botset ariavar newkey")
+        buttons.data_button("Restart Aria2c", "botset restartaria")
         buttons.data_button("Back", "botset back")
         buttons.data_button("Close", "botset close", style=ButtonStyle.DANGER)
         for x in range(0, len(aria2_options), 10):
@@ -1260,6 +1261,13 @@ async def edit_bot_settings(client, query):
         qbit_options.clear()
         await update_qb_options()
         await database.save_qbit_settings()
+    elif data[1] == "restartaria":
+        await query.answer("Restarting Aria2c...", show_alert=True)
+        success = await TorrentManager.restart_aria2()
+        if success:
+            await query.answer("Aria2c Restarted Successfully!", show_alert=True)
+        else:
+            await query.answer("Failed to restart Aria2c!", show_alert=True)
     elif data[1] == "emptyaria":
         await query.answer()
         aria2_options[data[2]] = ""

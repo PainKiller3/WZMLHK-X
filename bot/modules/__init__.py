@@ -53,6 +53,8 @@ from .restart import (
     restart_notification,
     confirm_restart,
     restart_sessions,
+    restart_aria2,
+    confirm_restart_aria2,
 )
 from .imdb import imdb_search, imdb_callback
 from .rss import get_rss_menu, rss_listener
@@ -121,6 +123,8 @@ __all__ = [
     "restart_notification",
     "confirm_restart",
     "restart_sessions",
+    "restart_aria2",
+    "confirm_restart_aria2",
     "imdb_search",
     "imdb_callback",
     "get_rss_menu",

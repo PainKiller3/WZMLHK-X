@@ -435,6 +435,7 @@ def get_bot_commands():
         "Log": "[SUDO] Get Bot Logs for Internal Working",
         "Restart": "[SUDO] Reboot bot",
         "RestartSessions": "[SUDO] Reboot User Sessions",
+        "RestartAria2": "[SUDO] Restart Aria2c Service",
         "GenPyroSess": "[SUDO] Generate Pyrogram String Session",
     }
 

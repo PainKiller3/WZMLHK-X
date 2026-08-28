@@ -376,6 +376,19 @@ async def add_handlers():
     )
     TgClient.bot.add_handler(
         MessageHandler(
+            restart_aria2,
+            filters=command(BotCommands.RestartAria2Command, case_sensitive=True)
+            & CustomFilters.sudo,
+        )
+    )
+    TgClient.bot.add_handler(
+        CallbackQueryHandler(
+            confirm_restart_aria2,
+            filters=regex("^aria2restart") & CustomFilters.sudo,
+        )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
             imdb_search,
             filters=command(BotCommands.IMDBCommand, case_sensitive=True)
             & CustomFilters.authorized,
