@@ -1,10 +1,14 @@
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from pyrogram.enums import ButtonStyle
 
+from ...core.config_manager import Config
+
 URL_SCHEMES = ("http://", "https://", "tg://")
 
 
 def _btn_style(style=None):
+    if not getattr(Config, "COLORED_BTNS", True):
+        return ButtonStyle.DEFAULT
     return style or ButtonStyle.DEFAULT
 
 
