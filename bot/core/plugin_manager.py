@@ -138,7 +138,9 @@ class PluginManifest:
             if isinstance(item, str):
                 item = {"name": item}
             if not isinstance(item, dict) or not item.get("name"):
-                LOGGER.warning(f"Plugin {name}: skipping malformed command entry {item!r}")
+                LOGGER.warning(
+                    f"Plugin {name}: skipping malformed command entry {item!r}"
+                )
                 continue
             commands.append(
                 PluginCommand(
@@ -154,7 +156,9 @@ class PluginManifest:
         callbacks = []
         for item in src.pop("callbacks", None) or []:
             if not isinstance(item, dict) or not item.get("pattern"):
-                LOGGER.warning(f"Plugin {name}: skipping malformed callback entry {item!r}")
+                LOGGER.warning(
+                    f"Plugin {name}: skipping malformed callback entry {item!r}"
+                )
                 continue
             callbacks.append(
                 PluginCallback(
@@ -180,7 +184,8 @@ class PluginManifest:
         }
         fields = {k: src.pop(k) for k in list(src) if k in known}
         if src:
-            LOGGER.warning(f"Plugin {name}: ignoring unknown manifest keys {sorted(src)}"
+            LOGGER.warning(
+                f"Plugin {name}: ignoring unknown manifest keys {sorted(src)}"
             )
 
         return cls(
@@ -195,7 +200,9 @@ class PluginManifest:
             tags=[str(t) for t in (fields.get("tags") or [])],
             min_bot_version=str(fields.get("min_bot_version") or ""),
             max_bot_version=str(fields.get("max_bot_version") or ""),
-            python_dependencies=[str(d) for d in (fields.get("python_dependencies") or [])],
+            python_dependencies=[
+                str(d) for d in (fields.get("python_dependencies") or [])
+            ],
             commands=commands,
             callbacks=callbacks,
             config_schema=fields.get("config_schema") or {},
@@ -229,7 +236,8 @@ def _access_of(item, plugin_name):
         else:
             value = "authorized"
     if value not in ACCESS:
-        LOGGER.warning(f"Plugin {plugin_name}: unknown access {value!r}, falling back to authorized"
+        LOGGER.warning(
+            f"Plugin {plugin_name}: unknown access {value!r}, falling back to authorized"
         )
         value = "authorized"
     return value
@@ -353,9 +361,7 @@ class PluginManager:
             if any((entry / n).is_file() for n in MANIFEST_NAMES):
                 found.append(entry.name)
             else:
-                LOGGER.warning(
-                    f"{entry.name} has no {MANIFEST_NAMES[0]}, skipping it"
-                )
+                LOGGER.warning(f"{entry.name} has no {MANIFEST_NAMES[0]}, skipping it")
         return found
 
     def disk_manifest(self, name):
@@ -471,16 +477,15 @@ class PluginManager:
         for cmd in rec.manifest.commands:
             func = getattr(module, cmd.handler, None)
             if not callable(func):
-                LOGGER.error(f"Plugin {rec.name}: handler {cmd.handler!r} for /{cmd.name} is missing"
+                LOGGER.error(
+                    f"Plugin {rec.name}: handler {cmd.handler!r} for /{cmd.name} is missing"
                 )
                 continue
             built.append(
                 (
                     MessageHandler(
                         func,
-                        filters=command(
-                            self._suffixed(cmd.names), case_sensitive=True
-                        )
+                        filters=command(self._suffixed(cmd.names), case_sensitive=True)
                         & self._filter_for(cmd.access),
                     ),
                     0,
@@ -489,7 +494,8 @@ class PluginManager:
         for cb in rec.manifest.callbacks:
             func = getattr(module, cb.handler, None) if cb.handler else None
             if not callable(func):
-                LOGGER.error(f"Plugin {rec.name}: callback handler {cb.handler!r} is missing"
+                LOGGER.error(
+                    f"Plugin {rec.name}: callback handler {cb.handler!r} is missing"
                 )
                 continue
             built.append(
@@ -546,7 +552,10 @@ class PluginManager:
             return False, f"bad manifest: {err}"
 
         if manifest.name != name:
-            return False, f"manifest name {manifest.name!r} does not match folder {name!r}"
+            return (
+                False,
+                f"manifest name {manifest.name!r} does not match folder {name!r}",
+            )
 
         from ..version import get_version
 
@@ -573,7 +582,11 @@ class PluginManager:
         instance = None
         for attr_name in dir(module):
             attr = getattr(module, attr_name)
-            if isinstance(attr, type) and issubclass(attr, PluginBase) and attr is not PluginBase:
+            if (
+                isinstance(attr, type)
+                and issubclass(attr, PluginBase)
+                and attr is not PluginBase
+            ):
                 instance = attr()
                 break
 

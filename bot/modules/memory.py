@@ -40,7 +40,11 @@ def _trend():
     first, last = points[0][1], points[-1][1]
     span = max(1, points[-1][0] - points[0][0])
     delta = last - first
-    arrow = "steady" if abs(delta) < 2 * 1024 * 1024 else ("rising" if delta > 0 else "falling")
+    arrow = (
+        "steady"
+        if abs(delta) < 2 * 1024 * 1024
+        else ("rising" if delta > 0 else "falling")
+    )
     return f"{arrow} {readable(abs(delta))} over {span}s"
 
 
@@ -90,7 +94,9 @@ def _menu(user_id, view="main"):
         if snap["pressure"] >= 0.85:
             note = "Under pressure. Caches are being trimmed automatically."
         elif not snap["profiling"]:
-            note = "Start the profiler, reproduce the load, then read the top allocations."
+            note = (
+                "Start the profiler, reproduce the load, then read the top allocations."
+            )
         return _wz("Memory", rows, note), buttons.build_menu(2)
 
     if view == "detail":
@@ -125,7 +131,11 @@ def _menu(user_id, view="main"):
         buttons.data_button(
             "Close", f"mem {user_id} close", position="footer", style=ButtonStyle.DANGER
         )
-        seen = f"since {int(time() - profiler.started_at)}s ago" if profiler.started_at else ""
+        seen = (
+            f"since {int(time() - profiler.started_at)}s ago"
+            if profiler.started_at
+            else ""
+        )
         return (
             _wz("Top Allocations", rows, f"size / blocks, {seen}".strip(", ")),
             buttons.build_menu(1),

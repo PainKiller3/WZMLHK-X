@@ -386,9 +386,7 @@ def rich_text(*parts):
             texts.append(raw.types.TextPlain(text=part))
         else:
             style, value = part
-            texts.append(
-                RICH_STYLES[style](text=raw.types.TextPlain(text=value))
-            )
+            texts.append(RICH_STYLES[style](text=raw.types.TextPlain(text=value)))
     return raw.types.TextConcat(texts=texts)
 
 
@@ -1390,9 +1388,7 @@ async def edit_bot_settings(client, query):
         "setonoff",
         "settoggle",
         "setlimit",
-    ] or data[
-        1
-    ].startswith("nzbser"):
+    ] or data[1].startswith("nzbser"):
         if data[1] in ("nzbserver", "setlimit"):
             globals()["start"] = 0
         await query.answer()

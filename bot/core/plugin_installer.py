@@ -210,7 +210,15 @@ async def install_dependencies(specs):
     attempts = []
     if shutil.which("uv"):
         attempts.append(
-            ["uv", "pip", "install", "--python", sys.executable, "--no-cache-dir", *specs]
+            [
+                "uv",
+                "pip",
+                "install",
+                "--python",
+                sys.executable,
+                "--no-cache-dir",
+                *specs,
+            ]
         )
     attempts.append([sys.executable, "-m", "pip", "install", "--no-input", *specs])
 
@@ -230,7 +238,11 @@ def index_problem(payload):
     if isinstance(payload, list):
         return ""
     if "plugins" in payload:
-        return "" if isinstance(payload["plugins"], list) else "its plugins key is not a list"
+        return (
+            ""
+            if isinstance(payload["plugins"], list)
+            else "its plugins key is not a list"
+        )
     if payload.get("$schema") and ("properties" in payload or "$defs" in payload):
         return (
             "that is the index SCHEMA, not an index. Point PLUGIN_INDEXES at a "
@@ -270,7 +282,9 @@ class PluginInstaller:
 
             session_factory = AsyncSession
         except Exception as err:
-            self.problems = [(u, f"cannot reach the network: {err}") for u in self.index_urls()]
+            self.problems = [
+                (u, f"cannot reach the network: {err}") for u in self.index_urls()
+            ]
             self._index = []
             self._index_at = time()
             LOGGER.error(f"plugin index: no http client available: {err}")
@@ -450,7 +464,9 @@ class PluginInstaller:
             return await self.stage_github(item["repo"], pick=pick or item["id"])
         return await self.stage_url(item["url"], item.get("sha256"), pick=pick)
 
-    async def finalize(self, staged_root, manifest, source="local", url="", cleanup=True):
+    async def finalize(
+        self, staged_root, manifest, source="local", url="", cleanup=True
+    ):
         name = manifest.name
         target = self.manager.dir_of(name)
 

@@ -85,14 +85,37 @@ def _cache_trim(aggressive=False):
 register_cache("stream", _cache_bytes, _cache_trim)
 _vtt_inflight = {}
 _LANG = {
-    "eng": "English", "jpn": "Japanese", "spa": "Spanish", "fre": "French",
-    "fra": "French", "ger": "German", "deu": "German", "ita": "Italian",
-    "por": "Portuguese", "rus": "Russian", "hin": "Hindi", "tam": "Tamil",
-    "tel": "Telugu", "ben": "Bengali", "kor": "Korean", "chi": "Chinese",
-    "zho": "Chinese", "ara": "Arabic", "tur": "Turkish", "pol": "Polish",
-    "dut": "Dutch", "nld": "Dutch", "swe": "Swedish", "tha": "Thai",
-    "vie": "Vietnamese", "ind": "Indonesian", "mal": "Malayalam",
-    "kan": "Kannada", "mar": "Marathi", "urd": "Urdu", "fil": "Filipino",
+    "eng": "English",
+    "jpn": "Japanese",
+    "spa": "Spanish",
+    "fre": "French",
+    "fra": "French",
+    "ger": "German",
+    "deu": "German",
+    "ita": "Italian",
+    "por": "Portuguese",
+    "rus": "Russian",
+    "hin": "Hindi",
+    "tam": "Tamil",
+    "tel": "Telugu",
+    "ben": "Bengali",
+    "kor": "Korean",
+    "chi": "Chinese",
+    "zho": "Chinese",
+    "ara": "Arabic",
+    "tur": "Turkish",
+    "pol": "Polish",
+    "dut": "Dutch",
+    "nld": "Dutch",
+    "swe": "Swedish",
+    "tha": "Thai",
+    "vie": "Vietnamese",
+    "ind": "Indonesian",
+    "mal": "Malayalam",
+    "kan": "Kannada",
+    "mar": "Marathi",
+    "urd": "Urdu",
+    "fil": "Filipino",
 }
 
 
@@ -142,9 +165,17 @@ async def _probe(cid, mid):
     info = await probe(cid, mid)
     raw = await _prefix(cid, mid, info["size"] or _PROBE_BYTES)
     proc = await create_subprocess_exec(
-        "ffprobe", "-hide_banner", "-loglevel", "error",
-        "-print_format", "json", "-show_streams", "-",
-        stdin=PIPE, stdout=PIPE, stderr=PIPE,
+        "ffprobe",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-print_format",
+        "json",
+        "-show_streams",
+        "-",
+        stdin=PIPE,
+        stdout=PIPE,
+        stderr=PIPE,
     )
     try:
         out, _ = await wait_for(proc.communicate(raw), timeout=_PROBE_TIMEOUT)
@@ -373,9 +404,7 @@ def _nice(args):
 async def _spawn_ffmpeg(args, what):
     args = _nice(args)
     try:
-        proc = await create_subprocess_exec(
-            *args, stdin=PIPE, stdout=PIPE, stderr=PIPE
-        )
+        proc = await create_subprocess_exec(*args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
     except FileNotFoundError:
         LOGGER.error(f"{what} failed: {BinConfig.FFMPEG_NAME} not found on PATH")
         raise web.HTTPServiceUnavailable(
@@ -625,10 +654,23 @@ async def _subs(request):
 
     proc = await _spawn_ffmpeg(
         [
-            BinConfig.FFMPEG_NAME, "-hide_banner", "-loglevel", "error",
-            "-threads", "1", "-vn", "-an",
-            "-i", "pipe:0", "-map", f"0:s:{idx}",
-            "-f", "webvtt", "-flush_packets", "1", "pipe:1",
+            BinConfig.FFMPEG_NAME,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-threads",
+            "1",
+            "-vn",
+            "-an",
+            "-i",
+            "pipe:0",
+            "-map",
+            f"0:s:{idx}",
+            "-f",
+            "webvtt",
+            "-flush_packets",
+            "1",
+            "pipe:1",
         ],
         "subtitle extraction",
     )
@@ -688,9 +730,7 @@ async def _subs(request):
             _vtt_keep(key, data)
             if not done.done():
                 done.set_result(data)
-            LOGGER.info(
-                f"subtitle track cached: {cid}/{mid}/{idx} ({len(data)} bytes)"
-            )
+            LOGGER.info(f"subtitle track cached: {cid}/{mid}/{idx} ({len(data)} bytes)")
     except (ConnectionResetError, ConnectionError, CancelledError):
         LOGGER.debug(f"subtitle stream aborted: {cid}/{mid}")
     finally:

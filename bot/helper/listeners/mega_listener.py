@@ -621,7 +621,12 @@ class MegaAppListener(MegaListener):
                 LOGGER.info("MEGA DEBUG FETCH: root=%s", root_node)
                 self.node = root_node
                 if self.node:
-                    LOGGER.info("MEGA DEBUG FETCH: name=%s handle=%s folder=%s", self.node.getName(), self.node.getHandle(), self.node.isFolder())
+                    LOGGER.info(
+                        "MEGA DEBUG FETCH: name=%s handle=%s folder=%s",
+                        self.node.getName(),
+                        self.node.getHandle(),
+                        self.node.isFolder(),
+                    )
                     self._cache_node_data(self.node)
                     try:
                         self._size = self.node.getSize()
@@ -1156,7 +1161,14 @@ class MegaFolderListener(MegaListener):
             total = transfer.getTotalBytes()
             speed = transfer.getSpeed()
             state = transfer.getState()
-            LOGGER.info("MegaFolder: onTransferFinish TARGET err=%s transferred=%s total=%s speed=%s state=%s", err_code, transferred, total, speed, state)
+            LOGGER.info(
+                "MegaFolder: onTransferFinish TARGET err=%s transferred=%s total=%s speed=%s state=%s",
+                err_code,
+                transferred,
+                total,
+                speed,
+                state,
+            )
             if err_code != MegaError.API_OK:
                 self.error = f"{err_code} {error.toString()}"
                 if err_code == MegaError.API_EINCOMPLETE:
