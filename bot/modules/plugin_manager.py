@@ -230,7 +230,12 @@ async def build_menu(user_id, view="main", arg=""):
             rows.append(("Author", man.author))
         rows.append(("Source", rec.source))
         if rec.commands:
-            rows.append(("Commands", ", ".join(f"/{c}" for c in rec.commands)))
+            rows.append(
+                (
+                    "Commands",
+                    ", ".join(f"/{c}{Config.CMD_SUFFIX}" for c in rec.commands),
+                )
+            )
         if man.callbacks:
             rows.append(("Callbacks", str(len(man.callbacks))))
         if man.tags:
@@ -270,7 +275,12 @@ async def build_menu(user_id, view="main", arg=""):
         if man.author:
             rows.append(("Author", man.author))
         if man.command_names():
-            rows.append(("Commands", ", ".join(f"/{c}" for c in man.command_names())))
+            rows.append(
+                (
+                    "Commands",
+                    ", ".join(f"/{c}{Config.CMD_SUFFIX}" for c in man.command_names()),
+                )
+            )
         if man.python_dependencies:
             rows.append(("Requires", ", ".join(man.python_dependencies)))
         if arg in manager.errors:
