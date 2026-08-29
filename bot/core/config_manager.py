@@ -21,6 +21,7 @@ class Config:
     BOT_MAX_TASKS = 0
     BOT_PM = False
     CMD_SUFFIX = ""
+    COLORED_BTNS = True
     DEFAULT_LANG = "en"
     DATABASE_URL = ""
     DEFAULT_UPLOAD = "rc"
@@ -218,7 +219,7 @@ class Config:
         for attr in dir(settings):
             if hasattr(cls, attr):
                 value = getattr(settings, attr)
-                if not value:
+                if not value and not isinstance(value, (bool, int, float)):
                     continue
                 if isinstance(value, str):
                     value = value.strip()
