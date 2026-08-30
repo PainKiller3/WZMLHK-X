@@ -66,6 +66,7 @@ async def _on_download_started(api, data):
                 f"Task cancelled! Name contains blacklisted keyword: <code>{bl_kw}</code>"
             )
             return
+        task.listener.size = int(download.get("totalLength", "0"))
         msg, button = await stop_duplicate_check(task.listener)
         if msg:
             await TorrentManager.aria2_remove(download)
@@ -75,7 +76,6 @@ async def _on_download_started(api, data):
         if task.listener.select and not task.listener.files_selected:
             return
 
-        task.listener.size = int(download.get("totalLength", "0"))
         mmsg = await limit_checker(task.listener)
         if mmsg:
             await TorrentManager.aria2_remove(download)
