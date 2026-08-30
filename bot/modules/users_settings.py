@@ -582,7 +582,7 @@ async def get_user_settings(from_user, stype="main"):
         text = f"""⌬ <b>Uphoster Settings :</b>
 ┟ <b>Name</b> → {user_name}
 ┃
-┖ <b>Current Destination</b> → {', '.join(destinations)}"""
+┖ <b>Current Destination</b> → {", ".join(destinations)}"""
 
     elif stype == "pixeldrain":
         buttons.data_button("PixelDrain Key", f"userset {user_id} menu PIXELDRAIN_KEY")
