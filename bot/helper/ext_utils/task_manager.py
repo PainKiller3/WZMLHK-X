@@ -31,6 +31,22 @@ async def stop_duplicate_check(listener):
     ):
         return False, None
 
+    min_size = (
+        listener.user_dict.get("STOP_DUPLICATE_MIN_SIZE")
+        or (
+            "STOP_DUPLICATE_MIN_SIZE" not in listener.user_dict
+            and Config.STOP_DUPLICATE_MIN_SIZE
+        )
+        or 0
+    )
+    if min_size and getattr(listener, "size", 0):
+        min_size_bytes = min_size * 1024 * 1024
+        if listener.size < min_size_bytes:
+            LOGGER.info(
+                f"Skipping stop duplicate check for '{listener.name}' because file size ({get_readable_file_size(listener.size)}) is less than minimum limit ({min_size}MB)"
+            )
+            return False, None
+
     name = listener.name
 
     if listener.compress:
@@ -41,7 +57,7 @@ async def stop_duplicate_check(listener):
         except Exception:
             name = None
 
-    if name is None:
+    if not name:
         return False, None
 
     # GDrive stop duplicate check

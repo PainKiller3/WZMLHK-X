@@ -2,6 +2,7 @@ import subprocess
 import json
 import re
 import uuid
+from threading import Lock
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urljoin, quote
@@ -42,6 +43,7 @@ pending_deletions = {}
 global_file_index = []
 global_index_timestamp = None
 INDEX_TTL = 600  # Refresh every 10 minutes
+_index_lock = Lock()
 
 
 # ---------------- Helper Functions ---------------- #
@@ -74,45 +76,46 @@ def refresh_global_index(force=False):
     """
     global global_file_index, global_index_timestamp
 
-    now = datetime.now()
+    with _index_lock:
+        now = datetime.now()
 
-    # Use cached index if still valid
-    if (
-        not force
-        and global_index_timestamp
-        and (now - global_index_timestamp).total_seconds() < INDEX_TTL
-    ):
-        return global_file_index
+        # Use cached index if still valid
+        if (
+            not force
+            and global_index_timestamp
+            and (now - global_index_timestamp).total_seconds() < INDEX_TTL
+        ):
+            return global_file_index
 
-    try:
-        result = run_rclone_command(
-            [
-                BinConfig.RCLONE_NAME,
-                "--config",
-                "rclone.conf",  # Use local rclone.conf
-                "lsjson",
-                RCLONE_REMOTE,
-                "--fast-list",
-                "--recursive",
-            ],
-            description="Refreshing global index",
-        )
+        try:
+            result = run_rclone_command(
+                [
+                    BinConfig.RCLONE_NAME,
+                    "--config",
+                    "rclone.conf",  # Use local rclone.conf
+                    "lsjson",
+                    RCLONE_REMOTE,
+                    "--fast-list",
+                    "--recursive",
+                ],
+                description="Refreshing global index",
+            )
 
-        if result:
-            try:
-                global_file_index = json.loads(result)
-                global_index_timestamp = now
-                LOGGER.info(
-                    f"Global index refreshed with {len(global_file_index)} files."
-                )
-                return global_file_index
-            except Exception as e:
-                LOGGER.error(f"Failed to parse global index JSON: {e}")
+            if result:
+                try:
+                    global_file_index = json.loads(result)
+                    global_index_timestamp = now
+                    LOGGER.info(
+                        f"Global index refreshed with {len(global_file_index)} files."
+                    )
+                    return global_file_index
+                except Exception as e:
+                    LOGGER.error(f"Failed to parse global index JSON: {e}")
 
-    except Exception as e:
-        LOGGER.error(f"Error refreshing global index: {e}")
+        except Exception as e:
+            LOGGER.error(f"Error refreshing global index: {e}")
 
-    return None
+        return global_file_index if global_file_index else None
 
 
 def search_files():
