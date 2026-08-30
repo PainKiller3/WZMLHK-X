@@ -137,8 +137,8 @@ async def get_buttons(key=None, edit_type=None, edit_mode=False):
             else:
                 msg = f"Send a valid value for {key} in server {Config.USENET_SERVERS[index]['name']}. Current value is {Config.USENET_SERVERS[index][key]}. Timeout: 60 sec"
     elif key == "var":
-        conf_dict = Config.get_all()
-        for k in list(conf_dict.keys())[start : 10 + start]:
+        conf_dict = sorted(Config.get_all().keys())
+        for k in conf_dict[start : 10 + start]:
             if k == "DATABASE_URL" and state != "view":
                 continue
             buttons.data_button(k, f"botset botvar {k}")
