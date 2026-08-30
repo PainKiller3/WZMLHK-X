@@ -68,6 +68,7 @@ async def _stop_duplicate(tor):
                 tor,
             )
             return
+        task.listener.size = tor.size
         if task.listener.stop_duplicate:
             msg, button = await stop_duplicate_check(task.listener)
             if msg:

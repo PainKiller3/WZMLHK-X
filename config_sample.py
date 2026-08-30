@@ -111,6 +111,7 @@ GDRIVE_ID = ""
 GD_DESP = "Uploaded with WZ Bot"
 IS_TEAM_DRIVE = False
 STOP_DUPLICATE = False
+STOP_DUPLICATE_MIN_SIZE = 0  # Minimum size in MB to enforce stop duplicate check (0 = check all sizes, e.g. 100 to skip < 100MB)
 INDEX_URL = ""
 
 # YT Tools
