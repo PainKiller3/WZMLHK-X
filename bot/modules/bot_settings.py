@@ -58,7 +58,7 @@ from ..helper.ext_utils.bot_utils import (
     new_task,
     parse_dest,
 )
-from ..core.config_manager import Config
+from ..core.config_manager import Config, DEFAULT_CONFIG
 from ..core.tg_client import TgClient, db_partition_id
 from ..core.torrent_manager import TorrentManager
 from ..core.startup import update_qb_options, update_nzb_options, update_variables
@@ -1410,7 +1410,7 @@ async def edit_bot_settings(client, query):
         await update_buttons(message, data[1])
     elif data[1] == "resetvar":
         await query.answer()
-        value = ""
+        value = DEFAULT_CONFIG.get(data[2], "")
         if data[2] in (
             "IMAGES",
             "SEARCH_PLUGINS",
