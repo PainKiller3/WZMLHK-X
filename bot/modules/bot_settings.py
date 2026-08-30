@@ -904,13 +904,21 @@ async def edit_bot_settings(client, query):
         await query.answer()
         filename = data[2].rsplit(".zip", 1)[0]
         if await aiopath.exists(filename):
-            await (await create_subprocess_shell(f"git add -f {filename} \
+            await (
+                await create_subprocess_shell(
+                    f"git add -f {filename} \
                     && git commit -sm botsettings -q \
-                    && git push origin {Config.UPSTREAM_BRANCH} -qf")).wait()
+                    && git push origin {Config.UPSTREAM_BRANCH} -qf"
+                )
+            ).wait()
         else:
-            await (await create_subprocess_shell(f"git rm -r --cached {filename} \
+            await (
+                await create_subprocess_shell(
+                    f"git rm -r --cached {filename} \
                     && git commit -sm botsettings -q \
-                    && git push origin {Config.UPSTREAM_BRANCH} -qf")).wait()
+                    && git push origin {Config.UPSTREAM_BRANCH} -qf"
+                )
+            ).wait()
         await delete_message(message.reply_to_message)
         await delete_message(message)
 

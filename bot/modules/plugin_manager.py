@@ -137,7 +137,7 @@ async def get_plugins_menu(user_id: int, stype: str = "main"):
 ┟ <b>Version:</b> {plugin_info.version}
 ┠ <b>Author:</b> {plugin_info.author}
 ┠ <b>Status:</b> {status}
-┠ <b>Commands:</b> {', '.join(plugin_info.commands) if plugin_info.commands else 'None'}
+┠ <b>Commands:</b> {", ".join(plugin_info.commands) if plugin_info.commands else "None"}
 ┖ <b>Description:</b> {plugin_info.description}"""
 
             btns = buttons.build_menu(2)
