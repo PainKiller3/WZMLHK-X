@@ -285,6 +285,7 @@ DEFAULT_DESP = {
     "STATUS_UPDATE_INTERVAL": "Status message refresh interval in seconds. Default: 15.",
     "STAGED_TORRENT_STORAGE_PERCENT": "Percentage of current free storage usable by staged torrents. Range: 1-100. Default: 50.",
     "STOP_DUPLICATE": "Stop if file/folder already exists in GDrive/Rclone destination. Default: False.",
+    "STOP_DUPLICATE_MIN_SIZE": "Minimum size in MB to enforce stop duplicate check (e.g. 100 to skip files < 100MB). 0 = check all sizes. Default: 0.",
     "STREAMWISH_API": "StreamWish API key for uploads.",
     "SUDO_USERS": "User IDs with sudo access. Space-separated.",
     "TELEGRAM_API": "Telegram API ID from my.telegram.org.",
