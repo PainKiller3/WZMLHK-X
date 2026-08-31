@@ -7,11 +7,19 @@ from re import match as re_match
 from time import time
 
 from aiofiles import open as aiopen
-from aiofiles.os import path as aiopath
+from aiofiles.os import remove, path as aiopath
 from bot.core.config_manager import Config
 
-from .. import DOWNLOAD_DIR, LOGGER, bot_loop, task_dict_lock, user_data
+from .. import (
+    DOWNLOAD_DIR,
+    LOGGER,
+    blacklisted_keywords,
+    bot_loop,
+    task_dict_lock,
+    user_data,
+)
 from ..core.seedr_client import SeedrClient
+from ..helper.ext_utils.telegraph_helper import telegraph
 from ..helper.ext_utils.bot_utils import (
     COMMAND_USAGE,
     arg_parser,
@@ -32,8 +40,12 @@ from ..helper.ext_utils.links_utils import (
     is_rclone_path,
     is_telegram_link,
     is_url,
+    get_magnet_from_torrent,
 )
-from ..helper.ext_utils.task_manager import pre_task_check
+from ..helper.ext_utils.task_manager import (
+    pre_task_check,
+    check_blacklisted_keywords,
+)
 from ..helper.listeners.task_listener import TaskListener
 from ..helper.mirror_leech_utils.download_utils.alldebrid_resolver import (
     alldebrid_resolve,
@@ -68,8 +80,10 @@ from ..helper.mirror_leech_utils.download_utils.telegram_download import (
 )
 from ..helper.telegram_helper.button_build import ButtonMaker
 from ..helper.telegram_helper.bot_commands import BotCommands
+from ..helper.telegram_helper.filters import CustomFilters
 from ..helper.telegram_helper.message_utils import (
     auto_delete_message,
+    delete_message,
     delete_links,
     edit_message,
     get_tg_link_message,
@@ -525,7 +539,20 @@ class Mirror(TaskListener):
                     await send_message(self.message, e)
                     await self.remove_from_same_dir()
                     await delete_links(self.message)
-                    return
+        if (
+            self.is_seedr
+            and file_ is not None
+            and (getattr(file_, "file_name", "") or "").endswith(".torrent")
+        ):
+            tor_path = await self.client.download_media(file_)
+            try:
+                self.link = get_magnet_from_torrent(tor_path)
+                file_ = None
+            except Exception as e:
+                LOGGER.error(f"Failed to parse telegram torrent file for Seedr: {e}")
+            finally:
+                if ospath.exists(tor_path):
+                    await remove(tor_path)
 
         if file_ is not None:
             await TelegramDownloadHelper(self).add_download(
@@ -711,10 +738,50 @@ async def seedr_link(client, message):
     elif reply_to := message.reply_to_message:
         if reply_to.text:
             link = reply_to.text.split("\n", 1)[0].strip()
+        elif reply_to.document and (reply_to.document.file_name or "").endswith(
+            ".torrent"
+        ):
+            tor_path = await client.download_media(reply_to.document)
+            try:
+                link = get_magnet_from_torrent(tor_path)
+            except Exception as e:
+                LOGGER.error(
+                    f"Failed to parse telegram torrent file for SeedrLink: {e}"
+                )
+            finally:
+                if ospath.exists(tor_path):
+                    await remove(tor_path)
+
+    if (
+        not link
+        and message.document
+        and (message.document.file_name or "").endswith(".torrent")
+    ):
+        tor_path = await client.download_media(message.document)
+        try:
+            link = get_magnet_from_torrent(tor_path)
+        except Exception as e:
+            LOGGER.error(f"Failed to parse attached torrent file for SeedrLink: {e}")
+        finally:
+            if ospath.exists(tor_path):
+                await remove(tor_path)
 
     if not link or not (is_magnet(link) or is_url(link) or link.endswith(".torrent")):
         await message.reply(
             f"Please provide a valid magnet link or .torrent URL!\n\n<b>Usage:</b> <code>{seedrlink_cmd} magnet:...</code> or <code>{seedrlink_cmd} https://.../file.torrent</code>"
+        )
+        return
+
+    user_dict = user_data.get(user_id, {})
+    bl_keywords = user_dict.get("BLACKLISTED_KEYWORDS") or (
+        blacklisted_keywords if "BLACKLISTED_KEYWORDS" not in user_dict else []
+    )
+    listener_dummy = type("Listener", (), {"blacklisted_keywords": bl_keywords})()
+
+    is_bl, bl_kw = await check_blacklisted_keywords(listener_dummy, link)
+    if is_bl:
+        await message.reply(
+            f"Task cancelled! Name/Link contains blacklisted keyword: <code>{bl_kw}</code>"
         )
         return
 
@@ -735,10 +802,15 @@ async def seedr_link(client, message):
             raise ValueError("Failed to obtain Seedr torrent ID!")
 
         if title:
-            await edit_message(
-                msg,
-                f"<b>Added to Seedr Cloud!</b>\n\n<b>Title:</b> <code>{escape(title)}</code>\n<i>Fetching cloud progress...</i>",
-            )
+            is_bl, bl_kw = await check_blacklisted_keywords(listener_dummy, title)
+            if is_bl:
+                if torrent_id:
+                    await seedr_client.delete("torrent", torrent_id)
+                await edit_message(
+                    msg,
+                    f"Task cancelled! Name contains blacklisted keyword: <code>{bl_kw}</code>",
+                )
+                return
 
         known_folders = {
             f.get("id")
@@ -768,65 +840,125 @@ async def seedr_link(client, message):
             if torrent is not None:
                 not_found_count = 0
                 prog = float(torrent.get("progress", 0) or 0)
+                if 0 < prog <= 1.0:
+                    prog *= 100.0
+                size_val = float(torrent.get("size", 0) or 0)
+                dl_val = float(torrent.get("downloaded", 0) or 0)
+                if size_val > 0 and dl_val > 0:
+                    prog = max(prog, (dl_val / size_val) * 100.0)
+
                 if prog != last_prog_value:
                     last_prog_value = prog
                     stall_count = 0
                 name_str = torrent.get("name") or title or "Torrent"
                 if torrent.get("name"):
                     folder_names.add(torrent["name"])
-                prog_str = f"<b>Seedr Cloud Download...</b>\n\n<b>Name:</b> <code>{escape(name_str)}</code>\n<b>Progress:</b> <code>{round(prog, 2)}%</code>"
+                is_bl, bl_kw = await check_blacklisted_keywords(
+                    listener_dummy, name_str
+                )
+                if is_bl:
+                    if torrent_id:
+                        await seedr_client.delete("torrent", torrent_id)
+                    await edit_message(
+                        msg,
+                        f"Task cancelled! Name contains blacklisted keyword: <code>{bl_kw}</code>",
+                    )
+                    return
+                prog_str = (
+                    f"<b><i>Seedr Cloud Download...</i></b>\n│\n"
+                    f"┟ <b>Task Name</b> → <code>{escape(name_str)}</code>\n"
+                    f"┠ <b>Progress</b> → <code>{round(prog, 2)}%</code>\n"
+                    "┠ <b>In Mode</b> → Seedr Cloud\n"
+                    f"┖ <b>Task By</b> → {tag}"
+                )
                 if prog_str != last_progress:
                     last_progress = prog_str
-                    await edit_message(msg, prog_str)
+                    c_btn = ButtonMaker()
+                    c_btn.data_button(
+                        "🔄 Sync",
+                        f"seedrlink sync {user_id} 0 {torrent_id or 0}",
+                    )
+                    c_btn.data_button(
+                        "🚫 Cancel Task",
+                        f"seedrlink cancel {user_id} 0 {torrent_id or 0}",
+                    )
+                    await edit_message(msg, prog_str, c_btn.build_menu(2))
 
-            folder = _match_folder(
-                res.get("folders", []),
-                folder_names,
-                known_folders,
-                torrent is None,
-            )
+            if torrent is None or float(torrent.get("progress", 0) or 0) >= 100:
+                folder = _match_folder(
+                    res.get("folders", []),
+                    folder_names,
+                    known_folders,
+                    torrent is None,
+                )
 
-            if folder is not None:
-                folder_contents = await seedr_client.list_contents(folder["id"])
-                if folder_contents.get("files") or folder_contents.get("folders"):
-                    folder_id = folder["id"]
-                    break
+                if folder is not None:
+                    folder_contents = await seedr_client.list_contents(folder["id"])
+                    if folder_contents.get("files") or folder_contents.get("folders"):
+                        folder_id = folder["id"]
+                        break
             else:
                 not_found_count += 1
                 if not_found_count >= 36:
                     raise ValueError("Torrent not found on Seedr account!")
 
-        await edit_message(msg, "<i>Generating Seedr Direct Download Links...</i>")
         contents, total_size = await _build_contents(seedr_client, folder_id)
         if not contents:
             raise ValueError("No downloadable files found in Seedr folder!")
 
-        buttons = ButtonMaker()
-        text_lines = [
-            f"<b><i>{escape(title or contents[0]['filename'])}</i></b>\n│",
-            f"┟ <b>Task Size</b> → {get_readable_file_size(total_size)}",
-            f"┠ <b>Time Taken</b> → {get_readable_time(time() - message.date.timestamp())}",
-            "┠ <b>In Mode</b> → Seedr Cloud",
-            f"┠ <b>Total Files</b> → {len(contents)}",
-            f"┖ <b>Task By</b> → {tag}\n",
-            "〶 <b><u>Files List :</u></b>",
-        ]
+        for item in contents:
+            is_bl, bl_kw = await check_blacklisted_keywords(
+                listener_dummy, item["filename"]
+            )
+            if is_bl:
+                if torrent_id:
+                    await seedr_client.delete("torrent", torrent_id)
+                await _delete_seedr_folder(seedr_client, folder_id)
+                await edit_message(
+                    msg,
+                    f"Task cancelled! Name contains blacklisted keyword: <code>{bl_kw}</code>",
+                )
+                return
 
-        for idx, item in enumerate(contents, start=1):
-            fname = item["filename"]
+        page_title = title or contents[0]["filename"]
+        html_content = f"<h3>{escape(page_title)}</h3>"
+        html_content += f"<p><b>Task Size:</b> {get_readable_file_size(total_size)}<br>"
+        html_content += f"<b>Total Files:</b> {len(contents)}</p><ol>"
+
+        for item in contents:
+            fname = escape(item["filename"])
             furl = item["url"]
             fsize = get_readable_file_size(item["size"])
-            text_lines.append(
-                f"{idx}. <a href='{furl}'>{escape(fname)}</a> (<code>{fsize}</code>)"
+            html_content += (
+                f"<li><a href='{furl}'>{fname}</a> (<code>{fsize}</code>)</li>"
             )
-            buttons.url_button(f"Download #{idx}", furl)
+        html_content += "</ol>"
 
-        out_text = "\n".join(text_lines)
-        if len(out_text) > 4000:
-            out_text = (
-                out_text[:3900]
-                + "\n\n<i>(Links truncated due to length. Use buttons below)</i>"
-            )
+        page = await telegraph.create_page(title=page_title[:64], content=html_content)
+        telegraph_path = page.get("path", "") if isinstance(page, dict) else ""
+        telegraph_url = f"https://telegra.ph/{telegraph_path}" if telegraph_path else ""
+
+        buttons = ButtonMaker()
+        if len(contents) == 1:
+            buttons.url_button("💾 Direct Download", contents[0]["url"])
+        elif telegraph_url:
+            buttons.url_button("🌐 View Telegraph Page", telegraph_url)
+        else:
+            buttons.url_button("Download Link", contents[0]["url"])
+
+        buttons.data_button(
+            "🗑 Delete",
+            f"seedrlink del {user_id} {folder_id or 0} {torrent_id or 0}",
+        )
+
+        out_text = (
+            f"<b><i>{escape(title or contents[0]['filename'])}</i></b>\n│\n"
+            f"┟ <b>Task Size</b> → {get_readable_file_size(total_size)}\n"
+            f"┠ <b>Time Taken</b> → {get_readable_time(time() - message.date.timestamp())}\n"
+            "┠ <b>In Mode</b> → Seedr Cloud\n"
+            f"┠ <b>Total Files</b> → {len(contents)}\n"
+            f"┖ <b>Task By</b> → {tag}"
+        )
 
         await edit_message(msg, out_text, buttons.build_menu(2))
 
@@ -847,3 +979,195 @@ async def seedr_link(client, message):
             "\n┠ <b>In Mode</b> → Seedr Cloud"
             f"\n┖ <b>Task By</b> → {tag}",
         )
+
+
+async def seedr_link_cb(client, query):
+    data = query.data.split()
+    action = data[1]
+    target_user_id = int(data[2])
+    user_id = query.from_user.id
+
+    if user_id != target_user_id and not await CustomFilters.sudo("", query):
+        await query.answer("You cannot interact with this task!", show_alert=True)
+        return
+
+    if action == "sync":
+        await query.answer("Syncing progress...", show_alert=False)
+        return
+
+    if action in ("del", "cancel"):
+        folder_id = data[3]
+        torrent_id = data[4]
+        msg_action = "Cancelling" if action == "cancel" else "Deleting"
+        await query.answer(f"{msg_action} task from Seedr Cloud...", show_alert=False)
+        email, password = _seedr_creds(target_user_id)
+        sc = SeedrClient(email, password)
+        try:
+            await sc.login()
+            if folder_id and folder_id != "0":
+                await sc.delete("folder", folder_id)
+            if torrent_id and torrent_id != "0":
+                await sc.delete("torrent", torrent_id)
+            alert_msg = (
+                "Task Cancelled!" if action == "cancel" else "Deleted from Seedr Cloud!"
+            )
+            await query.answer(alert_msg, show_alert=True)
+            await delete_message(query.message)
+            if query.message.reply_to_message:
+                await delete_message(query.message.reply_to_message)
+        except Exception as e:
+            await query.answer(f"Failed: {e}"[:180], show_alert=True)
+
+
+async def _get_seedr_clean_details(user_id, message_or_query):
+    user_dict = user_data.get(user_id, {})
+    email = user_dict.get("SEEDR_EMAIL", "")
+    password = user_dict.get("SEEDR_PASSWORD", "")
+    is_global = False
+    if not (email and password):
+        if await CustomFilters.sudo("", message_or_query):
+            email = Config.SEEDR_EMAIL
+            password = Config.SEEDR_PASSWORD
+            is_global = True
+
+    return email, password, is_global
+
+
+async def get_seedr_clean_menu(user_id, message_or_query):
+    email, password, is_global = await _get_seedr_clean_details(
+        user_id, message_or_query
+    )
+
+    if not (email and password):
+        uset_cmd = (
+            f"/{BotCommands.UserSetCommand[0]}"
+            if isinstance(BotCommands.UserSetCommand, list)
+            else f"/{BotCommands.UserSetCommand}"
+        )
+        return (
+            "<b>Seedr credentials not configured!</b>\n"
+            f"Please set <code>SEEDR_EMAIL</code> and <code>SEEDR_PASSWORD</code> in {uset_cmd} to manage your personal Seedr cloud storage.",
+            None,
+        )
+
+    try:
+        sc = SeedrClient(email, password)
+        await sc.login()
+        res = await sc.list_contents("0")
+    except Exception as e:
+        return f"<b>Seedr Login Failed:</b> <code>{escape(str(e))}</code>", None
+
+    if not isinstance(res, dict):
+        return "<b>Failed to fetch Seedr contents!</b>", None
+
+    space_max, space_used = await sc.get_space()
+    torrents = res.get("torrents", [])
+    folders = res.get("folders", [])
+
+    account_type = "Global Shared Account" if is_global else "Personal User Account"
+    text = (
+        f"⌬ <b><u>Seedr Cloud Storage Manager</u></b>\n"
+        f"│\n"
+        f"┟ <b>Account</b> → {account_type}\n"
+        f"┠ <b>Space Used</b> → <code>{get_readable_file_size(space_used)} / {get_readable_file_size(space_max)}</code>\n"
+        f"┠ <b>Torrents</b> → <code>{len(torrents)}</code>\n"
+        f"┖ <b>Folders</b> → <code>{len(folders)}</code>\n\n"
+    )
+
+    buttons = ButtonMaker()
+    has_items = False
+
+    if torrents:
+        text += "〶 <b>Torrents:</b>\n"
+        for t in torrents:
+            t_id = t.get("id") or t.get("user_torrent_id")
+            name = t.get("name") or t.get("title") or f"Torrent #{t_id}"
+            size = get_readable_file_size(t.get("size", 0))
+            text += f"• <code>{escape(name)}</code> ({size})\n"
+            buttons.data_button(f"❌ {name[:20]}", f"seedrclean del_t {user_id} {t_id}")
+            has_items = True
+
+    if folders:
+        if torrents:
+            text += "\n"
+        text += "〶 <b>Folders:</b>\n"
+        for f in folders:
+            f_id = f.get("id")
+            name = f.get("name") or f"Folder #{f_id}"
+            size = get_readable_file_size(f.get("size", 0))
+            text += f"• <code>{escape(name)}</code> ({size})\n"
+            buttons.data_button(f"❌ {name[:20]}", f"seedrclean del_f {user_id} {f_id}")
+            has_items = True
+
+    if not has_items:
+        text += "<i>Seedr cloud storage is currently empty!</i>"
+    else:
+        buttons.data_button(
+            "🗑️ Clear All", f"seedrclean clear_all {user_id}", position="footer"
+        )
+
+    buttons.data_button(
+        "🔄 Refresh", f"seedrclean refresh {user_id}", position="footer"
+    )
+    buttons.data_button("✖️ Close", f"seedrclean close {user_id}", position="footer")
+
+    return text, buttons.build_menu(2)
+
+
+@new_task
+async def seedr_clean(client, message):
+    if Config.DISABLE_SEEDR:
+        await send_message(message, "Seedr is currently disabled by the Bot Owner.")
+        return
+    user_id = message.from_user.id
+    msg_text, buttons = await get_seedr_clean_menu(user_id, message)
+    await send_message(message, msg_text, buttons)
+
+
+async def seedr_clean_cb(client, query):
+    data = query.data.split()
+    action = data[1]
+    target_user_id = int(data[2])
+    user_id = query.from_user.id
+
+    if user_id != target_user_id and not await CustomFilters.sudo("", query):
+        await query.answer("You cannot interact with this menu!", show_alert=True)
+        return
+
+    if action == "close":
+        await query.answer()
+        await delete_message(query.message)
+        return
+
+    email, password, _ = await _get_seedr_clean_details(target_user_id, query)
+
+    if not (email and password):
+        await query.answer("Seedr credentials missing!", show_alert=True)
+        return
+
+    sc = SeedrClient(email, password)
+
+    if action == "clear_all":
+        await query.answer("Clearing all Seedr storage...", show_alert=False)
+        try:
+            t_c, f_c = await clear_seedr_account(email, password)
+            await query.answer(
+                f"Removed {t_c} torrent(s) and {f_c} folder(s)!", show_alert=True
+            )
+        except Exception as e:
+            await query.answer(f"Error: {e}"[:180], show_alert=True)
+    elif action in ("del_t", "del_f"):
+        item_id = data[3]
+        item_type = "torrent" if action == "del_t" else "folder"
+        await query.answer(f"Deleting {item_type}...", show_alert=False)
+        try:
+            await sc.login()
+            await sc.delete(item_type, item_id)
+            await query.answer(f"Deleted {item_type} successfully!", show_alert=False)
+        except Exception as e:
+            await query.answer(f"Failed to delete: {e}"[:180], show_alert=True)
+    elif action == "refresh":
+        await query.answer("Refreshing...", show_alert=False)
+
+    msg_text, buttons = await get_seedr_clean_menu(target_user_id, query)
+    await edit_message(query.message, msg_text, buttons)
