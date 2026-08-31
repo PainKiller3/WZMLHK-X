@@ -21,6 +21,7 @@ class BotCommands:
         "YtdlLeech": ["ytdlleech", "yl"],
         "NzbLeech": ["nzbleech", "nl"],
         "SeedrLink": ["seedrlink", "slink", "srlink"],
+        "SeedrClean": ["seedrclean", "sclean", "seedrdel"],
         "Clone": ["clone", "cl"],
         "Count": "count",
         "Delete": "del",
