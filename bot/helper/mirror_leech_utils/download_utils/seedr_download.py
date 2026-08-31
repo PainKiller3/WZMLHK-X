@@ -8,6 +8,7 @@ from ...ext_utils.task_manager import (
     check_running_tasks,
     stop_duplicate_check,
     limit_checker,
+    check_blacklisted_keywords,
 )
 from ...ext_utils.links_utils import is_magnet, is_url
 from ...listeners.direct_listener import DirectListener
@@ -74,6 +75,14 @@ async def add_seedr_download(listener, path):
             "Seedr only accepts magnet links or .torrent URLs!"
         )
         return
+    is_bl, bl_kw = await check_blacklisted_keywords(
+        listener, listener.name or listener.link
+    )
+    if is_bl:
+        await listener.on_download_error(
+            f"Task cancelled! Name/Link contains blacklisted keyword: <code>{bl_kw}</code>"
+        )
+        return
     torrent_id = None
     torrent_download_dir = None
     gid = token_hex(5)
@@ -94,6 +103,16 @@ async def add_seedr_download(listener, path):
             raise ValueError("Failed to obtain Seedr torrent ID!")
         title = result.get("title") or ""
         LOGGER.info(f"Seedr Torrent Added: {torrent_id}")
+
+        if title:
+            listener.name = title
+            is_bl, bl_kw = await check_blacklisted_keywords(listener, title)
+            if is_bl:
+                await seedr_client.delete("torrent", torrent_id)
+                await listener.on_download_error(
+                    f"Task cancelled! Name contains blacklisted keyword: <code>{bl_kw}</code>"
+                )
+                return
 
         status = SeedrStatus(listener, torrent_id, seedr_client)
         async with task_dict_lock:
@@ -136,6 +155,16 @@ async def add_seedr_download(listener, path):
                 )
                 if torrent.get("name"):
                     folder_names.add(torrent["name"])
+                    listener.name = torrent["name"]
+                    is_bl, bl_kw = await check_blacklisted_keywords(
+                        listener, torrent["name"]
+                    )
+                    if is_bl:
+                        await seedr_client.delete("torrent", torrent_id)
+                        await listener.on_download_error(
+                            f"Task cancelled! Name contains blacklisted keyword: <code>{bl_kw}</code>"
+                        )
+                        return
                 warn = str(torrent.get("warnings") or "").strip()
                 if warn and warn not in ("[]", "{}"):
                     LOGGER.warning(f"Seedr torrent {torrent_id} warning: {warn}")
@@ -175,6 +204,16 @@ async def add_seedr_download(listener, path):
         contents, total_size = await _build_contents(seedr_client, torrent_download_dir)
         if not contents:
             raise ValueError("Seedr torrent has no files to download!")
+
+        for item in contents:
+            is_bl, bl_kw = await check_blacklisted_keywords(listener, item["filename"])
+            if is_bl:
+                await seedr_client.delete("torrent", torrent_id)
+                await _delete_seedr_folder(seedr_client, torrent_download_dir)
+                await listener.on_download_error(
+                    f"Task cancelled! Name contains blacklisted keyword: <code>{bl_kw}</code>"
+                )
+                return
 
         if total_size > 0:
             listener.size = total_size

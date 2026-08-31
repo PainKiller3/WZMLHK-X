@@ -10,7 +10,14 @@ from aiofiles import open as aiopen
 from aiofiles.os import path as aiopath
 from bot.core.config_manager import Config
 
-from .. import DOWNLOAD_DIR, LOGGER, bot_loop, task_dict_lock, user_data
+from .. import (
+    DOWNLOAD_DIR,
+    LOGGER,
+    blacklisted_keywords,
+    bot_loop,
+    task_dict_lock,
+    user_data,
+)
 from ..core.seedr_client import SeedrClient
 from ..helper.ext_utils.bot_utils import (
     COMMAND_USAGE,
@@ -33,7 +40,10 @@ from ..helper.ext_utils.links_utils import (
     is_telegram_link,
     is_url,
 )
-from ..helper.ext_utils.task_manager import pre_task_check
+from ..helper.ext_utils.task_manager import (
+    pre_task_check,
+    check_blacklisted_keywords,
+)
 from ..helper.listeners.task_listener import TaskListener
 from ..helper.mirror_leech_utils.download_utils.alldebrid_resolver import (
     alldebrid_resolve,
@@ -755,6 +765,19 @@ async def seedr_link(client, message):
         )
         return
 
+    user_dict = user_data.get(user_id, {})
+    bl_keywords = user_dict.get("BLACKLISTED_KEYWORDS") or (
+        blacklisted_keywords if "BLACKLISTED_KEYWORDS" not in user_dict else []
+    )
+    listener_dummy = type("Listener", (), {"blacklisted_keywords": bl_keywords})()
+
+    is_bl, bl_kw = await check_blacklisted_keywords(listener_dummy, link)
+    if is_bl:
+        await message.reply(
+            f"Task cancelled! Name/Link contains blacklisted keyword: <code>{bl_kw}</code>"
+        )
+        return
+
     msg = await send_message(message, "<i>Processing Seedr Magnet Link...</i>")
     seedr_client = SeedrClient(email, password)
     torrent_id = None
@@ -772,6 +795,15 @@ async def seedr_link(client, message):
             raise ValueError("Failed to obtain Seedr torrent ID!")
 
         if title:
+            is_bl, bl_kw = await check_blacklisted_keywords(listener_dummy, title)
+            if is_bl:
+                if torrent_id:
+                    await seedr_client.delete("torrent", torrent_id)
+                await edit_message(
+                    msg,
+                    f"Task cancelled! Name contains blacklisted keyword: <code>{bl_kw}</code>",
+                )
+                return
             await edit_message(
                 msg,
                 f"<b>Added to Seedr Cloud!</b>\n\n<b>Title:</b> <code>{escape(title)}</code>\n<i>Fetching cloud progress...</i>",
@@ -811,6 +843,17 @@ async def seedr_link(client, message):
                 name_str = torrent.get("name") or title or "Torrent"
                 if torrent.get("name"):
                     folder_names.add(torrent["name"])
+                is_bl, bl_kw = await check_blacklisted_keywords(
+                    listener_dummy, name_str
+                )
+                if is_bl:
+                    if torrent_id:
+                        await seedr_client.delete("torrent", torrent_id)
+                    await edit_message(
+                        msg,
+                        f"Task cancelled! Name contains blacklisted keyword: <code>{bl_kw}</code>",
+                    )
+                    return
                 prog_str = f"<b>Seedr Cloud Download...</b>\n\n<b>Name:</b> <code>{escape(name_str)}</code>\n<b>Progress:</b> <code>{round(prog, 2)}%</code>"
                 if prog_str != last_progress:
                     last_progress = prog_str
@@ -837,6 +880,20 @@ async def seedr_link(client, message):
         contents, total_size = await _build_contents(seedr_client, folder_id)
         if not contents:
             raise ValueError("No downloadable files found in Seedr folder!")
+
+        for item in contents:
+            is_bl, bl_kw = await check_blacklisted_keywords(
+                listener_dummy, item["filename"]
+            )
+            if is_bl:
+                if torrent_id:
+                    await seedr_client.delete("torrent", torrent_id)
+                await _delete_seedr_folder(seedr_client, folder_id)
+                await edit_message(
+                    msg,
+                    f"Task cancelled! Name contains blacklisted keyword: <code>{bl_kw}</code>",
+                )
+                return
 
         buttons = ButtonMaker()
         text_lines = [
