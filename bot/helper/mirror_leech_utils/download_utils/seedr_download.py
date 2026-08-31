@@ -1,3 +1,4 @@
+from os import path as ospath
 from asyncio import sleep
 from secrets import token_hex
 
@@ -10,7 +11,7 @@ from ...ext_utils.task_manager import (
     limit_checker,
     check_blacklisted_keywords,
 )
-from ...ext_utils.links_utils import is_magnet, is_url
+from ...ext_utils.links_utils import is_magnet, is_url, get_magnet_from_torrent
 from ...listeners.direct_listener import DirectListener
 from ...mirror_leech_utils.status_utils.direct_status import DirectStatus
 from ...mirror_leech_utils.status_utils.queue_status import QueueStatus
@@ -68,11 +69,22 @@ async def _delete_seedr_folder(seedr_client, torrent_download_dir):
 
 
 async def add_seedr_download(listener, path):
+    if isinstance(listener.link, str) and (
+        listener.link.endswith(".torrent") or ospath.isfile(listener.link)
+    ):
+        try:
+            if ospath.isfile(listener.link):
+                listener.link = get_magnet_from_torrent(listener.link)
+        except Exception as e:
+            LOGGER.error(f"Failed to parse local torrent file for Seedr: {e}")
+
     if not isinstance(listener.link, str) or not (
-        is_magnet(listener.link) or is_url(listener.link)
+        is_magnet(listener.link)
+        or is_url(listener.link)
+        or listener.link.endswith(".torrent")
     ):
         await listener.on_download_error(
-            "Seedr only accepts magnet links or .torrent URLs!"
+            "Seedr only accepts magnet links or .torrent URLs/files!"
         )
         return
     is_bl, bl_kw = await check_blacklisted_keywords(

@@ -92,3 +92,65 @@ def decode_slink(b64_str):
     return urlsafe_b64decode(
         (b64_str.strip("=") + "=" * (-len(b64_str.strip("=")) % 4)).encode("ascii")
     ).decode("ascii")
+
+
+def get_magnet_from_torrent(file_path_or_bytes):
+    import hashlib
+    from urllib.parse import quote
+
+    if isinstance(file_path_or_bytes, str):
+        with open(file_path_or_bytes, "rb") as f:
+            data = f.read()
+    else:
+        data = file_path_or_bytes
+
+    def decode(data, idx=0):
+        if data[idx : idx + 1] == b"i":
+            idx += 1
+            end = data.index(b"e", idx)
+            return int(data[idx:end]), end + 1
+        elif data[idx : idx + 1] == b"l":
+            idx += 1
+            res = []
+            while data[idx : idx + 1] != b"e":
+                val, idx = decode(data, idx)
+                res.append(val)
+            return res, idx + 1
+        elif data[idx : idx + 1] == b"d":
+            idx += 1
+            res = {}
+            while data[idx : idx + 1] != b"e":
+                key, idx = decode(data, idx)
+                val, idx = decode(data, idx)
+                res[key] = val
+            return res, idx + 1
+        elif data[idx : idx + 1].isdigit():
+            colon = data.index(b":", idx)
+            length = int(data[idx:colon])
+            start = colon + 1
+            return data[start : start + length], start + length
+        raise ValueError("Invalid bencode data")
+
+    def encode(obj):
+        if isinstance(obj, int):
+            return b"i" + str(obj).encode() + b"e"
+        elif isinstance(obj, bytes):
+            return str(len(obj)).encode() + b":" + obj
+        elif isinstance(obj, list):
+            return b"l" + b"".join(encode(x) for x in obj) + b"e"
+        elif isinstance(obj, dict):
+            return (
+                b"d"
+                + b"".join(encode(k) + encode(obj[k]) for k in sorted(obj.keys()))
+                + b"e"
+            )
+        raise ValueError("Cannot encode type")
+
+    parsed, _ = decode(data)
+    info_bytes = encode(parsed[b"info"])
+    info_hash = hashlib.sha1(info_bytes).hexdigest()
+    name = parsed.get(b"info", {}).get(b"name", b"").decode("utf-8", "ignore")
+    magnet = f"magnet:?xt=urn:btih:{info_hash}"
+    if name:
+        magnet += f"&dn={quote(name)}"
+    return magnet

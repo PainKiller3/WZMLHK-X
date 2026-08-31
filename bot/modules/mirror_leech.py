@@ -7,7 +7,7 @@ from re import match as re_match
 from time import time
 
 from aiofiles import open as aiopen
-from aiofiles.os import path as aiopath
+from aiofiles.os import remove, path as aiopath
 from bot.core.config_manager import Config
 
 from .. import (
@@ -39,6 +39,7 @@ from ..helper.ext_utils.links_utils import (
     is_rclone_path,
     is_telegram_link,
     is_url,
+    get_magnet_from_torrent,
 )
 from ..helper.ext_utils.task_manager import (
     pre_task_check,
@@ -565,7 +566,20 @@ class Mirror(TaskListener):
                     await send_message(self.message, e)
                     await self.remove_from_same_dir()
                     await delete_links(self.message)
-                    return
+        if (
+            self.is_seedr
+            and file_ is not None
+            and (getattr(file_, "file_name", "") or "").endswith(".torrent")
+        ):
+            tor_path = await self.client.download_media(file_)
+            try:
+                self.link = get_magnet_from_torrent(tor_path)
+                file_ = None
+            except Exception as e:
+                LOGGER.error(f"Failed to parse telegram torrent file for Seedr: {e}")
+            finally:
+                if ospath.exists(tor_path):
+                    await remove(tor_path)
 
         if file_ is not None:
             await TelegramDownloadHelper(self).add_download(
@@ -758,6 +772,33 @@ async def seedr_link(client, message):
     elif reply_to := message.reply_to_message:
         if reply_to.text:
             link = reply_to.text.split("\n", 1)[0].strip()
+        elif reply_to.document and (reply_to.document.file_name or "").endswith(
+            ".torrent"
+        ):
+            tor_path = await client.download_media(reply_to.document)
+            try:
+                link = get_magnet_from_torrent(tor_path)
+            except Exception as e:
+                LOGGER.error(
+                    f"Failed to parse telegram torrent file for SeedrLink: {e}"
+                )
+            finally:
+                if ospath.exists(tor_path):
+                    await remove(tor_path)
+
+    if (
+        not link
+        and message.document
+        and (message.document.file_name or "").endswith(".torrent")
+    ):
+        tor_path = await client.download_media(message.document)
+        try:
+            link = get_magnet_from_torrent(tor_path)
+        except Exception as e:
+            LOGGER.error(f"Failed to parse attached torrent file for SeedrLink: {e}")
+        finally:
+            if ospath.exists(tor_path):
+                await remove(tor_path)
 
     if not link or not (is_magnet(link) or is_url(link) or link.endswith(".torrent")):
         await message.reply(
