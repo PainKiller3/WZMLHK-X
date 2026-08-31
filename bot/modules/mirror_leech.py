@@ -18,6 +18,7 @@ from ..helper.ext_utils.bot_utils import (
 from ..helper.ext_utils.status_utils import get_readable_file_size
 from ..helper.telegram_helper.button_build import ButtonMaker
 from ..helper.telegram_helper.bot_commands import BotCommands
+from ..helper.telegram_helper.filters import CustomFilters
 from ..helper.ext_utils.exceptions import DirectDownloadLinkException
 from ..helper.ext_utils.links_utils import (
     is_gdrive_id,
@@ -56,6 +57,7 @@ from ..helper.mirror_leech_utils.download_utils.telegram_download import (
 )
 from ..helper.telegram_helper.message_utils import (
     auto_delete_message,
+    delete_message,
     delete_links,
     get_tg_link_message,
     send_message,
@@ -767,3 +769,157 @@ async def seedr_link(client, message):
     except Exception as e:
         LOGGER.error(f"SeedrLink error: {e}")
         await edit_message(msg, f"<b>Seedr Link Failed:</b> {escape(str(e))}")
+
+
+async def _get_seedr_clean_details(user_id, message_or_query):
+    user_dict = user_data.get(user_id, {})
+    email = user_dict.get("SEEDR_EMAIL", "")
+    password = user_dict.get("SEEDR_PASSWORD", "")
+    is_global = False
+    if not (email and password):
+        if await CustomFilters.sudo("", message_or_query):
+            email = Config.SEEDR_EMAIL
+            password = Config.SEEDR_PASSWORD
+            is_global = True
+
+    return email, password, is_global
+
+
+async def get_seedr_clean_menu(user_id, message_or_query):
+    email, password, is_global = await _get_seedr_clean_details(
+        user_id, message_or_query
+    )
+
+    if not (email and password):
+        uset_cmd = (
+            f"/{BotCommands.UserSetCommand[0]}"
+            if isinstance(BotCommands.UserSetCommand, list)
+            else f"/{BotCommands.UserSetCommand}"
+        )
+        return (
+            "<b>Seedr credentials not configured!</b>\n"
+            f"Please set <code>SEEDR_EMAIL</code> and <code>SEEDR_PASSWORD</code> in {uset_cmd} to manage your personal Seedr cloud storage.",
+            None,
+        )
+
+    try:
+        sc = SeedrClient(email, password)
+        await sc.login()
+        res = await sc.list_contents("0")
+    except Exception as e:
+        return f"<b>Seedr Login Failed:</b> <code>{escape(str(e))}</code>", None
+
+    if not isinstance(res, dict):
+        return "<b>Failed to fetch Seedr contents!</b>", None
+
+    space_max, space_used = await sc.get_space()
+    torrents = res.get("torrents", [])
+    folders = res.get("folders", [])
+
+    account_type = "Global Shared Account" if is_global else "Personal User Account"
+    text = (
+        f"⌬ <b><u>Seedr Cloud Storage Manager</u></b>\n"
+        f"│\n"
+        f"┟ <b>Account</b> → {account_type}\n"
+        f"┠ <b>Space Used</b> → <code>{get_readable_file_size(space_used)} / {get_readable_file_size(space_max)}</code>\n"
+        f"┠ <b>Torrents</b> → <code>{len(torrents)}</code>\n"
+        f"┖ <b>Folders</b> → <code>{len(folders)}</code>\n\n"
+    )
+
+    buttons = ButtonMaker()
+    has_items = False
+
+    if torrents:
+        text += "〶 <b>Torrents:</b>\n"
+        for t in torrents:
+            t_id = t.get("id") or t.get("user_torrent_id")
+            name = t.get("name") or t.get("title") or f"Torrent #{t_id}"
+            size = get_readable_file_size(t.get("size", 0))
+            text += f"• <code>{escape(name)}</code> ({size})\n"
+            buttons.data_button(f"❌ {name[:20]}", f"seedrclean del_t {user_id} {t_id}")
+            has_items = True
+
+    if folders:
+        if torrents:
+            text += "\n"
+        text += "〶 <b>Folders:</b>\n"
+        for f in folders:
+            f_id = f.get("id")
+            name = f.get("name") or f"Folder #{f_id}"
+            size = get_readable_file_size(f.get("size", 0))
+            text += f"• <code>{escape(name)}</code> ({size})\n"
+            buttons.data_button(f"❌ {name[:20]}", f"seedrclean del_f {user_id} {f_id}")
+            has_items = True
+
+    if not has_items:
+        text += "<i>Seedr cloud storage is currently empty!</i>"
+    else:
+        buttons.data_button(
+            "🗑️ Clear All", f"seedrclean clear_all {user_id}", position="footer"
+        )
+
+    buttons.data_button(
+        "🔄 Refresh", f"seedrclean refresh {user_id}", position="footer"
+    )
+    buttons.data_button("✖️ Close", f"seedrclean close {user_id}", position="footer")
+
+    return text, buttons.build_menu(2)
+
+
+@new_task
+async def seedr_clean(client, message):
+    if Config.DISABLE_SEEDR:
+        await send_message(message, "Seedr is currently disabled by the Bot Owner.")
+        return
+    user_id = message.from_user.id
+    msg_text, buttons = await get_seedr_clean_menu(user_id, message)
+    await send_message(message, msg_text, buttons)
+
+
+async def seedr_clean_cb(client, query):
+    data = query.data.split()
+    action = data[1]
+    target_user_id = int(data[2])
+    user_id = query.from_user.id
+
+    if user_id != target_user_id and not await CustomFilters.sudo("", query):
+        await query.answer("You cannot interact with this menu!", show_alert=True)
+        return
+
+    if action == "close":
+        await query.answer()
+        await delete_message(query.message)
+        return
+
+    email, password, _ = await _get_seedr_clean_details(target_user_id, query)
+
+    if not (email and password):
+        await query.answer("Seedr credentials missing!", show_alert=True)
+        return
+
+    sc = SeedrClient(email, password)
+
+    if action == "clear_all":
+        await query.answer("Clearing all Seedr storage...", show_alert=False)
+        try:
+            t_c, f_c = await clear_seedr_account(email, password)
+            await query.answer(
+                f"Removed {t_c} torrent(s) and {f_c} folder(s)!", show_alert=True
+            )
+        except Exception as e:
+            await query.answer(f"Error: {e}"[:180], show_alert=True)
+    elif action in ("del_t", "del_f"):
+        item_id = data[3]
+        item_type = "torrent" if action == "del_t" else "folder"
+        await query.answer(f"Deleting {item_type}...", show_alert=False)
+        try:
+            await sc.login()
+            await sc.delete(item_type, item_id)
+            await query.answer(f"Deleted {item_type} successfully!", show_alert=False)
+        except Exception as e:
+            await query.answer(f"Failed to delete: {e}"[:180], show_alert=True)
+    elif action == "refresh":
+        await query.answer("Refreshing...", show_alert=False)
+
+    msg_text, buttons = await get_seedr_clean_menu(target_user_id, query)
+    await edit_message(query.message, msg_text, buttons)

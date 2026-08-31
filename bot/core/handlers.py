@@ -262,6 +262,16 @@ def add_handlers():
     )
     TgClient.bot.add_handler(
         MessageHandler(
+            seedr_clean,
+            filters=command(BotCommands.SeedrCleanCommand, case_sensitive=True)
+            & CustomFilters.authorized,
+        )
+    )
+    TgClient.bot.add_handler(
+        CallbackQueryHandler(seedr_clean_cb, filters=regex("^seedrclean"))
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
             uphoster,
             filters=command(BotCommands.UpHosterCommand, case_sensitive=True)
             & CustomFilters.authorized,
@@ -451,6 +461,12 @@ def add_handlers():
                 "SeedrLink",
                 "[magnet] Get direct Seedr HTTP download links",
                 7,
+            )
+            BOT_COMMANDS = insert_at(
+                BOT_COMMANDS,
+                "SeedrClean",
+                "Clean or delete active Seedr cloud downloads",
+                10,
             )
 
         if len(Config.USENET_SERVERS) != 0:

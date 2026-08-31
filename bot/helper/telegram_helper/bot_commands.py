@@ -17,6 +17,7 @@ class BotCommands:
         "QbLeech": ["qbleech", "ql"],
         "JdLeech": ["jdleech", "jl"],
         "SeedrLink": ["seedrlink", "slink", "srlink"],
+        "SeedrClean": ["seedrclean", "sclean", "seedrdel"],
         "YtdlLeech": ["ytdlleech", "yl"],
         "NzbLeech": ["nzbleech", "nl"],
         "Clone": ["clone", "cl"],
