@@ -156,11 +156,19 @@ async def add_seedr_download(listener, path):
             )
             if torrent is not None:
                 not_found_count = 0
+                prog_val = float(torrent.get("progress", 0) or 0)
+                if 0 < prog_val <= 1.0:
+                    prog_val *= 100.0
+                sz_val = float(torrent.get("size", 0) or 0)
+                dld_val = float(torrent.get("downloaded", 0) or 0)
+                if sz_val > 0 and dld_val > 0:
+                    prog_val = max(prog_val, (dld_val / sz_val) * 100.0)
+
                 status._info.update(
                     {
                         "name": torrent.get("name", listener.name),
                         "size": torrent.get("size", 0) or 0,
-                        "progress": float(torrent.get("progress", 0) or 0),
+                        "progress": prog_val,
                         "speed": float(torrent.get("download_rate", 0) or 0),
                         "stopped": int(torrent.get("stopped", 0) or 0),
                     }
@@ -181,25 +189,26 @@ async def add_seedr_download(listener, path):
                 if warn and warn not in ("[]", "{}"):
                     LOGGER.warning(f"Seedr torrent {torrent_id} warning: {warn}")
 
-            folder = _match_folder(
-                result.get("folders", []),
-                folder_names,
-                known_folders,
-                torrent is None,
-            )
+            if torrent is None or float(torrent.get("progress", 0) or 0) >= 100:
+                folder = _match_folder(
+                    result.get("folders", []),
+                    folder_names,
+                    known_folders,
+                    torrent is None,
+                )
 
-            if folder is not None:
-                folder_contents = await seedr_client.list_contents(folder["id"])
-                if folder_contents.get("files") or folder_contents.get("folders"):
-                    torrent_download_dir = folder["id"]
-                    status._info.update(
-                        {
-                            "name": title or listener.name,
-                            "size": folder.get("size", 0) or 0,
-                            "progress": 100.0,
-                        }
-                    )
-                    break
+                if folder is not None:
+                    folder_contents = await seedr_client.list_contents(folder["id"])
+                    if folder_contents.get("files") or folder_contents.get("folders"):
+                        torrent_download_dir = folder["id"]
+                        status._info.update(
+                            {
+                                "name": title or listener.name,
+                                "size": folder.get("size", 0) or 0,
+                                "progress": 100.0,
+                            }
+                        )
+                        break
             if torrent is None:
                 not_found_count += 1
                 if not_found_count >= 36:
