@@ -318,6 +318,9 @@ async def add_handlers():
         CallbackQueryHandler(seedr_clean_cb, filters=regex("^seedrclean"))
     )
     TgClient.bot.add_handler(
+        CallbackQueryHandler(seedr_link_cb, filters=regex("^seedrlink"))
+    )
+    TgClient.bot.add_handler(
         MessageHandler(
             uphoster,
             filters=command(BotCommands.UpHosterCommand, case_sensitive=True)

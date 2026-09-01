@@ -19,6 +19,7 @@ from .. import (
     user_data,
 )
 from ..core.seedr_client import SeedrClient
+from ..helper.ext_utils.telegraph_helper import telegraph
 from ..helper.ext_utils.bot_utils import (
     COMMAND_USAGE,
     arg_parser,
@@ -936,32 +937,45 @@ async def seedr_link(client, message):
                 )
                 return
 
-        buttons = ButtonMaker()
-        text_lines = [
-            f"<b><i>{escape(title or contents[0]['filename'])}</i></b>\n│",
-            f"┟ <b>Task Size</b> → {get_readable_file_size(total_size)}",
-            f"┠ <b>Time Taken</b> → {get_readable_time(time() - message.date.timestamp())}",
-            "┠ <b>In Mode</b> → Seedr Cloud",
-            f"┠ <b>Total Files</b> → {len(contents)}",
-            f"┖ <b>Task By</b> → {tag}\n",
-            "〶 <b><u>Files List :</u></b>",
-        ]
+        page_title = title or contents[0]["filename"]
+        html_content = f"<h3>{escape(page_title)}</h3>"
+        html_content += f"<p><b>Task Size:</b> {get_readable_file_size(total_size)}<br>"
+        html_content += f"<b>Total Files:</b> {len(contents)}</p><ol>"
 
-        for idx, item in enumerate(contents, start=1):
-            fname = item["filename"]
+        for item in contents:
+            fname = escape(item["filename"])
             furl = item["url"]
             fsize = get_readable_file_size(item["size"])
-            text_lines.append(
-                f"{idx}. <a href='{furl}'>{escape(fname)}</a> (<code>{fsize}</code>)"
+            html_content += (
+                f"<li><a href='{furl}'>{fname}</a> (<code>{fsize}</code>)</li>"
             )
-            buttons.url_button(f"Download #{idx}", furl)
+        html_content += "</ol>"
 
-        out_text = "\n".join(text_lines)
-        if len(out_text) > 4000:
-            out_text = (
-                out_text[:3900]
-                + "\n\n<i>(Links truncated due to length. Use buttons below)</i>"
-            )
+        page = await telegraph.create_page(title=page_title[:64], content=html_content)
+        telegraph_path = page.get("path", "") if isinstance(page, dict) else ""
+        telegraph_url = f"https://telegra.ph/{telegraph_path}" if telegraph_path else ""
+
+        buttons = ButtonMaker()
+        if len(contents) == 1:
+            buttons.url_button("💾 Direct Download", contents[0]["url"])
+        elif telegraph_url:
+            buttons.url_button("🌐 View Telegraph Page", telegraph_url)
+        else:
+            buttons.url_button("Download Link", contents[0]["url"])
+
+        buttons.data_button(
+            "🗑 Delete",
+            f"seedrlink del {user_id} {folder_id or 0} {torrent_id or 0}",
+        )
+
+        out_text = (
+            f"<b><i>{escape(title or contents[0]['filename'])}</i></b>\n│\n"
+            f"┟ <b>Task Size</b> → {get_readable_file_size(total_size)}\n"
+            f"┠ <b>Time Taken</b> → {get_readable_time(time() - message.date.timestamp())}\n"
+            "┠ <b>In Mode</b> → Seedr Cloud\n"
+            f"┠ <b>Total Files</b> → {len(contents)}\n"
+            f"┖ <b>Task By</b> → {tag}"
+        )
 
         await edit_message(msg, out_text, buttons.build_menu(2))
 
@@ -982,6 +996,36 @@ async def seedr_link(client, message):
             "\n┠ <b>In Mode</b> → Seedr Cloud"
             f"\n┖ <b>Task By</b> → {tag}",
         )
+
+
+async def seedr_link_cb(client, query):
+    data = query.data.split()
+    action = data[1]
+    target_user_id = int(data[2])
+    user_id = query.from_user.id
+
+    if user_id != target_user_id and not await CustomFilters.sudo("", query):
+        await query.answer("You cannot interact with this task!", show_alert=True)
+        return
+
+    if action == "del":
+        folder_id = data[3]
+        torrent_id = data[4]
+        await query.answer("Deleting task from Seedr Cloud...", show_alert=False)
+        email, password = _seedr_creds(target_user_id)
+        sc = SeedrClient(email, password)
+        try:
+            await sc.login()
+            if folder_id and folder_id != "0":
+                await sc.delete("folder", folder_id)
+            if torrent_id and torrent_id != "0":
+                await sc.delete("torrent", torrent_id)
+            await query.answer("Deleted from Seedr Cloud!", show_alert=True)
+            await delete_message(query.message)
+            if query.message.reply_to_message:
+                await delete_message(query.message.reply_to_message)
+        except Exception as e:
+            await query.answer(f"Failed to delete: {e}"[:180], show_alert=True)
 
 
 async def _get_seedr_clean_details(user_id, message_or_query):
