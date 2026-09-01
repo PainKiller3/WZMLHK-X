@@ -18,8 +18,8 @@ class TelegraphHelper:
         try:
             await self._telegraph.create_account(
                 short_name=token_hex(5),
-                author_name=self._author_name,
-                author_url=self._author_url,
+                author_name=Config.AUTHOR_NAME,
+                author_url=Config.AUTHOR_URL,
             )
         except Exception as e:
             LOGGER.error(f"Failed to create Telegraph Account: {e}")
@@ -28,8 +28,8 @@ class TelegraphHelper:
         try:
             return await self._telegraph.create_page(
                 title=title,
-                author_name=self._author_name,
-                author_url=self._author_url,
+                author_name=Config.AUTHOR_NAME,
+                author_url=Config.AUTHOR_URL,
                 html_content=content,
             )
         except RetryAfterError as st:
@@ -44,8 +44,8 @@ class TelegraphHelper:
             return await self._telegraph.edit_page(
                 path=path,
                 title=title,
-                author_name=self._author_name,
-                author_url=self._author_url,
+                author_name=Config.AUTHOR_NAME,
+                author_url=Config.AUTHOR_URL,
                 html_content=content,
             )
         except RetryAfterError as st:
