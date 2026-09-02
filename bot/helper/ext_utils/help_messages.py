@@ -284,6 +284,13 @@ Set different metadata for audio/video/subtitle streams in User Settings > FFmpe
 • Video Metadata: <code>title={basename}|year={year}</code>
 • Subtitle Metadata: <code>language={sublang}|title=Subtitles</code>"""
 
+seedr_arg = """<b>Seedr Download</b>: -sd or -seedr
+
+/cmd link -sd
+/cmd link -seedr
+
+Use this flag with /mirror (/m) or /leech (/l) to download magnet/torrent links using Seedr."""
+
 YT_HELP_DICT = {
     "main": yt,
     "New-Name": f"{new_name}\nNote: Don't add file extension",
@@ -338,6 +345,7 @@ MIRROR_HELP_DICT = {
     "Leech-Type": leech_as,
     "FFmpeg-Cmds": ffmpeg_cmds,
     "Metadata": metadata,
+    "Seedr-DL": seedr_arg,
 }
 
 CLONE_HELP_DICT = {
@@ -386,8 +394,6 @@ def get_bot_commands():
     static_commands = {
         "Mirror": "[link/file] Mirror to Upload Destination",
         "QbMirror": "[magnet/torrent] Mirror to Upload Destination using qbit",
-        "SeedrMirror": "[magnet] Mirror files using Seedr",
-        "SeedrLeech": "[magnet] Leech files using Seedr",
         "SeedrLink": "[magnet] Get direct Seedr HTTP download links",
         "Ytdl": "[link] Mirror YouTube, m3u8, Social Media and yt-dlp supported urls",
         "UpHoster": "[link/file] Upload to DDL Servers",
@@ -475,10 +481,6 @@ def get_help_string():
             help_lines.append(f"{cmd_str}: Start leeching using JDownloader.")
         elif key == "NzbLeech":
             help_lines.append(f"{cmd_str}: Start leeching using Sabnzbd.")
-        elif key == "SeedrMirror":
-            help_lines.append(f"{cmd_str}: Start Mirroring to cloud using Seedr.")
-        elif key == "SeedrLeech":
-            help_lines.append(f"{cmd_str}: Start leeching using Seedr.")
         elif key == "SeedrLink":
             help_lines.append(f"{cmd_str}: Get direct Seedr HTTP download links.")
         elif key == "YtdlLeech":

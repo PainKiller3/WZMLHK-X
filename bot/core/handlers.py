@@ -255,20 +255,6 @@ def add_handlers():
     )
     TgClient.bot.add_handler(
         MessageHandler(
-            seedr,
-            filters=command(BotCommands.SeedrMirrorCommand, case_sensitive=True)
-            & CustomFilters.authorized,
-        )
-    )
-    TgClient.bot.add_handler(
-        MessageHandler(
-            seedr_leech,
-            filters=command(BotCommands.SeedrLeechCommand, case_sensitive=True)
-            & CustomFilters.authorized,
-        )
-    )
-    TgClient.bot.add_handler(
-        MessageHandler(
             seedr_link,
             filters=command(BotCommands.SeedrLinkCommand, case_sensitive=True)
             & CustomFilters.authorized,
@@ -460,18 +446,6 @@ def add_handlers():
             )
 
         if not Config.DISABLE_SEEDR:
-            BOT_COMMANDS = insert_at(
-                BOT_COMMANDS,
-                "SeedrMirror",
-                "[magnet] Mirror to Upload Destination using Seedr",
-                2,
-            )
-            BOT_COMMANDS = insert_at(
-                BOT_COMMANDS,
-                "SeedrLeech",
-                "[magnet] Leech files to Upload to Telegram using Seedr",
-                6,
-            )
             BOT_COMMANDS = insert_at(
                 BOT_COMMANDS,
                 "SeedrLink",
