@@ -4,7 +4,7 @@ from contextlib import suppress
 from PIL import Image
 from hashlib import md5, sha256
 from aiofiles import open as aiopen
-from aiofiles.os import remove, path as aiopath, makedirs
+from aiofiles.os import remove, path as aiopath, makedirs, rename
 import json
 from asyncio import (
     create_subprocess_exec,
@@ -914,14 +914,22 @@ class FFMpeg:
                     f"Something went wrong while splitting, mostly file is corrupted. Path: {f_path}"
                 )
                 break
-            elif duration == lpd:
+            elif lpd <= 3:
+                await remove(out_path)
+                break
+
+            final_path = f_path.replace(file_, f"{base_name}{extension}.{i:03}")
+            if await aiopath.exists(final_path):
+                LOGGER.error(f"Destination file already exists: {final_path}. Aborting rename to prevent data loss.")
+                return False
+            await rename(out_path, final_path)
+
+            if duration == lpd:
                 LOGGER.warning(
                     f"This file has been split with default stream and audio, so you will only see one part with less size from original one because it doesn't have all streams and audios. This happens mostly with MKV videos. Path: {f_path}"
                 )
                 break
-            elif lpd <= 3:
-                await remove(out_path)
-                break
+
             self._last_processed_time += lpd
             self._last_processed_bytes += out_size
             start_time += lpd - 3
