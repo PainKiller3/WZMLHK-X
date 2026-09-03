@@ -921,8 +921,17 @@ class FFMpeg:
             final_path = f_path.replace(file_, f"{base_name}{extension}.{i:03}")
             if await aiopath.exists(final_path):
                 LOGGER.error(f"Destination file already exists: {final_path}. Aborting rename to prevent data loss.")
+                with suppress(Exception):
+                    await remove(out_path)
                 return False
-            await rename(out_path, final_path)
+
+            try:
+                await rename(out_path, final_path)
+            except Exception as e:
+                LOGGER.error(f"Failed to rename split part {out_path} to {final_path}: {e}")
+                with suppress(Exception):
+                    await remove(out_path)
+                return False
 
             if duration == lpd:
                 LOGGER.warning(
