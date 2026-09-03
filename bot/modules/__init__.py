@@ -35,6 +35,8 @@ from .mirror_leech import (
     seedr_clean,
     seedr_clean_cb,
     seedr_del_cb,
+    seedrsync_cb,
+    seedrcancel_cb,
     uphoster,
 )
 from .restart import (
@@ -101,6 +103,8 @@ __all__ = [
     "seedr_clean",
     "seedr_clean_cb",
     "seedr_del_cb",
+    "seedrsync_cb",
+    "seedrcancel_cb",
     "restart_bot",
     "restart_notification",
     "confirm_restart",

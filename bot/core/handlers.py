@@ -274,6 +274,12 @@ def add_handlers():
         CallbackQueryHandler(seedr_del_cb, filters=regex("^seedrdel"))
     )
     TgClient.bot.add_handler(
+        CallbackQueryHandler(seedrsync_cb, filters=regex("^seedrsync"))
+    )
+    TgClient.bot.add_handler(
+        CallbackQueryHandler(seedrcancel_cb, filters=regex("^seedrcancel"))
+    )
+    TgClient.bot.add_handler(
         MessageHandler(
             uphoster,
             filters=command(BotCommands.UpHosterCommand, case_sensitive=True)
