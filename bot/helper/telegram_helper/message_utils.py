@@ -109,24 +109,38 @@ async def send_message(message, text, buttons=None, block=True, photo=None, **kw
         return str(e)
 
 
-async def edit_message(message, text, buttons=None, block=True):
+async def edit_message(
+    message, text, buttons=None, block=True, disable_web_page_preview=True
+):
     try:
         return await message.edit(
             text=text,
-            disable_web_page_preview=True,
+            disable_web_page_preview=disable_web_page_preview,
             reply_markup=buttons,
         )
     except (MessageNotModified, MessageEmpty):
         pass
     except ReplyMarkupInvalid as rmi:
         LOGGER.warning(str(rmi))
-        return await edit_message(message, text, None)
+        return await edit_message(
+            message,
+            text,
+            None,
+            block=block,
+            disable_web_page_preview=disable_web_page_preview,
+        )
     except FloodWait as f:
         LOGGER.warning(str(f))
         if not block:
             return str(f)
         await sleep(f.value * 1.2)
-        return await edit_message(message, text, buttons)
+        return await edit_message(
+            message,
+            text,
+            buttons,
+            block=block,
+            disable_web_page_preview=disable_web_page_preview,
+        )
     except Exception as e:
         LOGGER.error(str(e), exc_info=True)
         return str(e)

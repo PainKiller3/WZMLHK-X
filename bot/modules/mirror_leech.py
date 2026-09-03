@@ -37,6 +37,7 @@ from ..helper.ext_utils.links_utils import (
     is_url,
 )
 from ..helper.ext_utils.task_manager import pre_task_check, check_blacklisted_keywords
+from ..helper.ext_utils.telegraph_helper import telegraph
 from ..helper.listeners.task_listener import TaskListener
 from ..helper.mirror_leech_utils.download_utils.aria2_download import (
     add_aria2_download,
@@ -835,30 +836,44 @@ async def seedr_link(client, message):
                 )
                 return
 
-        buttons = ButtonMaker()
-        text_lines = [
-            "<b><u>Seedr Direct Links:</u></b>",
-            f"<b>Title:</b> <code>{escape(title or contents[0]['filename'])}</code>",
-            f"<b>Total Size:</b> <code>{get_readable_file_size(total_size)}</code>\n",
-        ]
+        page_title = title or contents[0]["filename"]
+        telegraph_html = f"<h3><b>{escape(page_title)}</b></h3>"
+        telegraph_html += (
+            f"<b>Total Size:</b> {get_readable_file_size(total_size)}<br><br>"
+        )
 
         for idx, item in enumerate(contents, start=1):
-            fname = item["filename"]
+            fname = escape(item["filename"])
             furl = item["url"]
             fsize = get_readable_file_size(item["size"])
-            text_lines.append(
-                f"{idx}. <a href='{furl}'>{escape(fname)}</a> (<code>{fsize}</code>)"
-            )
-            buttons.url_button(f"Download #{idx}", furl)
+            telegraph_html += f"{idx}. <a href='{furl}'>{fname}</a> ({fsize})<br>"
 
-        out_text = "\n".join(text_lines)
-        if len(out_text) > 4000:
-            out_text = (
-                out_text[:3900]
-                + "\n\n<i>(Links truncated due to length. Use buttons below)</i>"
-            )
+        telegraph_page = await telegraph.create_page(
+            title=f"Seedr Direct Links - {page_title}"[:60],
+            content=telegraph_html,
+        )
+        telegraph_url = telegraph_page["url"]
 
-        await edit_message(msg, out_text, buttons.build_menu(2))
+        buttons = ButtonMaker()
+        if len(contents) == 1:
+            buttons.url_button("🚀 Direct Download", contents[0]["url"])
+        buttons.url_button("🌐 View Telegraph Page", telegraph_url)
+        buttons.data_button("🗑 Delete", f"seedrdel {user_id} {folder_id}")
+
+        out_text = (
+            f"<b><u>Seedr Direct Links Generated!</u></b>\n\n"
+            f"<b>Title:</b> <code>{escape(page_title)}</code>\n"
+            f"<b>Total Size:</b> <code>{get_readable_file_size(total_size)}</code>\n"
+            f"<b>Total Files:</b> <code>{len(contents)}</code>\n\n"
+            f"🌐 <a href='{telegraph_url}'><b>Telegraph Instant View</b></a>"
+        )
+
+        await edit_message(
+            msg,
+            out_text,
+            buttons.build_menu(2),
+            disable_web_page_preview=False,
+        )
 
     except Exception as e:
         LOGGER.error(f"SeedrLink error: {e}")
@@ -1023,3 +1038,35 @@ async def seedr_clean_cb(client, query):
 
     msg_text, buttons = await get_seedr_clean_menu(target_user_id, query)
     await edit_message(query.message, msg_text, buttons)
+
+
+async def seedr_del_cb(client, query):
+    data = query.data.split()
+    user_id = int(data[1])
+    folder_id = data[2] if len(data) > 2 else None
+    from_user_id = query.from_user.id
+
+    if from_user_id != user_id and not await CustomFilters.sudo("", query):
+        await query.answer(
+            "You are not allowed to delete this message!", show_alert=True
+        )
+        return
+
+    await query.answer("Deleting Seedr cloud files & messages...", show_alert=False)
+
+    if folder_id:
+        email, password, _ = await _get_seedr_clean_details(user_id, query)
+        if email and password:
+            sc = SeedrClient(email, password)
+            try:
+                await sc.login()
+                await sc.delete("folder", folder_id)
+            except Exception:
+                try:
+                    await sc.delete("torrent", folder_id)
+                except Exception:
+                    pass
+
+    message = query.message
+    reply_to = message.reply_to_message
+    await delete_message(message, reply_to)
