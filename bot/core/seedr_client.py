@@ -77,12 +77,13 @@ class SeedrClient:
         self._refresh_token = result.get("refresh_token", self._refresh_token)
         return True
 
-    async def _api(self, func, payload):
+    async def _api(self, func, payload=None, files=None):
         async with AsyncSession(timeout=30) as client:
             resp = await client.post(
                 RESOURCE_URL,
                 params={"access_token": self._access_token, "func": func},
                 data=payload,
+                files=files,
             )
             result = resp.json()
         if result.get("error") == "expired_token" and await self._refresh():
@@ -91,6 +92,7 @@ class SeedrClient:
                     RESOURCE_URL,
                     params={"access_token": self._access_token, "func": func},
                     data=payload,
+                    files=files,
                 )
                 result = resp.json()
         return result
@@ -103,10 +105,26 @@ class SeedrClient:
             return space_max, space_used
         return 0, 0
 
-    async def add_torrent(self, magnet):
-        result = await self._api(
-            "add_torrent", {"torrent_magnet": magnet, "folder_id": "0"}
-        )
+    async def add_torrent(self, torrent):
+        from os.path import exists, basename
+
+        payload = {"folder_id": "0"}
+        files = None
+
+        if isinstance(torrent, str) and exists(torrent):
+            with open(torrent, "rb") as f:
+                torrent_bytes = f.read()
+            files = {
+                "torrent_file": (
+                    basename(torrent),
+                    torrent_bytes,
+                    "application/x-bittorrent",
+                )
+            }
+        else:
+            payload["torrent_magnet"] = torrent
+
+        result = await self._api("add_torrent", payload, files=files)
         if not isinstance(result, dict):
             raise ValueError(f"Seedr API returned invalid response: {result}")
 

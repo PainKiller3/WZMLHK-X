@@ -3,7 +3,7 @@ from re import match as re_match
 
 from asyncio import sleep
 from html import escape
-from aiofiles.os import path as aiopath
+from aiofiles.os import path as aiopath, remove as aioremove
 from bot.core.config_manager import Config
 
 from .. import (
@@ -440,6 +440,7 @@ class Mirror(TaskListener):
             not self.is_jd
             and not self.is_nzb
             and not self.is_qbit
+            and not self.is_seedr
             and not is_magnet(self.link)
             and not is_rclone_path(self.link)
             and not is_gdrive_link(self.link)
@@ -674,12 +675,22 @@ async def seedr_link(client, message):
     if len(args) > 1:
         link = args[1].strip()
     elif reply_to := message.reply_to_message:
-        if reply_to.text:
+        if reply_to.document and (
+            reply_to.document.mime_type == "application/x-bittorrent"
+            or reply_to.document.file_name.endswith(".torrent")
+        ):
+            link = await reply_to.download()
+        elif reply_to.text:
             link = reply_to.text.split("\n", 1)[0].strip()
 
-    if not link or not (is_magnet(link) or is_url(link) or link.endswith(".torrent")):
+    if not link or not (
+        is_magnet(link)
+        or is_url(link)
+        or link.endswith(".torrent")
+        or await aiopath.exists(link)
+    ):
         await message.reply(
-            f"Please provide a valid magnet link or .torrent URL!\n\n<b>Usage:</b> <code>{seedrlink_cmd} magnet:...</code> or <code>{seedrlink_cmd} https://.../file.torrent</code>"
+            f"Please provide a valid magnet link, .torrent URL, or reply to a .torrent file!\n\n<b>Usage:</b> <code>{seedrlink_cmd} magnet:...</code> or <code>{seedrlink_cmd} https://.../file.torrent</code>"
         )
         return
 
@@ -693,6 +704,11 @@ async def seedr_link(client, message):
         await message.reply(
             f"Task cancelled! Link contains blacklisted keyword: <code>{bl_kw}</code>"
         )
+        if link and await aiopath.exists(link):
+            try:
+                await aioremove(link)
+            except Exception:
+                pass
         return
 
     msg = await send_message(message, "<i>Processing Seedr Magnet Link...</i>")
@@ -847,6 +863,12 @@ async def seedr_link(client, message):
     except Exception as e:
         LOGGER.error(f"SeedrLink error: {e}")
         await edit_message(msg, f"<b>Seedr Link Failed:</b> {escape(str(e))}")
+    finally:
+        if link and await aiopath.exists(link):
+            try:
+                await aioremove(link)
+            except Exception:
+                pass
 
 
 async def _get_seedr_clean_details(user_id, message_or_query):

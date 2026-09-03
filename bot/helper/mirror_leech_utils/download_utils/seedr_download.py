@@ -1,5 +1,6 @@
 from asyncio import sleep
 from secrets import token_hex
+from aiofiles.os import remove as aioremove, path as aiopath
 
 from .... import LOGGER, task_dict, task_dict_lock, user_data
 from ....core.config_manager import Config
@@ -262,3 +263,9 @@ async def add_seedr_download(listener, path):
                 pass
         await _delete_seedr_folder(seedr_client, torrent_download_dir)
         await listener.on_download_error(f"{e}".strip())
+    finally:
+        if listener.link and await aiopath.exists(listener.link):
+            try:
+                await aioremove(listener.link)
+            except Exception:
+                pass
