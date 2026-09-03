@@ -6,7 +6,14 @@ from html import escape
 from aiofiles.os import path as aiopath
 from bot.core.config_manager import Config
 
-from .. import DOWNLOAD_DIR, LOGGER, bot_loop, task_dict_lock, user_data
+from .. import (
+    DOWNLOAD_DIR,
+    LOGGER,
+    bot_loop,
+    task_dict_lock,
+    user_data,
+    blacklisted_keywords,
+)
 from ..core.seedr_client import SeedrClient
 from ..helper.ext_utils.bot_utils import (
     COMMAND_USAGE,
@@ -29,7 +36,7 @@ from ..helper.ext_utils.links_utils import (
     is_telegram_link,
     is_url,
 )
-from ..helper.ext_utils.task_manager import pre_task_check
+from ..helper.ext_utils.task_manager import pre_task_check, check_blacklisted_keywords
 from ..helper.listeners.task_listener import TaskListener
 from ..helper.mirror_leech_utils.download_utils.aria2_download import (
     add_aria2_download,
@@ -676,6 +683,18 @@ async def seedr_link(client, message):
         )
         return
 
+    bl_kws = user_dict.get("BLACKLISTED_KEYWORDS") or (
+        blacklisted_keywords if "BLACKLISTED_KEYWORDS" not in user_dict else []
+    )
+    listener_info = type("Listener", (), {"blacklisted_keywords": bl_kws})()
+
+    is_bl, bl_kw = await check_blacklisted_keywords(listener_info, link)
+    if is_bl:
+        await message.reply(
+            f"Task cancelled! Link contains blacklisted keyword: <code>{bl_kw}</code>"
+        )
+        return
+
     msg = await send_message(message, "<i>Processing Seedr Magnet Link...</i>")
     seedr_client = SeedrClient(email, password)
 
@@ -691,6 +710,17 @@ async def seedr_link(client, message):
             raise ValueError("Failed to obtain Seedr torrent ID!")
 
         if title:
+            is_bl, bl_kw = await check_blacklisted_keywords(listener_info, title)
+            if is_bl:
+                try:
+                    await seedr_client.delete("torrent", torrent_id)
+                except Exception:
+                    pass
+                await edit_message(
+                    msg,
+                    f"Task cancelled! Title contains blacklisted keyword: <code>{bl_kw}</code>",
+                )
+                return
             await edit_message(
                 msg,
                 f"<b>Added to Seedr Cloud!</b>\n\n<b>Title:</b> <code>{escape(title)}</code>\n<i>Fetching cloud progress...</i>",
@@ -721,12 +751,46 @@ async def seedr_link(client, message):
                 not_found_count = 0
                 prog = float(torrent.get("progress", 0) or 0)
                 name_str = torrent.get("name") or title or "Torrent"
+                is_bl, bl_kw = await check_blacklisted_keywords(listener_info, name_str)
+                if is_bl:
+                    try:
+                        await seedr_client.delete("torrent", torrent_id)
+                    except Exception:
+                        pass
+                    if folder_id:
+                        try:
+                            await seedr_client.delete("folder", folder_id)
+                        except Exception:
+                            pass
+                    await edit_message(
+                        msg,
+                        f"Task cancelled! Name contains blacklisted keyword: <code>{bl_kw}</code>",
+                    )
+                    return
                 prog_str = f"<b>Seedr Cloud Download...</b>\n\n<b>Name:</b> <code>{escape(name_str)}</code>\n<b>Progress:</b> <code>{round(prog, 2)}%</code>"
                 if prog_str != last_progress:
                     last_progress = prog_str
                     await edit_message(msg, prog_str)
 
             if folder is not None:
+                folder_name = folder.get("name", title)
+                is_bl, bl_kw = await check_blacklisted_keywords(
+                    listener_info, folder_name
+                )
+                if is_bl:
+                    try:
+                        await seedr_client.delete("torrent", torrent_id)
+                    except Exception:
+                        pass
+                    try:
+                        await seedr_client.delete("folder", folder["id"])
+                    except Exception:
+                        pass
+                    await edit_message(
+                        msg,
+                        f"Task cancelled! Name contains blacklisted keyword: <code>{bl_kw}</code>",
+                    )
+                    return
                 folder_contents = await seedr_client.list_contents(folder["id"])
                 if folder_contents.get("files"):
                     folder_id = folder["id"]
@@ -740,6 +804,20 @@ async def seedr_link(client, message):
         contents, total_size = await _build_contents(seedr_client, folder_id)
         if not contents:
             raise ValueError("No downloadable files found in Seedr folder!")
+
+        for item in contents:
+            file_path = f"{item['path']}/{item['filename']}".strip("/")
+            is_bl, bl_kw = await check_blacklisted_keywords(listener_info, file_path)
+            if is_bl:
+                try:
+                    await seedr_client.delete("folder", folder_id)
+                except Exception:
+                    pass
+                await edit_message(
+                    msg,
+                    f"Task cancelled! File list entry contains blacklisted keyword: <code>{bl_kw}</code>",
+                )
+                return
 
         buttons = ButtonMaker()
         text_lines = [
