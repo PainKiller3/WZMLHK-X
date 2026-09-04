@@ -43,6 +43,7 @@ class Config:
     DISABLE_YTDLP = False
     PLUGIN_INDEXES = []
     EQUAL_SPLITS = False
+    MEDIA_SPLIT = True
     EXCLUDED_EXTENSIONS = ""
     BLACKLISTED_KEYWORDS = ""
     FFMPEG_CMDS = {}

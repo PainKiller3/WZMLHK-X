@@ -384,6 +384,7 @@ async def get_user_settings(from_user, stype="main"):
                 "AS_DOCUMENT",
                 "AUTO_THUMBNAIL",
                 "EQUAL_SPLITS",
+                "MEDIA_SPLIT",
                 "MEDIA_GROUP",
                 "STOP_DUPLICATE",
                 "DEFAULT_UPLOAD",
@@ -519,6 +520,20 @@ async def get_user_settings(from_user, stype="main"):
             )
             equal_splits = "Disabled"
         if (
+            user_dict.get("MEDIA_SPLIT", True)
+            if "MEDIA_SPLIT" in user_dict
+            else Config.MEDIA_SPLIT
+        ):
+            buttons.data_button(
+                "Media Split: FFmpeg", f"userset {user_id} tog MEDIA_SPLIT f"
+            )
+            media_split = "FFmpeg (.part001.mkv)"
+        else:
+            buttons.data_button(
+                "Media Split: Binary", f"userset {user_id} tog MEDIA_SPLIT t"
+            )
+            media_split = "Binary (.mkv.001)"
+        if (
             user_dict.get("MEDIA_GROUP", False)
             or "MEDIA_GROUP" not in user_dict
             and Config.MEDIA_GROUP
@@ -569,6 +584,7 @@ async def get_user_settings(from_user, stype="main"):
 ┠ Leech Thumbnail → <b>{thumbmsg}</b>
 ┠ Leech Split Size → <b>{get_readable_file_size(split_size)}</b>
 ┠ Equal Splits → <b>{equal_splits}</b>
+┠ Media Split → <b>{media_split}</b>
 ┠ Media Group → <b>{media_group}</b>
 ┠ Leech Prefix → <code>{escape(lprefix)}</code>
 ┠ Leech Suffix → <code>{escape(lsuffix)}</code>
