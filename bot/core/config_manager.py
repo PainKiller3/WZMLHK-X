@@ -27,6 +27,7 @@ class Config:
     DISABLE_FF_MODE = False
     DISABLE_PLUGINS = False
     EQUAL_SPLITS = False
+    MEDIA_SPLIT = True
     EXCLUDED_EXTENSIONS = ""
     BLACKLISTED_KEYWORDS = ""
     FFMPEG_CMDS = {}
