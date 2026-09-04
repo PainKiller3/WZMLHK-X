@@ -1,5 +1,4 @@
 import re
-from ast import literal_eval
 from contextlib import suppress
 from PIL import Image
 from hashlib import md5, sha256
@@ -120,6 +119,20 @@ async def download_image_thumb(url):
     return output
 
 
+VIDEO_SPLIT_REGEX = r"\.(mkv|mp4|avi|webm|flv|mov|m4v|3gp|ts|m2ts|wmv|asf|divx|ogv|vob|mpg|mpeg)\.0*\d+$"
+FIRST_VIDEO_SPLIT_REGEX = (
+    r"\.(mkv|mp4|avi|webm|flv|mov|m4v|3gp|ts|m2ts|wmv|asf|divx|ogv|vob|mpg|mpeg)\.0*1$"
+)
+
+
+def is_video_split(file_path):
+    return bool(re_search(VIDEO_SPLIT_REGEX, file_path.lower()))
+
+
+def is_first_video_split(file_path):
+    return bool(re_search(FIRST_VIDEO_SPLIT_REGEX, file_path.lower()))
+
+
 async def get_media_info(path, extra_info=False):
     try:
         result = await cmd_exec(
@@ -139,7 +152,11 @@ async def get_media_info(path, extra_info=False):
         LOGGER.error(f"Get Media Info: {e}. Mostly File not found! - File: {path}")
         return (0, "", "", "") if extra_info else (0, None, None)
     if result[0] and result[2] == 0:
-        ffresult = literal_eval(result[0])
+        try:
+            ffresult = json.loads(result[0])
+        except json.JSONDecodeError as e:
+            LOGGER.error(f"get_media_info: invalid ffprobe JSON: {e}")
+            return (0, "", "", "") if extra_info else (0, None, None)
         if not isinstance(ffresult, dict):
             LOGGER.error(f"get_media_info: unexpected ffprobe payload: {result}")
             return (0, "", "", "") if extra_info else (0, None, None)
@@ -147,7 +164,9 @@ async def get_media_info(path, extra_info=False):
         if fields is None:
             LOGGER.error(f"get_media_info: {result}")
             return (0, "", "", "") if extra_info else (0, None, None)
-        duration = round(float(fields.get("duration", 0)))
+        duration = (
+            0 if is_video_split(path) else round(float(fields.get("duration", 0)))
+        )
         if extra_info:
             lang, qual, stitles = "", "", ""
             if (streams := ffresult.get("streams")) and streams[0].get(
@@ -180,9 +199,11 @@ async def get_media_info(path, extra_info=False):
 
 async def get_document_type(path):
     is_video, is_audio, is_image = False, False, False
+    is_vsplit = is_video_split(path)
     if (
         is_archive(path)
         or is_archive_split(path)
+        or is_vsplit
         or re_search(r".+(\.|_)(rar|7z|zip|bin)(\.0*\d+)?$", path)
     ):
         return is_video, is_audio, is_image
@@ -216,7 +237,11 @@ async def get_document_type(path):
             is_video = True
         return is_video, is_audio, is_image
     if result[0] and result[2] == 0:
-        fields = literal_eval(result[0]).get("streams")
+        try:
+            fields = json.loads(result[0]).get("streams")
+        except (json.JSONDecodeError, AttributeError) as e:
+            LOGGER.error(f"get_document_type: invalid ffprobe JSON: {e}")
+            fields = None
         if fields is None:
             LOGGER.error(f"get_document_type: {result}")
             return is_video, is_audio, is_image
@@ -355,6 +380,32 @@ async def get_video_thumbnail(video_file, duration):
     output_dir = f"{DOWNLOAD_DIR}thumbnails"
     await makedirs(output_dir, exist_ok=True)
     output = ospath.join(output_dir, f"{time()}.jpg")
+    if is_video_split(video_file):
+        cmd = [
+            "taskset",
+            "-c",
+            f"{cores}",
+            BinConfig.FFMPEG_NAME,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-i",
+            video_file,
+            "-vframes",
+            "1",
+            "-q:v",
+            "1",
+            "-threads",
+            f"{threads}",
+            output,
+        ]
+        try:
+            _, err, code = await wait_for(cmd_exec(cmd), timeout=60)
+            if code == 0 and await aiopath.exists(output):
+                return output
+        except Exception:
+            pass
+        return None
     if duration is None:
         duration = (await get_media_info(video_file))[0]
     if duration == 0:
@@ -385,10 +436,32 @@ async def get_video_thumbnail(video_file, duration):
     try:
         _, err, code = await wait_for(cmd_exec(cmd), timeout=60)
         if code != 0 or not await aiopath.exists(output):
-            LOGGER.error(
-                f"Error while extracting thumbnail from video. Name: {video_file} stderr: {err}"
-            )
-            return None
+            cmd_fallback = [
+                "taskset",
+                "-c",
+                f"{cores}",
+                BinConfig.FFMPEG_NAME,
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-i",
+                video_file,
+                "-vf",
+                "thumbnail,format=yuv420p",
+                "-q:v",
+                "1",
+                "-frames:v",
+                "1",
+                "-threads",
+                f"{threads}",
+                output,
+            ]
+            _, err, code = await wait_for(cmd_exec(cmd_fallback), timeout=60)
+            if code != 0 or not await aiopath.exists(output):
+                LOGGER.error(
+                    f"Error while extracting thumbnail from video. Name: {video_file} stderr: {err}"
+                )
+                return None
     except Exception:
         LOGGER.error(
             f"Error while extracting thumbnail from video. Name: {video_file}. Error: Timeout some issues with ffmpeg with specific arch!"
