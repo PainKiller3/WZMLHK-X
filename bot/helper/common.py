@@ -516,6 +516,11 @@ class TaskConfig:
                 or Config.EQUAL_SPLITS
                 and "EQUAL_SPLITS" not in self.user_dict
             )
+            self.media_split = (
+                self.user_dict.get("MEDIA_SPLIT")
+                if "MEDIA_SPLIT" in self.user_dict
+                else Config.MEDIA_SPLIT
+            )
             self.max_split_size = (
                 TgClient.MAX_SPLIT_SIZE if self.user_transmission else 2097152000
             )
@@ -1153,7 +1158,11 @@ class TaskConfig:
                     split_size = (f_size // parts) + (f_size % parts)
                 else:
                     split_size = self.split_size
-                if not self.as_doc and (await get_document_type(f_path))[0]:
+                if (
+                    not self.as_doc
+                    and self.media_split
+                    and (await get_document_type(f_path))[0]
+                ):
                     self.progress = True
                     res = await ffmpeg.split(f_path, file_, parts, split_size)
                 else:

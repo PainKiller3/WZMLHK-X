@@ -26,6 +26,7 @@ class Config:
     DISABLE_SEEDR = True
     DISABLE_FF_MODE = False
     EQUAL_SPLITS = False
+    MEDIA_SPLIT = True
     EXCLUDED_EXTENSIONS = ""
     BLACKLISTED_KEYWORDS = ""
     FFMPEG_CMDS = {}
