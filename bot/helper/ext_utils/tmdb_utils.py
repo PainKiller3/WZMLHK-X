@@ -1,5 +1,5 @@
 import re
-from asyncio import sleep
+from asyncio import Lock, sleep
 from urllib.parse import unquote
 
 from niquests import AsyncSession
@@ -25,6 +25,7 @@ _SITE_PREFIX = re.compile(
 )
 
 _poster_cache = {}
+_tmdb_lock = Lock()
 
 
 def _tidy(title):
@@ -189,14 +190,15 @@ async def get_auto_thumbnail(filename, as_doc=False):
         return None
 
     key = (title, year, as_doc)
-    poster_url = _poster_cache.get(key)
-    if not poster_url:
-        poster_url = await get_tmdb_poster_link(title, year, as_doc)
+    async with _tmdb_lock:
+        poster_url = _poster_cache.get(key)
         if not poster_url:
-            return None
-        if len(_poster_cache) > 200:
-            _poster_cache.clear()
-        _poster_cache[key] = poster_url
+            poster_url = await get_tmdb_poster_link(title, year, as_doc)
+            if not poster_url:
+                return None
+            if len(_poster_cache) > 200:
+                _poster_cache.clear()
+            _poster_cache[key] = poster_url
+            LOGGER.info(f"Auto thumbnail for '{title}': {poster_url}")
 
-    LOGGER.info(f"Auto thumbnail for '{title}': {poster_url}")
     return await download_image_thumb(poster_url) or None
