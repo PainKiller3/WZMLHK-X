@@ -110,6 +110,7 @@ ytdlp_options = [
 ]
 mega_options = ["MEGA_EMAIL", "MEGA_PASSWORD"]
 seedr_options = ["SEEDR_EMAIL", "SEEDR_PASSWORD", "SEEDR_DELETE_FOLDER"]
+video_options = ["SMART_AUTORENAME"]
 
 user_settings_text = {
     "THUMBNAIL": (
@@ -466,6 +467,7 @@ async def get_user_settings(from_user, stype="main"):
                 "MEDIA_GROUP",
                 "STOP_DUPLICATE",
                 "DEFAULT_UPLOAD",
+                "SMART_AUTORENAME",
             ]
         ):
             buttons.data_button(
@@ -616,6 +618,20 @@ async def get_user_settings(from_user, stype="main"):
                 "Enable Media Group", f"userset {user_id} tog MEDIA_GROUP t"
             )
             media_group = "Disabled"
+        if (
+            user_dict.get("SMART_AUTORENAME", False)
+            or "SMART_AUTORENAME" not in user_dict
+            and Config.SMART_AUTORENAME
+        ):
+            buttons.data_button(
+                "Disable Smart Autorename", f"userset {user_id} tog SMART_AUTORENAME f"
+            )
+            smart_autorename = "Enabled"
+        else:
+            buttons.data_button(
+                "Enable Smart Autorename", f"userset {user_id} tog SMART_AUTORENAME t"
+            )
+            smart_autorename = "Disabled"
         buttons.data_button("Back", f"userset {user_id} back", "footer")
         buttons.data_button(
             "Close", f"userset {user_id} close", "footer", style=ButtonStyle.DANGER
@@ -633,7 +649,8 @@ async def get_user_settings(from_user, stype="main"):
 ┠ Leech Prefix → <code>{escape(lprefix)}</code>
 ┠ Leech Suffix → <code>{escape(lsuffix)}</code>
 ┠ Leech Caption → <code>{escape(lcap)}</code>
-┖ Leech Dump Chats → <code>{escape(leech_dest)}</code>
+┠ Leech Dump Chats → <code>{escape(leech_dest)}</code>
+┖ Smart Autorename → <b>{smart_autorename}</b>
 """
 
     elif stype == "thumb":
@@ -667,6 +684,7 @@ async def get_user_settings(from_user, stype="main"):
             thumb_layout = Config.THUMBNAIL_LAYOUT
         else:
             thumb_layout = "None"
+
         buttons.data_button("Back", f"userset {user_id} back leech", "footer")
         buttons.data_button(
             "Close", f"userset {user_id} close", "footer", style=ButtonStyle.DANGER

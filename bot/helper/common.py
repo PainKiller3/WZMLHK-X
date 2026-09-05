@@ -106,6 +106,7 @@ class TaskConfig:
         self.rc_flags = ""
         self.tag = ""
         self.name = ""
+        self.custom_name = ""
         self.subname = ""
         self.category = ""
         self.index_link = ""
@@ -187,6 +188,11 @@ class TaskConfig:
         self.pm_msg = None
         self.file_details = {}
         self.mode = tuple()
+        self.smart_autorename = (
+            self.user_dict["SMART_AUTORENAME"]
+            if "SMART_AUTORENAME" in self.user_dict
+            else Config.SMART_AUTORENAME
+        )
 
     def _set_mode_engine(self):
         if self.is_nzb and self.link and "/getnzb/api/" in self.link:
