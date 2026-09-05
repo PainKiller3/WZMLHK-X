@@ -90,6 +90,7 @@ class TaskConfig:
         self.rc_flags = ""
         self.tag = ""
         self.name = ""
+        self.custom_name = ""
         self.subname = ""
         self.name_swap = ""
         self.thumbnail_layout = ""
@@ -156,6 +157,11 @@ class TaskConfig:
         self.file_details = {}
         self.mode = tuple()
         self.auto_thumbnail = self.user_dict.get("AUTO_THUMBNAIL", True)
+        self.smart_autorename = (
+            self.user_dict["SMART_AUTORENAME"]
+            if "SMART_AUTORENAME" in self.user_dict
+            else Config.SMART_AUTORENAME
+        )
 
     def _set_mode_engine(self):
         self.source_url = (

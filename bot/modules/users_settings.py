@@ -80,6 +80,7 @@ advanced_options = [
 ]
 yt_options = ["YT_DESP", "YT_TAGS", "YT_CATEGORY_ID", "YT_PRIVACY_STATUS"]
 seedr_options = ["SEEDR_EMAIL", "SEEDR_PASSWORD", "SEEDR_DELETE_FOLDER"]
+video_options = ["SMART_AUTORENAME"]
 
 user_settings_text = {
     "THUMBNAIL": (
@@ -371,6 +372,7 @@ async def get_user_settings(from_user, stype="main"):
                 "HYBRID_LEECH",
                 "STOP_DUPLICATE",
                 "DEFAULT_UPLOAD",
+                "SMART_AUTORENAME",
             ]
         ):
             buttons.data_button(
@@ -531,6 +533,20 @@ async def get_user_settings(from_user, stype="main"):
             )
             media_group = "Disabled"
         if (
+            user_dict.get("SMART_AUTORENAME", False)
+            or "SMART_AUTORENAME" not in user_dict
+            and Config.SMART_AUTORENAME
+        ):
+            buttons.data_button(
+                "Disable Smart Autorename", f"userset {user_id} tog SMART_AUTORENAME f"
+            )
+            smart_autorename = "Enabled"
+        else:
+            buttons.data_button(
+                "Enable Smart Autorename", f"userset {user_id} tog SMART_AUTORENAME t"
+            )
+            smart_autorename = "Disabled"
+        if (
             TgClient.IS_PREMIUM_USER
             and user_dict.get("USER_TRANSMISSION", False)
             or "USER_TRANSMISSION" not in user_dict
@@ -609,7 +625,8 @@ async def get_user_settings(from_user, stype="main"):
 ┠ Leech Destination → <code>{leech_dest}</code>
 ┠ Leech by <b>{leech_method}</b> session
 ┠ Mixed Leech → <b>{hybrid_leech}</b>
-┖ Thumbnail Layout → <b>{thumb_layout}</b>
+┠ Thumbnail Layout → <b>{thumb_layout}</b>
+┖ Smart Autorename → <b>{smart_autorename}</b>
 """
 
     elif stype == "uphoster":

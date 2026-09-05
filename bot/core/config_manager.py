@@ -144,6 +144,7 @@ class Config:
     YT_CATEGORY_ID = 22
     YT_PRIVACY_STATUS = "unlisted"
     TMDB_ACCESS_TOKEN = ""
+    SMART_AUTORENAME = False
 
     @classmethod
     def get(cls, key):

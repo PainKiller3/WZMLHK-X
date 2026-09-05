@@ -3,7 +3,7 @@ from html import escape
 from time import time
 from mimetypes import guess_type
 from contextlib import suppress
-from os import path as ospath
+from os import path as ospath, walk
 from pyrogram.enums import ButtonStyle
 
 from aiofiles.os import listdir, remove, path as aiopath
@@ -332,6 +332,76 @@ class TaskListener(TaskConfig):
 
         self.name = up_path.replace(f"{up_dir}/", "").split("/", 1)[0]
         self.size = await get_path_size(up_dir)
+
+        if (
+            self.is_leech
+            and self.smart_autorename
+            and not self.compress
+            and not self.custom_name
+            and not self.name_swap
+        ):
+            try:
+                from ..ext_utils.smart_autorename import (
+                    SmartAutoRename,
+                    SmartRenameLengthError,
+                    SmartRenameMetadataError,
+                )
+
+                smart_renamer = SmartAutoRename()
+                prefix = self.user_dict.get("LEECH_PREFIX") or Config.LEECH_PREFIX or ""
+                suffix = self.user_dict.get("LEECH_SUFFIX") or Config.LEECH_SUFFIX or ""
+
+                if await aiopath.isfile(up_path):
+                    orig_name = ospath.basename(up_path)
+                    up_path, smart_meta = await smart_renamer.rename_get_meta(
+                        up_path,
+                        prefix=prefix,
+                        suffix=suffix,
+                    )
+                    if ospath.basename(up_path) != orig_name:
+                        self.file_details["orig_filename"] = orig_name
+                        self.file_details.setdefault("orig_filenames", {})[
+                            ospath.basename(up_path)
+                        ] = orig_name
+                    if smart_meta:
+                        self.file_details.setdefault("smart_metadata", {})[
+                            ospath.basename(up_path)
+                        ] = smart_meta
+                    self.name = ospath.basename(up_path)
+                elif await aiopath.isdir(up_path):
+                    orig_dict = self.file_details.setdefault("orig_filenames", {})
+                    meta_dict = self.file_details.setdefault("smart_metadata", {})
+                    for root, _, files in await sync_to_async(list, walk(up_path)):
+                        for file_ in files:
+                            file_path = ospath.join(root, file_)
+                            orig_file_name = file_
+                            try:
+                                (
+                                    new_file_path,
+                                    smart_meta,
+                                ) = await smart_renamer.rename_get_meta(
+                                    file_path,
+                                    prefix=prefix,
+                                    suffix=suffix,
+                                )
+                                new_file_name = ospath.basename(new_file_path)
+                                if new_file_name != orig_file_name:
+                                    orig_dict[new_file_name] = orig_file_name
+                                if smart_meta:
+                                    meta_dict[new_file_name] = smart_meta
+                            except Exception as exc:
+                                LOGGER.warning(
+                                    f"Smart Autorename skipped for {file_}: {exc}"
+                                )
+
+                self.size = await get_path_size(up_path)
+            except SmartRenameLengthError as exc:
+                await send_message(self.message, str(exc))
+                return await self.on_upload_error(str(exc))
+            except SmartRenameMetadataError as exc:
+                LOGGER.warning(f"Smart Autorename skipped: {exc}")
+            except Exception as exc:
+                LOGGER.error(f"Smart Autorename failed: {exc}", exc_info=True)
 
         if self.is_leech and not self.compress:
             await self.proceed_split(up_path, gid)

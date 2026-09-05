@@ -101,6 +101,7 @@ class TelegramUploader:
         }
 
         self._auto_thumbnail = getattr(self._listener, "auto_thumbnail", True)
+        self._smart_autorename = getattr(self._listener, "smart_autorename", False)
 
         for key, (attr, default) in settings_map.items():
             setattr(
@@ -176,7 +177,14 @@ class TelegramUploader:
         return True
 
     async def _prepare_file(self, pre_file_, dirpath):
-        cap_file_ = file_ = pre_file_
+        orig_filenames = self._listener.file_details.get("orig_filenames", {})
+        orig_filename = orig_filenames.get(
+            pre_file_
+        ) or self._listener.file_details.get("orig_filename")
+        cap_file_ = (
+            orig_filename if (orig_filename and self._smart_autorename) else pre_file_
+        )
+        file_ = pre_file_
 
         if self._lprefix:
             cap_file_ = self._lprefix.replace(r"\s", " ") + file_
@@ -185,8 +193,15 @@ class TelegramUploader:
                 file_ = f"{self._lprefix}{file_}"
 
         if self._lsuffix:
-            name, ext = ospath.splitext(cap_file_)
-            cap_file_ = name + self._lsuffix.replace(r"\s", " ") + ext
+            split_match = re_match(
+                r"(?i)(?P<stem>.*?)(?P<ext>\.(?:mkv|mp4|webm|avi|flv|mov|m4v|3gp|ts|m2ts|wmv|asf))(?P<split>\.0*\d+)$",
+                cap_file_,
+            )
+            if split_match:
+                cap_file_ = f"{split_match.group('stem')}{self._lsuffix.replace(r'\\s', ' ')}{split_match.group('ext')}{split_match.group('split')}"
+            else:
+                name, ext = ospath.splitext(cap_file_)
+                cap_file_ = name + self._lsuffix.replace(r"\s", " ") + ext
             self._lsuffix = re_sub(r"<.*?>", "", self._lsuffix).replace(r"\s", " ")
 
         cap_mono = (
@@ -194,6 +209,8 @@ class TelegramUploader:
             if Config.LEECH_FONT
             else cap_file_
         )
+        if self._smart_autorename:
+            cap_mono = f"<blockquote>{cap_mono}</blockquote>"
         if self._lcaption:
             self._lcaption = re_sub(
                 r"(\\\||\\\{|\\\}|\\s)",
@@ -209,8 +226,39 @@ class TelegramUploader:
             )
             up_path = ospath.join(dirpath, pre_file_)
             dur, qual, lang, subs = await get_media_info(up_path, True)
+            display_orig = (
+                orig_filename
+                or self._listener.file_details.get("orig_filename")
+                or pre_file_
+            )
+            display_filename = file_ if self._smart_autorename else cap_file_
+            smart_meta = (
+                self._listener.file_details.get("smart_metadata", {}).get(pre_file_)
+                or {}
+            )
+            if not smart_meta and (self._smart_autorename or orig_filename):
+                try:
+                    from ...ext_utils.smart_autorename import parse_smart_filename
+
+                    ctx = parse_smart_filename(display_orig)
+                    smart_meta = {
+                        "show_name": ctx.title or "",
+                        "season": f"{ctx.season:02d}" if ctx.season is not None else "",
+                        "episode": f"{ctx.episode_start:02d}"
+                        if ctx.episode_start is not None
+                        else "",
+                        "title": "",
+                        "year": str(ctx.year or ""),
+                        "source": ctx.ott or "",
+                        "codec": ctx.filename_codec or "",
+                    }
+                except Exception:
+                    smart_meta = {}
+
             cap_mono = parts[0].format(
-                filename=cap_file_,
+                filename=display_filename,
+                orig_filename=display_orig,
+                smart_filename=pre_file_,
                 size=get_readable_file_size(await aiopath.getsize(up_path)),
                 duration=get_readable_time(dur),
                 quality=qual,
@@ -218,17 +266,34 @@ class TelegramUploader:
                 subtitles=subs,
                 md5_hash=await sync_to_async(get_md5_hash, up_path),
                 mime_type=self._listener.file_details.get("mime_type", "text/plain"),
-                prefilename=self._listener.file_details.get("filename", ""),
+                prefilename=display_orig,
                 precaption=self._listener.file_details.get("caption", ""),
+                show_name=smart_meta.get("show_name", ""),
+                season=smart_meta.get("season", ""),
+                episode=smart_meta.get("episode", ""),
+                title=smart_meta.get("title", ""),
+                year=smart_meta.get("year", ""),
+                source=smart_meta.get("source", ""),
+                codec=smart_meta.get("codec", ""),
             )
 
             for part in parts[1:]:
+                if not part:
+                    continue
                 args = part.split(":")
-                cap_mono = cap_mono.replace(
-                    args[0],
-                    args[1] if len(args) > 1 else "",
-                    int(args[2]) if len(args) == 3 else -1,
-                )
+                if len(args) > 2 and args[-1].isdigit():
+                    count = int(args[-1])
+                    search_str = ":".join(args[:-2])
+                    replace_str = args[-2]
+                elif len(args) >= 2:
+                    count = -1
+                    search_str = ":".join(args[:-1])
+                    replace_str = args[-1]
+                else:
+                    count = -1
+                    search_str = args[0]
+                    replace_str = ""
+                cap_mono = cap_mono.replace(search_str, replace_str, count)
             cap_mono = re_sub(
                 r"%%|&%&|\$%\$",
                 lambda m: {"%%": "|", "&%&": "{", "$%$": "}"}[m.group()],
