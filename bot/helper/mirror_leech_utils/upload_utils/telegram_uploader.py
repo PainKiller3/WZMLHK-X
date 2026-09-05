@@ -86,6 +86,8 @@ class TelegramUploader:
             "LEECH_FONT": ("_lfont", ""),
         }
 
+        self._smart_autorename = getattr(self._listener, "smart_autorename", False)
+
         for key, (attr, default) in settings_map.items():
             setattr(
                 self,
@@ -130,7 +132,11 @@ class TelegramUploader:
         return True
 
     async def _prepare_file(self, pre_file_, dirpath):
-        cap_file_ = file_ = pre_file_
+        orig_filename = self._listener.file_details.get("orig_filename")
+        cap_file_ = (
+            orig_filename if (orig_filename and self._smart_autorename) else pre_file_
+        )
+        file_ = pre_file_
         lprefix = self._lprefix
         lsuffix = self._lsuffix
         lcaption = self._lcaption
@@ -142,8 +148,15 @@ class TelegramUploader:
                 file_ = f"{lprefix}{file_}"
 
         if lsuffix:
-            name, ext = ospath.splitext(cap_file_)
-            cap_file_ = name + lsuffix.replace(r"\s", " ") + ext
+            split_match = re_match(
+                r"(?i)(?P<stem>.*?)(?P<ext>\.(?:mkv|mp4|webm|avi|flv|mov|m4v|3gp|ts|m2ts|wmv|asf))(?P<split>\.0*\d+)$",
+                cap_file_,
+            )
+            if split_match:
+                cap_file_ = f"{split_match.group('stem')}{lsuffix.replace(r'\\s', ' ')}{split_match.group('ext')}{split_match.group('split')}"
+            else:
+                name, ext = ospath.splitext(cap_file_)
+                cap_file_ = name + lsuffix.replace(r"\s", " ") + ext
             lsuffix = re_sub(r"<.*?>", "", lsuffix).replace(r"\s", " ")
 
         cap_mono = (
@@ -151,6 +164,8 @@ class TelegramUploader:
             if Config.LEECH_FONT
             else cap_file_
         )
+        if orig_filename and self._smart_autorename:
+            cap_mono = f"<blockquote>{cap_mono}</blockquote>"
         if lcaption:
             lcaption = re_sub(
                 r"(\\\||\\\{|\\\}|\\s)",
@@ -175,7 +190,8 @@ class TelegramUploader:
                 subtitles=subs,
                 md5_hash=await sync_to_async(get_md5_hash, up_path),
                 mime_type=self._listener.file_details.get("mime_type", "text/plain"),
-                prefilename=self._listener.file_details.get("filename", ""),
+                prefilename=self._listener.file_details.get("orig_filename")
+                or self._listener.file_details.get("filename", ""),
                 precaption=self._listener.file_details.get("caption", ""),
             )
 

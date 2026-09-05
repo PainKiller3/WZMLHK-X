@@ -354,6 +354,42 @@ class TaskListener(TaskConfig):
         self.name = up_path.replace(f"{up_dir}/", "").split("/", 1)[0]
         self.size = await get_path_size(up_dir)
 
+        if (
+            self.is_leech
+            and self.is_file
+            and self.smart_autorename
+            and not self.compress
+        ):
+            try:
+                from ..ext_utils.smart_autorename import (
+                    SmartAutoRename,
+                    SmartRenameLengthError,
+                    SmartRenameMetadataError,
+                )
+
+                smart_renamer = SmartAutoRename()
+                orig_name = ospath.basename(up_path)
+                up_path = await smart_renamer.rename(
+                    up_path,
+                    prefix=self.user_dict.get("LEECH_PREFIX")
+                    or Config.LEECH_PREFIX
+                    or "",
+                    suffix=self.user_dict.get("LEECH_SUFFIX")
+                    or Config.LEECH_SUFFIX
+                    or "",
+                )
+                if ospath.basename(up_path) != orig_name:
+                    self.file_details["orig_filename"] = orig_name
+                self.name = ospath.basename(up_path)
+                self.size = await get_path_size(up_path)
+            except SmartRenameLengthError as exc:
+                await send_message(self.message, str(exc))
+                return await self.on_upload_error(str(exc))
+            except SmartRenameMetadataError as exc:
+                LOGGER.warning(f"Smart Autorename skipped: {exc}")
+            except Exception as exc:
+                LOGGER.error(f"Smart Autorename failed: {exc}", exc_info=True)
+
         if self.is_leech and not self.compress:
             await self.proceed_split(up_path, gid)
             if self.is_cancelled:
