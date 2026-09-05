@@ -179,11 +179,19 @@ async def get_media_info(path, extra_info=False):
     return (0, "", "", "") if extra_info else (0, None, None)
 
 
+VIDEO_SPLIT_REGEX = r"\.(mkv|mp4|avi|webm|flv|mov|m4v|3gp|ts|m2ts|wmv|asf|divx|ogv|vob|mpg|mpeg)\.0*\d+$"
+
+
+def is_video_split(file_path):
+    return bool(re_search(VIDEO_SPLIT_REGEX, file_path.lower()))
+
+
 async def get_document_type(path):
     is_video, is_audio, is_image = False, False, False
+    is_vsplit = is_video_split(path)
     if (
         is_archive(path)
-        or is_archive_split(path)
+        or (is_archive_split(path) and not is_vsplit)
         or re_search(r".+(\.|_)(rar|7z|zip|bin)(\.0*\d+)?$", path)
     ):
         return is_video, is_audio, is_image
@@ -203,21 +211,27 @@ async def get_document_type(path):
                 path,
             ]
         )
-        if result[1] and mime_type.startswith("video"):
+        if result[1] and (mime_type.startswith("video") or is_vsplit):
             is_video = True
     except Exception as e:
         LOGGER.error(f"Get Document Type: {e}. Mostly File not found! - File: {path}")
         if mime_type.startswith("audio"):
             return False, True, False
-        if not mime_type.startswith("video") and not mime_type.endswith("octet-stream"):
+        if (
+            not mime_type.startswith("video")
+            and not mime_type.endswith("octet-stream")
+            and not is_vsplit
+        ):
             return is_video, is_audio, is_image
-        if mime_type.startswith("video"):
+        if mime_type.startswith("video") or is_vsplit:
             is_video = True
         return is_video, is_audio, is_image
     if result[0] and result[2] == 0:
         fields = eval(result[0]).get("streams")
         if fields is None:
             LOGGER.error(f"get_document_type: {result}")
+            if is_vsplit:
+                is_video = True
             return is_video, is_audio, is_image
         is_video = False
         for stream in fields:
@@ -227,6 +241,8 @@ async def get_document_type(path):
                     is_video = True
             elif stream.get("codec_type") == "audio":
                 is_audio = True
+    if not is_video and is_vsplit:
+        is_video = True
     return is_video, is_audio, is_image
 
 
@@ -391,10 +407,32 @@ async def get_video_thumbnail(video_file, duration):
     try:
         _, err, code = await wait_for(cmd_exec(cmd), timeout=60)
         if code != 0 or not await aiopath.exists(output):
-            LOGGER.error(
-                f"Error while extracting thumbnail from video. Name: {video_file} stderr: {err}"
-            )
-            return None
+            cmd_fallback = [
+                "taskset",
+                "-c",
+                f"{cores}",
+                BinConfig.FFMPEG_NAME,
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-i",
+                video_file,
+                "-vf",
+                "thumbnail,format=yuv420p",
+                "-q:v",
+                "1",
+                "-frames:v",
+                "1",
+                "-threads",
+                f"{threads}",
+                output,
+            ]
+            _, err, code = await wait_for(cmd_exec(cmd_fallback), timeout=60)
+            if code != 0 or not await aiopath.exists(output):
+                LOGGER.error(
+                    f"Error while extracting thumbnail from video. Name: {video_file} stderr: {err}"
+                )
+                return None
     except Exception:
         LOGGER.error(
             f"Error while extracting thumbnail from video. Name: {video_file}. Error: Timeout some issues with ffmpeg with specific arch!"
