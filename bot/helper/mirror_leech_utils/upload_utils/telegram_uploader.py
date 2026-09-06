@@ -132,7 +132,10 @@ class TelegramUploader:
         return True
 
     async def _prepare_file(self, pre_file_, dirpath):
-        orig_filename = self._listener.file_details.get("orig_filename")
+        orig_filenames = self._listener.file_details.get("orig_filenames", {})
+        orig_filename = orig_filenames.get(
+            pre_file_
+        ) or self._listener.file_details.get("orig_filename")
         cap_file_ = (
             orig_filename if (orig_filename and self._smart_autorename) else pre_file_
         )
