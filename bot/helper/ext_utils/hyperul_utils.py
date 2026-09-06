@@ -22,6 +22,7 @@ from ..ext_utils.media_utils import (
     get_media_info,
     get_multiple_frames_thumbnail,
     get_video_thumbnail,
+    is_video_split,
 )
 from ..ext_utils.bot_utils import parse_dest
 from ..ext_utils.tmdb_utils import get_auto_thumbnail
@@ -86,13 +87,16 @@ class HypertgUpload(HypertgTransfer):
         artist = ""
         title = ""
 
+        is_vsplit = is_video_split(file_path)
+
         if (
             force_document
             or self._listener.as_doc
+            or is_vsplit
             or (not is_video and not is_audio and not is_image)
         ):
             key = "documents"
-            if is_video and thumb is None:
+            if is_video and not is_vsplit and thumb is None:
                 thumb = await get_video_thumbnail(file_path, None)
         elif is_video:
             key = "videos"
@@ -284,6 +288,9 @@ class HypertgUpload(HypertgTransfer):
                     kwargs["performer"] = artist
                 if title:
                     kwargs["title"] = title
+                if thumb:
+                    kwargs["thumb"] = thumb
+            else:
                 if thumb:
                     kwargs["thumb"] = thumb
 
