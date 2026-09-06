@@ -373,7 +373,6 @@ async def get_user_settings(from_user, stype="main"):
         buttons.data_button("Leech Settings", f"userset {user_id} leech")
         buttons.data_button("Uphoster Settings", f"userset {user_id} uphoster")
         buttons.data_button("FF Media Settings", f"userset {user_id} ffset")
-        buttons.data_button("Video Tools", f"userset {user_id} video")
         buttons.data_button(
             "Misc Settings", f"userset {user_id} advanced", position="l_body"
         )
@@ -574,6 +573,21 @@ async def get_user_settings(from_user, stype="main"):
         else:
             thumb_layout = "None"
 
+        if (
+            user_dict.get("SMART_AUTORENAME", False)
+            or "SMART_AUTORENAME" not in user_dict
+            and Config.SMART_AUTORENAME
+        ):
+            buttons.data_button(
+                "Disable Smart Autorename", f"userset {user_id} tog SMART_AUTORENAME f"
+            )
+            smart_autorename = "Enabled"
+        else:
+            buttons.data_button(
+                "Enable Smart Autorename", f"userset {user_id} tog SMART_AUTORENAME t"
+            )
+            smart_autorename = "Disabled"
+
         buttons.data_button("Back", f"userset {user_id} back", "footer")
         buttons.data_button(
             "Close", f"userset {user_id} close", "footer", style=ButtonStyle.DANGER
@@ -594,7 +608,8 @@ async def get_user_settings(from_user, stype="main"):
 ┠ Leech Caption → <code>{escape(lcap)}</code>
 ┠ Leech Destination → <code>{leech_dest}</code>
 ┠ Thumbnail Layout → <b>{thumb_layout}</b>
-┖ Auto Thumbnail → <b>{auto_thumb}</b>
+┠ Auto Thumbnail → <b>{auto_thumb}</b>
+┖ Smart Autorename → <b>{smart_autorename}</b>
 """
 
     elif stype == "uphoster":
@@ -1226,32 +1241,6 @@ async def get_user_settings(from_user, stype="main"):
 ┠ <b>YT Category ID</b> → <code>{escape(str(yt_cat_id_val))}</code>
 ┖ <b>YT Privacy Status</b> → <code>{escape(str(yt_privacy_val))}</code>"""
 
-    elif stype == "video":
-        smart_enabled = (
-            user_dict["SMART_AUTORENAME"]
-            if "SMART_AUTORENAME" in user_dict
-            else Config.SMART_AUTORENAME
-        )
-        buttons.data_button(
-            f"Smart Autorename: {'ON' if smart_enabled else 'OFF'}",
-            f"userset {user_id} tog SMART_AUTORENAME {'f' if smart_enabled else 't'}",
-        )
-        buttons.data_button("Back", f"userset {user_id} back", "footer")
-        buttons.data_button(
-            "Close", f"userset {user_id} close", "footer", style=ButtonStyle.DANGER
-        )
-        btns = buttons.build_menu(1)
-
-        text = f"""⌬ <b>Video Tools Settings :</b>
-┟ <b>Name</b> → {user_name}
-┃
-┖ <b>Smart Autorename</b> → <b>{"Enabled" if smart_enabled else "Disabled"}</b>
-
-<i>Automatically generates standardized filenames for Movies, TV Episodes, Episode Ranges, and Season Packs using filename metadata, ffprobe data, and canonical IMDb/TMDb metadata.
-
-No filename template is required.
-Telegram filename limit: 60 characters.</i>"""
-
     return text, btns
 
 
@@ -1681,7 +1670,6 @@ async def edit_user_settings(client, query):
         "vikingfile",
         "ffset",
         "advanced",
-        "video",
         "gdrive",
         "rclone",
     ]:
@@ -1793,8 +1781,6 @@ async def edit_user_settings(client, query):
             back_to = "gofile"
         elif data[3] == "SEEDR_DELETE_FOLDER":
             back_to = "seedr"
-        elif data[3] == "SMART_AUTORENAME":
-            back_to = "video"
         else:
             back_to = "leech"
         await update_user_settings(query, stype=back_to)
