@@ -88,7 +88,16 @@ _RANGE_RE = re.compile(
     r"(?i)\bS(?P<season>\d{1,2})\s*E(?P<start>\d{1,4})\s*(?:-|–|~|\+|&|,|to|and)\s*E?(?P<end>\d{1,4})\b"
 )
 _SINGLE_RE = re.compile(r"(?i)\bS(?P<season>\d{1,2})\s*E(?P<episode>\d{1,4})\b")
-_SEASON_RE = re.compile(r"(?i)\bS(?P<season>\d{1,2})\b")
+_SEASON_RE = re.compile(
+    r"(?i)\bS(\d{1,2})\b|\bSeason\s*(\d{1,2})\b|\b(\d{1,2})(?:st|nd|rd|th)\s*Season\b"
+)
+
+_ANIME_RANGE_RE = re.compile(
+    r"(?i)(?:^|[\s_.-])(?:-\s*|\b(?:E|EP|Episode)\s*)(?P<start>\d{1,4})\s*(?:-|–|~|\+|to)\s*(?:E|EP|Episode)?(?P<end>\d{1,4})\b"
+)
+_ANIME_SINGLE_RE = re.compile(
+    r"(?i)(?:-\s*|\b(?:E|EP|Episode)\s*)(?P<episode>\d{1,4})\s*(?:v\d+)?(?=[\s_.\-\]\)]|$)"
+)
 _YEAR_RE = re.compile(r"(?<!\d)(?:19|20)\d{2}(?!\d)")
 
 _QUALITY_RE = re.compile(
@@ -289,6 +298,17 @@ def parse_smart_filename(filename: str) -> SmartFilenameContext:
     single_match = _SINGLE_RE.search(logical_stem)
     season_match = _SEASON_RE.search(logical_stem)
 
+    anime_range_match = (
+        _ANIME_RANGE_RE.search(logical_stem)
+        if not range_match and not single_match
+        else None
+    )
+    anime_single_match = (
+        _ANIME_SINGLE_RE.search(logical_stem)
+        if not range_match and not single_match and not anime_range_match
+        else None
+    )
+
     season = None
     episode_start = None
     episode_end = None
@@ -304,9 +324,26 @@ def parse_smart_filename(filename: str) -> SmartFilenameContext:
         season = int(single_match.group("season"))
         episode_start = int(single_match.group("episode"))
         marker = single_match
+    elif anime_range_match:
+        media_type = SmartMediaType.EPISODE_RANGE
+        season = 1
+        if season_match:
+            with suppress(Exception):
+                season = int(next(g for g in season_match.groups() if g is not None))
+        episode_start = int(anime_range_match.group("start"))
+        episode_end = int(anime_range_match.group("end"))
+        marker = anime_range_match
+    elif anime_single_match:
+        media_type = SmartMediaType.SINGLE_EPISODE
+        season = 1
+        if season_match:
+            with suppress(Exception):
+                season = int(next(g for g in season_match.groups() if g is not None))
+        episode_start = int(anime_single_match.group("episode"))
+        marker = anime_single_match
     elif season_match:
         media_type = SmartMediaType.SEASON_PACK
-        season = int(season_match.group("season"))
+        season = int(next(g for g in season_match.groups() if g is not None))
         marker = season_match
     else:
         media_type = SmartMediaType.MOVIE
