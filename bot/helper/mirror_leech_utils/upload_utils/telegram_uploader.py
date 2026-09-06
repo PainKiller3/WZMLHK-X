@@ -567,9 +567,11 @@ class TelegramUploader:
         if self._upload_seq:
             src_chat = self._listener.message.chat
             await self._sequence_copies(src_chat)
-            self._msgs_dict = {
-                e["link"]: e["file_"] for e in self._upload_seq if e is not None
-            }
+            self._msgs_dict = {}
+            for idx, e in enumerate(self._upload_seq, start=1):
+                if e is not None:
+                    link = e.get("link") or f"file_{idx}"
+                    self._msgs_dict[link] = e.get("file_", f"File {idx}")
         if self._listener.is_cancelled:
             return
         if self._total_files == 0:
