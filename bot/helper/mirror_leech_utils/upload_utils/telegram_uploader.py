@@ -44,6 +44,7 @@ from ...ext_utils.media_utils import (
     get_multiple_frames_thumbnail,
     get_video_thumbnail,
     get_md5_hash,
+    is_video_split,
 )
 from ...telegram_helper.message_utils import delete_message
 
@@ -504,13 +505,16 @@ class TelegramUploader:
                 elif is_audio and not is_video:
                     thumb = await get_audio_thumbnail(self._up_path)
 
+            is_vsplit = is_video_split(self._up_path)
+
             if (
                 self._listener.as_doc
                 or force_document
+                or is_vsplit
                 or (not is_video and not is_audio and not is_image)
             ):
                 key = "documents"
-                if is_video and thumb is None:
+                if is_video and not is_vsplit and thumb is None:
                     thumb = await get_video_thumbnail(self._up_path, None)
 
                 if self._listener.is_cancelled:
