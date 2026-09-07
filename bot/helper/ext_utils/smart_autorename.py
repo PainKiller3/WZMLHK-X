@@ -4,7 +4,7 @@ from enum import Enum
 from logging import getLogger
 from os import path as ospath
 import re
-from typing import Optional
+from typing import Optional, Tuple
 
 from aiofiles.os import rename, path as aiopath
 
@@ -730,16 +730,28 @@ class SmartAutoRename:
         prefix: str = "",
         suffix: str = "",
     ) -> str:
+        new_path, _ = await self.rename_get_meta(
+            file_path, prefix=prefix, suffix=suffix
+        )
+        return new_path
+
+    async def rename_get_meta(
+        self,
+        file_path: str,
+        prefix: str = "",
+        suffix: str = "",
+    ) -> Tuple[str, dict]:
         filename = ospath.basename(file_path)
+        meta = {}
 
         if not await is_video_media(file_path):
             LOGGER.info(f"Smart Autorename skipped (non-video media): {filename}")
-            return file_path
+            return file_path, meta
 
         ctx = parse_smart_filename(filename)
         if ctx.media_type == SmartMediaType.UNKNOWN:
             LOGGER.info(f"Smart Autorename skipped (unknown media type): {filename}")
-            return file_path
+            return file_path, meta
 
         media = await probe_smart_media_metadata(file_path, ctx)
 
@@ -767,7 +779,26 @@ class SmartAutoRename:
             LOGGER.warning(
                 f"Smart Autorename skipped: required metadata unavailable for {filename}"
             )
-            return file_path
+            return file_path, meta
+
+        meta = {
+            "show_name": (
+                canonical.series_title or canonical.title if canonical else None
+            )
+            or ctx.title
+            or "",
+            "season": f"{ctx.season:02d}" if ctx.season is not None else "",
+            "episode": f"{ctx.episode_start:02d}"
+            if ctx.episode_start is not None
+            else "",
+            "title": (canonical.episode_title if canonical else None) or "",
+            "year": str((canonical.year if canonical else None) or ctx.year or ""),
+            "source": (canonical.ott if canonical else None)
+            or ctx.ott
+            or parts.ott
+            or "",
+            "codec": parts.codec or media.video_codec or ctx.filename_codec or "",
+        }
 
         new_name = self.fitter.fit(
             parts,
@@ -786,12 +817,12 @@ class SmartAutoRename:
             if await aiopath.exists(new_path):
                 if file_path != new_path:
                     raise SmartRenameError(f"Target already exists: {new_path}")
-                return new_path
+                return new_path, meta
 
             LOGGER.info(f"Smart Autorename: {filename} -> {new_name}")
             await rename(file_path, new_path)
 
-        return new_path
+        return new_path, meta
 
 
 async def is_video_media(file_path: str) -> bool:
