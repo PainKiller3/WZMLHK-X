@@ -347,7 +347,7 @@ class TaskListener(TaskConfig):
 
                 if await aiopath.isfile(up_path):
                     orig_name = ospath.basename(up_path)
-                    up_path = await smart_renamer.rename(
+                    up_path, smart_meta = await smart_renamer.rename_get_meta(
                         up_path,
                         prefix=prefix,
                         suffix=suffix,
@@ -357,15 +357,23 @@ class TaskListener(TaskConfig):
                         self.file_details.setdefault("orig_filenames", {})[
                             ospath.basename(up_path)
                         ] = orig_name
+                    if smart_meta:
+                        self.file_details.setdefault("smart_metadata", {})[
+                            ospath.basename(up_path)
+                        ] = smart_meta
                     self.name = ospath.basename(up_path)
                 elif await aiopath.isdir(up_path):
                     orig_dict = self.file_details.setdefault("orig_filenames", {})
+                    meta_dict = self.file_details.setdefault("smart_metadata", {})
                     for root, _, files in await sync_to_async(list, walk(up_path)):
                         for file_ in files:
                             file_path = ospath.join(root, file_)
                             orig_file_name = file_
                             try:
-                                new_file_path = await smart_renamer.rename(
+                                (
+                                    new_file_path,
+                                    smart_meta,
+                                ) = await smart_renamer.rename_get_meta(
                                     file_path,
                                     prefix=prefix,
                                     suffix=suffix,
@@ -373,6 +381,8 @@ class TaskListener(TaskConfig):
                                 new_file_name = ospath.basename(new_file_path)
                                 if new_file_name != orig_file_name:
                                     orig_dict[new_file_name] = orig_file_name
+                                if smart_meta:
+                                    meta_dict[new_file_name] = smart_meta
                             except Exception as exc:
                                 LOGGER.warning(
                                     f"Smart Autorename skipped for {file_}: {exc}"
