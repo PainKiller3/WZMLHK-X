@@ -52,6 +52,14 @@ TG_TIMEOUT="${TELEGRAM_TIMEOUT:-300}"
 TG_SESSION_ID="$(date +%s)$$"
 TG_ENABLED="true"
 
+# Parse chat_id and topic_id (format: chat_id|topic_id or simple chat_id)
+TG_CHAT_ID="${TELEGRAM_CHAT_ID%%|*}"
+if [[ "${TELEGRAM_CHAT_ID:-}" == *"|"* ]]; then
+    TG_THREAD_ID="${TELEGRAM_CHAT_ID#*|}"
+else
+    TG_THREAD_ID=""
+fi
+
 # Check if Telegram is configured
 if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] || [ -z "${TELEGRAM_CHAT_ID:-}" ]; then
     TG_ENABLED="false"
@@ -101,14 +109,15 @@ tg_send_message() {
 
     local payload
     payload=$(jq -n \
-        --arg chat_id "$TELEGRAM_CHAT_ID" \
+        --arg chat_id "$TG_CHAT_ID" \
+        --arg thread_id "$TG_THREAD_ID" \
         --arg text "$text" \
         '{
             chat_id: $chat_id,
             text: $text,
             parse_mode: "HTML",
             disable_web_page_preview: true
-        }')
+        } + (if $thread_id != "" then {message_thread_id: ($thread_id | tonumber)} else {} end)')
 
     local response
     response=$(curl -s --max-time 15 -X POST "${TG_API_BASE}/sendMessage" \
@@ -136,7 +145,8 @@ tg_send_inline_keyboard() {
 
     local payload
     payload=$(jq -n \
-        --arg chat_id "$TELEGRAM_CHAT_ID" \
+        --arg chat_id "$TG_CHAT_ID" \
+        --arg thread_id "$TG_THREAD_ID" \
         --arg text "$text" \
         --arg b1t "$btn1_text" \
         --arg b1d "$btn1_data" \
@@ -153,7 +163,7 @@ tg_send_inline_keyboard() {
                     { text: $b2t, callback_data: $b2d }
                 ]]
             }
-        }')
+        } + (if $thread_id != "" then {message_thread_id: ($thread_id | tonumber)} else {} end)')
 
     local response
     response=$(curl -s --max-time 15 -X POST "${TG_API_BASE}/sendMessage" \
@@ -270,7 +280,7 @@ tg_edit_message() {
 
     local payload
     payload=$(jq -n \
-        --arg chat_id "$TELEGRAM_CHAT_ID" \
+        --arg chat_id "$TG_CHAT_ID" \
         --argjson msg_id "$message_id" \
         --arg text "$new_text" \
         '{
