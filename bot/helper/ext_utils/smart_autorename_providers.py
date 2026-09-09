@@ -1,13 +1,43 @@
 from contextlib import suppress
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 from logging import getLogger
+import re
 from typing import Optional
+from urllib.parse import quote
 from niquests import AsyncSession
 
 from bot.core.config_manager import Config
 from .bot_utils import sync_to_async
 
 LOGGER = getLogger(__name__)
+
+
+def is_title_similar(query: str, res_title: str, min_ratio: float = 0.45) -> bool:
+    if not query or not res_title:
+        return False
+    q_norm = re.sub(r"[^\w\s]", "", query.lower()).strip()
+    r_norm = re.sub(r"[^\w\s]", "", res_title.lower()).strip()
+
+    if not q_norm or not r_norm:
+        return False
+
+    q_words = set(q_norm.split())
+    r_words = set(r_norm.split())
+
+    if not q_words or not r_words:
+        return False
+
+    intersection = q_words & r_words
+    overlap_q = len(intersection) / len(q_words)
+    overlap_r = len(intersection) / len(r_words)
+
+    seq_ratio = SequenceMatcher(None, q_norm, r_norm).ratio()
+
+    if seq_ratio >= min_ratio or overlap_q >= 0.5 or overlap_r >= 0.5:
+        return True
+
+    return False
 
 
 @dataclass
@@ -19,6 +49,222 @@ class CanonicalMetadata:
     provider: Optional[str] = None
     provider_id: Optional[str] = None
     ott: Optional[str] = None
+
+
+class KitsuProvider:
+    KITSU_BASE = "https://kitsu.io/api/edge"
+
+    async def _request(self, path: str, params: dict | None = None):
+        try:
+            async with AsyncSession(timeout=10) as client:
+                headers = {
+                    "Accept": "application/vnd.api+json",
+                    "Content-Type": "application/vnd.api+json",
+                }
+                resp = await client.get(
+                    f"{self.KITSU_BASE}{path}", params=params, headers=headers
+                )
+                if resp.status_code != 200:
+                    return None
+                return resp.json()
+        except Exception as exc:
+            LOGGER.warning(f"Kitsu request failed: {exc}")
+            return None
+
+    async def find_title(
+        self,
+        title: str,
+        year: Optional[str] = None,
+        media_type: Optional[str] = None,
+    ) -> Optional[CanonicalMetadata]:
+        params = {"filter[text]": title, "page[limit]": "5"}
+        data = await self._request("/anime", params)
+        if not data or "data" not in data or not data["data"]:
+            return None
+
+        for item in data["data"]:
+            attrs = item.get("attributes", {})
+            titles = attrs.get("titles", {})
+            canonical = (
+                attrs.get("canonicalTitle")
+                or titles.get("en")
+                or titles.get("en_jp")
+                or titles.get("ja_jp")
+            )
+
+            if not canonical:
+                continue
+
+            if is_title_similar(title, canonical):
+                start_date = attrs.get("startDate") or ""
+                disp_year = start_date[:4] if len(start_date) >= 4 else year
+                item_id = str(item.get("id"))
+
+                return CanonicalMetadata(
+                    title=canonical,
+                    year=disp_year,
+                    series_title=canonical
+                    if media_type in ("single_episode", "episode_range", "season_pack")
+                    else None,
+                    provider="kitsu",
+                    provider_id=item_id,
+                )
+
+        return None
+
+    async def find_episode(
+        self,
+        series_title: str,
+        season: int,
+        episode: int,
+        year: Optional[str] = None,
+    ) -> Optional[CanonicalMetadata]:
+        anime_meta = await self.find_title(
+            series_title, year=year, media_type="single_episode"
+        )
+        if not anime_meta or not anime_meta.provider_id:
+            return None
+
+        anime_id = anime_meta.provider_id
+        ep_data = await self._request(
+            f"/anime/{anime_id}/episodes",
+            params={"filter[number]": str(episode)},
+        )
+
+        ep_title = None
+        if ep_data and ep_data.get("data"):
+            ep_attrs = ep_data["data"][0].get("attributes", {})
+            ep_titles = ep_attrs.get("titles", {})
+            candidate = (
+                ep_attrs.get("canonicalTitle")
+                or ep_titles.get("en_us")
+                or ep_titles.get("en")
+                or ep_titles.get("en_jp")
+            )
+            if candidate and not re.match(r"(?i)^episode\s*\d+$", candidate.strip()):
+                ep_title = candidate
+
+        return CanonicalMetadata(
+            series_title=anime_meta.series_title,
+            year=anime_meta.year,
+            episode_title=ep_title,
+            provider="kitsu",
+            provider_id=anime_id,
+        )
+
+
+class CinemetaProvider:
+    CINEMETA_BASE = "https://v3-cinemeta.strem.io"
+
+    async def _request(self, path: str):
+        try:
+            async with AsyncSession(timeout=10) as client:
+                resp = await client.get(f"{self.CINEMETA_BASE}{path}")
+                if resp.status_code != 200:
+                    return None
+                return resp.json()
+        except Exception as exc:
+            LOGGER.warning(f"Cinemeta request failed: {exc}")
+            return None
+
+    async def find_title(
+        self,
+        title: str,
+        year: Optional[str] = None,
+        media_type: Optional[str] = None,
+    ) -> Optional[CanonicalMetadata]:
+        stype = "movie" if media_type == "movie" else "series"
+        q_encoded = quote(title.strip())
+        data = await self._request(f"/catalog/{stype}/top/search={q_encoded}.json")
+        if not data or "metas" not in data or not data["metas"]:
+            return None
+
+        for item in data["metas"]:
+            item_name = item.get("name")
+            if not item_name:
+                continue
+
+            if is_title_similar(title, item_name):
+                item_year = item.get("releaseInfo") or item.get("year") or year
+                if item_year:
+                    item_year = str(item_year)[:4]
+
+                return CanonicalMetadata(
+                    title=item_name,
+                    year=item_year,
+                    series_title=item_name
+                    if media_type in ("single_episode", "episode_range", "season_pack")
+                    else None,
+                    provider="cinemeta",
+                    provider_id=item.get("id"),
+                )
+
+        return None
+
+    async def find_episode(
+        self,
+        series_title: str,
+        season: int,
+        episode: int,
+        year: Optional[str] = None,
+    ) -> Optional[CanonicalMetadata]:
+        meta = await self.find_title(
+            series_title, year=year, media_type="single_episode"
+        )
+        if not meta or not meta.provider_id:
+            return None
+
+        detail = await self._request(f"/meta/series/{meta.provider_id}.json")
+        ep_title = None
+        if detail and "meta" in detail:
+            videos = detail["meta"].get("videos", [])
+            for vid in videos:
+                if vid.get("season") == season and vid.get("episode") == episode:
+                    candidate = vid.get("title") or vid.get("name")
+                    if candidate and not re.match(
+                        r"(?i)^episode\s*\d+$", candidate.strip()
+                    ):
+                        ep_title = candidate
+                    break
+
+        return CanonicalMetadata(
+            series_title=meta.series_title,
+            year=meta.year,
+            episode_title=ep_title,
+            provider="cinemeta",
+            provider_id=meta.provider_id,
+        )
+
+
+class TVDBProvider:
+    """Uses Cinemeta TVDB catalogue and lookup endpoints as TVDB proxy."""
+
+    async def find_title(
+        self,
+        title: str,
+        year: Optional[str] = None,
+        media_type: Optional[str] = None,
+    ) -> Optional[CanonicalMetadata]:
+        cinemeta = CinemetaProvider()
+        res = await cinemeta.find_title(title, year=year, media_type=media_type)
+        if res:
+            res.provider = "tvdb"
+        return res
+
+    async def find_episode(
+        self,
+        series_title: str,
+        season: int,
+        episode: int,
+        year: Optional[str] = None,
+    ) -> Optional[CanonicalMetadata]:
+        cinemeta = CinemetaProvider()
+        res = await cinemeta.find_episode(
+            series_title, season=season, episode=episode, year=year
+        )
+        if res:
+            res.provider = "tvdb"
+        return res
 
 
 class IMDbProvider:
@@ -71,7 +317,17 @@ class IMDbProvider:
                     in ("movie", "tvSeries", "tvMiniSeries")
                 ]
 
-            target = preferred[0] if preferred else results[0]
+            targets = preferred or results
+            target = None
+            for item in targets:
+                item_title = getattr(item, "title", None)
+                if item_title and is_title_similar(title, item_title):
+                    target = item
+                    break
+
+            if not target:
+                return None
+
             item_id = getattr(target, "id", None)
             if not item_id:
                 return None
@@ -81,6 +337,9 @@ class IMDbProvider:
                 return None
 
             disp_title = getattr(m, "title", None) or getattr(target, "title", None)
+            if not disp_title or not is_title_similar(title, disp_title):
+                return None
+
             disp_year = (
                 str(getattr(m, "year", None) or getattr(target, "year", None) or "")
                 or None
@@ -139,7 +398,16 @@ class IMDbProvider:
                 if getattr(item, "kind", None) in ("tvSeries", "tvMiniSeries", "tvShow")
             ] or results
 
-            target = series_matches[0]
+            target = None
+            for item in series_matches:
+                item_title = getattr(item, "title", None)
+                if item_title and is_title_similar(series_title, item_title):
+                    target = item
+                    break
+
+            if not target:
+                return None
+
             series_id = getattr(target, "id", None)
             if not series_id:
                 return None
@@ -150,6 +418,9 @@ class IMDbProvider:
                 if s_obj
                 else getattr(target, "title", None)
             )
+
+            if not series_disp or not is_title_similar(series_title, series_disp):
+                return None
 
             ep_title = None
             if s_obj and hasattr(s_obj, "episodes"):
@@ -238,7 +509,21 @@ class TMDbProvider:
         if not results:
             return None
 
-        item = results[0]
+        item = None
+        for r in results:
+            disp = (
+                r.get("title")
+                or r.get("name")
+                or r.get("original_title")
+                or r.get("original_name")
+            )
+            if disp and is_title_similar(title, disp):
+                item = r
+                break
+
+        if not item:
+            return None
+
         disp_title = (
             item.get("title")
             or item.get("name")
@@ -293,7 +578,16 @@ class TMDbProvider:
         if not search_data or not search_data.get("results"):
             return None
 
-        tv_item = search_data["results"][0]
+        tv_item = None
+        for r in search_data["results"]:
+            disp = r.get("name") or r.get("original_name")
+            if disp and is_title_similar(series_title, disp):
+                tv_item = r
+                break
+
+        if not tv_item:
+            return None
+
         tv_id = tv_item["id"]
         series_disp = tv_item.get("name") or tv_item.get("original_name")
 
@@ -312,28 +606,64 @@ class TMDbProvider:
 
 class CanonicalMetadataResolver:
     def __init__(self):
-        self.imdb = IMDbProvider()
+        self.kitsu = KitsuProvider()
+        self.tvdb = TVDBProvider()
         self.tmdb = TMDbProvider()
+        self.imdb = IMDbProvider()
+        self.cinemeta = CinemetaProvider()
         self.cache: dict[tuple, CanonicalMetadata] = {}
+
+    def _get_provider_chain(
+        self, media_type: Optional[str], is_anime: bool = False
+    ) -> list:
+        has_tmdb = bool(str(Config.TMDB_ACCESS_TOKEN or "").strip())
+
+        if is_anime:
+            # 🇯🇵 Anime: Kitsu > TVDB > TMDB (if token) > IMDb > Cinemeta
+            chain = [self.kitsu, self.tvdb]
+            if has_tmdb:
+                chain.append(self.tmdb)
+            chain.extend([self.imdb, self.cinemeta])
+            return chain
+
+        if media_type == "movie":
+            # 🎬 Movies: TMDB (if token) > IMDb > Cinemeta
+            chain = []
+            if has_tmdb:
+                chain.append(self.tmdb)
+            chain.extend([self.imdb, self.cinemeta])
+            return chain
+
+        # 📺 Series: TVDB > TMDB (if token) > IMDb > Cinemeta
+        chain = [self.tvdb]
+        if has_tmdb:
+            chain.append(self.tmdb)
+        chain.extend([self.imdb, self.cinemeta])
+        return chain
 
     async def resolve_title(
         self,
         title: str,
         year: Optional[str] = None,
         media_type: Optional[str] = None,
+        is_anime: bool = False,
     ) -> Optional[CanonicalMetadata]:
         cache_key = (
             title.strip().lower(),
             str(year or ""),
             str(media_type or ""),
+            bool(is_anime),
             "title",
         )
         if cache_key in self.cache:
             return self.cache[cache_key]
 
-        res = await self.imdb.find_title(title, year, media_type)
-        if not res:
-            res = await self.tmdb.find_title(title, year, media_type)
+        providers = self._get_provider_chain(media_type, is_anime)
+        res = None
+        for provider in providers:
+            res = await provider.find_title(title, year, media_type)
+            if res and res.title:
+                break
 
         if res:
             if len(self.cache) > 200:
@@ -347,25 +677,29 @@ class CanonicalMetadataResolver:
         season: int,
         episode: int,
         year: Optional[str] = None,
+        is_anime: bool = False,
     ) -> Optional[CanonicalMetadata]:
         cache_key = (
             series_title.strip().lower(),
             season,
             episode,
             str(year or ""),
+            bool(is_anime),
             "episode",
         )
         if cache_key in self.cache:
             return self.cache[cache_key]
 
-        res = await self.imdb.find_episode(series_title, season, episode, year)
-        if not res or not res.episode_title:
-            tmdb_res = await self.tmdb.find_episode(series_title, season, episode, year)
-            if tmdb_res:
-                if res and not res.episode_title:
-                    res.episode_title = tmdb_res.episode_title
-                elif not res:
-                    res = tmdb_res
+        providers = self._get_provider_chain("single_episode", is_anime)
+        res = None
+        for provider in providers:
+            res = await provider.find_episode(series_title, season, episode, year)
+            if res and res.series_title:
+                if res.episode_title:
+                    break
+                # If we got series_title but not episode_title, keep checking downstream for episode_title
+                if not res:
+                    res = res
 
         if res:
             if len(self.cache) > 200:

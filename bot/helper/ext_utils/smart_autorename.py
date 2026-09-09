@@ -48,6 +48,7 @@ class SmartFilenameContext:
     episode_end: Optional[int] = None
 
     media_type: SmartMediaType = SmartMediaType.UNKNOWN
+    is_anime: bool = False
 
     ott: Optional[str] = None
     filename_quality: Optional[str] = None
@@ -85,19 +86,22 @@ _VIDEO_EXT_RE = re.compile(
 )
 
 _RANGE_RE = re.compile(
-    r"(?i)\bS(?P<season>\d{1,2})\s*E(?P<start>\d{1,4})\s*(?:-|–|~|\+|&|,|to|and)\s*E?(?P<end>\d{1,4})\b"
+    r"(?i)(?:^|[\s_.-])S(?P<season>\d{1,2})\s*E(?P<start>\d{1,4})\s*(?:-|–|~|\+|&|,|to|and)\s*E?(?P<end>\d{1,4})\b"
 )
-_SINGLE_RE = re.compile(r"(?i)\bS(?P<season>\d{1,2})\s*E(?P<episode>\d{1,4})\b")
+_SINGLE_RE = re.compile(
+    r"(?i)(?:^|[\s_.-])S(?P<season>\d{1,2})\s*E(?P<episode>\d{1,4})\b"
+)
 _SEASON_RE = re.compile(
-    r"(?i)\bS(\d{1,2})\b|\bSeason\s*(\d{1,2})\b|\b(\d{1,2})(?:st|nd|rd|th)\s*Season\b"
+    r"(?i)(?:^|[\s_.-])S(\d{1,2})\b|\bSeason\s*(\d{1,2})\b|\b(\d{1,2})(?:st|nd|rd|th)\s*Season\b"
 )
 
 _ANIME_RANGE_RE = re.compile(
-    r"(?i)(?:^|[\s_.-])(?:-\s*|\b(?:E|EP|Episode)\s*)(?P<start>\d{1,4})\s*(?:-|–|~|\+|to)\s*(?:E|EP|Episode)?(?P<end>\d{1,4})\b"
+    r"(?i)(?:^|[\s_.-])(?:-\s*|(?:E|EP|Episode)\.?\s*)(?P<start>\d{1,4})\s*(?:-|–|~|\+|to)\s*(?:E|EP|Episode)?(?P<end>\d{1,4})\b"
 )
 _ANIME_SINGLE_RE = re.compile(
-    r"(?i)(?:-\s*|\b(?:E|EP|Episode)\s*)(?P<episode>\d{1,4})\s*(?:v\d+)?(?=[\s_.\-\]\)]|$)"
+    r"(?i)(?:^|[\s_.-])(?:-\s*|(?:E|EP|Episode)\.?\s*)(?P<episode>\d{1,4})\s*(?:v\d+)?(?=[\s_.\-\]\)]|$)"
 )
+
 _YEAR_RE = re.compile(r"(?<!\d)(?:19|20)\d{2}(?!\d)")
 
 _QUALITY_RE = re.compile(
@@ -387,6 +391,13 @@ def parse_smart_filename(filename: str) -> SmartFilenameContext:
             audio = name
             break
 
+    _ANIME_TAG_RE = re.compile(
+        r"(?i)\[(?:subsplease|erai-raws|horriblesubs|judas|subdesu|golumpa|asw|puyasubs|yamekii|anime|crunchyroll)\]"
+    )
+    is_anime = bool(
+        _ANIME_TAG_RE.search(filename) or anime_range_match or anime_single_match
+    )
+
     return SmartFilenameContext(
         original_filename=filename,
         media_extension=extension,
@@ -397,6 +408,7 @@ def parse_smart_filename(filename: str) -> SmartFilenameContext:
         episode_start=episode_start,
         episode_end=episode_end,
         media_type=media_type,
+        is_anime=is_anime,
         ott=ott,
         filename_quality=quality,
         filename_codec=codec,
@@ -766,12 +778,14 @@ class SmartAutoRename:
                 season=ctx.season,
                 episode=ctx.episode_start,
                 year=ctx.year,
+                is_anime=ctx.is_anime,
             )
         elif ctx.title:
             canonical = await self.resolver.resolve_title(
                 title=ctx.title,
                 year=ctx.year,
                 media_type=ctx.media_type.value,
+                is_anime=ctx.is_anime,
             )
 
         parts = self.builder.make_parts(ctx, canonical, media)
