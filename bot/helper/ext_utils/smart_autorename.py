@@ -99,8 +99,9 @@ _ANIME_RANGE_RE = re.compile(
     r"(?i)(?:^|[\s_.-])(?:-\s*|(?:E|EP|Episode)\.?\s*)(?P<start>\d{1,4})\s*(?:-|–|~|\+|to)\s*(?:E|EP|Episode)?(?P<end>\d{1,4})\b"
 )
 _ANIME_SINGLE_RE = re.compile(
-    r"(?i)(?:^|[\s_.-])(?:-\s*|(?:E|EP|Episode)\.?\s*)(?P<episode>\d{1,4})\s*(?:v\d+)?(?=[\s_.\-\]\)]|$)"
+    r"(?i)(?:^|[\s_.-])(?P<prefix>-\s*|(?:E|EP|Episode)\.?\s*)?(?P<episode>\d{1,4})(?=\s*v\d+)?(?=[\s_.\-\]\)]|$)"
 )
+
 
 _YEAR_RE = re.compile(r"(?<!\d)(?:19|20)\d{2}(?!\d)")
 
@@ -307,11 +308,31 @@ def parse_smart_filename(filename: str) -> SmartFilenameContext:
         if not range_match and not single_match
         else None
     )
-    anime_single_match = (
-        _ANIME_SINGLE_RE.search(logical_stem)
-        if not range_match and not single_match and not anime_range_match
-        else None
-    )
+    anime_single_match = None
+    if not range_match and not single_match and not anime_range_match:
+        for m in _ANIME_SINGLE_RE.finditer(logical_stem):
+            ep_str = m.group("episode")
+            ep_val = int(ep_str)
+            has_prefix = bool(m.group("prefix"))
+
+            if (
+                (1900 <= ep_val <= 2099)
+                and not has_prefix
+                and len(ep_str) == 4
+                and not ep_str.startswith("0")
+            ):
+                continue
+
+            after_text = logical_stem[m.end() :].lstrip().lower()
+            if after_text.startswith("p"):
+                continue
+
+            before_text = logical_stem[: m.start()].strip()
+            if before_text.endswith(".") or after_text.startswith("."):
+                continue
+
+            anime_single_match = m
+            break
 
     season = None
     episode_start = None
