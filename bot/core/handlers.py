@@ -441,7 +441,7 @@ async def add_handlers():
         MessageHandler(
             bot_stats,
             filters=command(BotCommands.StatsCommand, case_sensitive=True)
-            & CustomFilters.authorized,
+            & CustomFilters.sudo,
         )
     )
     TgClient.bot.add_handler(
