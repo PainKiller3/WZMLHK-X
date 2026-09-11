@@ -13,28 +13,53 @@ from .bot_utils import sync_to_async
 LOGGER = getLogger(__name__)
 
 
-def is_title_similar(query: str, res_title: str, min_ratio: float = 0.45) -> bool:
+_STOPWORDS = {
+    "is",
+    "the",
+    "a",
+    "an",
+    "of",
+    "and",
+    "in",
+    "on",
+    "at",
+    "by",
+    "to",
+    "for",
+    "with",
+    "or",
+}
+
+
+def is_title_similar(query: str, res_title: str, min_ratio: float = 0.55) -> bool:
     if not query or not res_title:
         return False
-    q_norm = re.sub(r"[^\w\s]", "", query.lower()).strip()
-    r_norm = re.sub(r"[^\w\s]", "", res_title.lower()).strip()
+
+    q_norm = re.sub(r"([a-z])([A-Z])", r"\1 \2", query)
+    r_norm = re.sub(r"([a-z])([A-Z])", r"\1 \2", res_title)
+
+    q_norm = re.sub(r"[^\w\s]", "", q_norm.lower()).strip()
+    r_norm = re.sub(r"[^\w\s]", "", r_norm.lower()).strip()
 
     if not q_norm or not r_norm:
         return False
 
-    q_words = set(q_norm.split())
-    r_words = set(r_norm.split())
+    q_words = [w for w in q_norm.split() if w not in _STOPWORDS] or q_norm.split()
+    r_words = [w for w in r_norm.split() if w not in _STOPWORDS] or r_norm.split()
 
-    if not q_words or not r_words:
+    q_set = set(q_words)
+    r_set = set(r_words)
+
+    if not q_set or not r_set:
         return False
 
-    intersection = q_words & r_words
-    overlap_q = len(intersection) / len(q_words)
-    overlap_r = len(intersection) / len(r_words)
+    intersection = q_set & r_set
+    overlap_q = len(intersection) / len(q_set)
+    overlap_r = len(intersection) / len(r_set)
 
     seq_ratio = SequenceMatcher(None, q_norm, r_norm).ratio()
 
-    if seq_ratio >= min_ratio or overlap_q >= 0.5 or overlap_r >= 0.5:
+    if seq_ratio >= min_ratio or (overlap_q >= 0.5 and overlap_r >= 0.5):
         return True
 
     return False

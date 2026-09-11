@@ -251,9 +251,15 @@ def normalize_language(lang_code: str | None) -> str | None:
     return LANGUAGE_NAME_MAP.get(code, code.capitalize())
 
 
+_SITE_TAGS_RE = re.compile(
+    r"(?i)\b(?:www\.)?[\w-]+\.(?:com|net|org|xyz|me|in|to|co|cc|info|tv|link|app|online|site|club|work|icu|top|vip|pro|party|fun|cam|lol|sbs|ws|is|download|store|page|click|live)\b|\b(?:vegamovies|1xbet|9xmovies|yts|rarbg|psa|bolly4u|desiremovies|hdhub4u|mkvking|katmoviehd|worldfree4u|filmyzilla|skymovieshd|uwatchfree)\b"
+)
+
+
 def clean_candidate_title(stem: str) -> str:
     value = stem
     value = re.sub(r"https?://\S+", " ", value, flags=re.I)
+    value = _SITE_TAGS_RE.sub(" ", value)
     value = re.sub(r"\[[^\]]*\]", " ", value)
     value = re.sub(r"\([^)]*\)", " ", value)
 
@@ -291,6 +297,7 @@ def clean_candidate_title(stem: str) -> str:
     )
 
     value = value.replace("_", " ")
+    value = re.sub(r"([a-z])([A-Z])", r"\1 \2", value)
     value = re.sub(r"\.+", " ", value)
     value = re.sub(r"\s+", " ", value)
     return value.strip(" .-_-")
@@ -379,13 +386,15 @@ def parse_smart_filename(filename: str) -> SmartFilenameContext:
         pre_marker = logical_stem[: marker.start()].strip(" .-_-")
         if pre_marker:
             title_source = pre_marker
+    else:
+        year_match = _YEAR_RE.search(logical_stem)
+        if year_match:
+            pre_year = logical_stem[: year_match.start()].strip(" .-_-")
+            if pre_year:
+                title_source = pre_year
 
-    year_match = _YEAR_RE.search(title_source)
+    year_match = _YEAR_RE.search(logical_stem)
     year = year_match.group(0) if year_match else None
-    if year_match:
-        title_source = (
-            title_source[: year_match.start()] + " " + title_source[year_match.end() :]
-        )
 
     title_clean = clean_candidate_title(title_source)
 
