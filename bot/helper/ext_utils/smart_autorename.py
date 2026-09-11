@@ -49,6 +49,7 @@ class SmartFilenameContext:
 
     media_type: SmartMediaType = SmartMediaType.UNKNOWN
     is_anime: bool = False
+    has_explicit_season: bool = False
 
     ott: Optional[str] = None
     filename_quality: Optional[str] = None
@@ -428,6 +429,8 @@ def parse_smart_filename(filename: str) -> SmartFilenameContext:
         _ANIME_TAG_RE.search(filename) or anime_range_match or anime_single_match
     )
 
+    has_explicit_season = bool(range_match or single_match or season_match)
+
     return SmartFilenameContext(
         original_filename=filename,
         media_extension=extension,
@@ -439,6 +442,7 @@ def parse_smart_filename(filename: str) -> SmartFilenameContext:
         episode_end=episode_end,
         media_type=media_type,
         is_anime=is_anime,
+        has_explicit_season=has_explicit_season,
         ott=ott,
         filename_quality=quality,
         filename_codec=codec,
@@ -583,7 +587,11 @@ class SmartFilenameBuilder:
         if not series_title or ctx.season is None or ctx.episode_start is None:
             return None
 
-        se = f"S{ctx.season:02d}E{ctx.episode_start:02d}"
+        if ctx.is_anime and not ctx.has_explicit_season:
+            se = f"E{ctx.episode_start}"
+        else:
+            se = f"S{ctx.season:02d}E{ctx.episode_start:02d}"
+
         quality, ott, audio, codec, esubs = self._technical_fields(
             ctx, media, canonical
         )
@@ -614,9 +622,13 @@ class SmartFilenameBuilder:
         ):
             return None
 
-        season_range = (
-            f"S{ctx.season:02d}E{ctx.episode_start:02d}-E{ctx.episode_end:02d}"
-        )
+        if ctx.is_anime and not ctx.has_explicit_season:
+            season_range = f"E{ctx.episode_start}-E{ctx.episode_end}"
+        else:
+            season_range = (
+                f"S{ctx.season:02d}E{ctx.episode_start:02d}-E{ctx.episode_end:02d}"
+            )
+
         quality, ott, audio, codec, esubs = self._technical_fields(
             ctx, media, canonical
         )
