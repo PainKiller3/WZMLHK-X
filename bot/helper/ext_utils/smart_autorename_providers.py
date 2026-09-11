@@ -74,6 +74,8 @@ class CanonicalMetadata:
     provider: Optional[str] = None
     provider_id: Optional[str] = None
     ott: Optional[str] = None
+    season: Optional[int] = None
+    episode: Optional[int] = None
 
 
 class KitsuProvider:
@@ -245,6 +247,9 @@ class CinemetaProvider:
 
         detail = await self._request(f"/meta/series/{meta.provider_id}.json")
         ep_title = None
+        mapped_season = None
+        mapped_ep = None
+
         if detail and "meta" in detail:
             videos = detail["meta"].get("videos", [])
             for vid in videos:
@@ -254,12 +259,28 @@ class CinemetaProvider:
                         r"(?i)^episode\s*\d+$", candidate.strip()
                     ):
                         ep_title = candidate
+                    mapped_season = vid.get("season")
+                    mapped_ep = vid.get("episode")
                     break
+
+            if not ep_title and episode > 20:
+                for idx, vid in enumerate(videos):
+                    if vid.get("number") == episode or (idx + 1) == episode:
+                        candidate = vid.get("title") or vid.get("name")
+                        if candidate and not re.match(
+                            r"(?i)^episode\s*\d+$", candidate.strip()
+                        ):
+                            ep_title = candidate
+                        mapped_season = vid.get("season")
+                        mapped_ep = vid.get("episode")
+                        break
 
         return CanonicalMetadata(
             series_title=meta.series_title,
             year=meta.year,
             episode_title=ep_title,
+            season=mapped_season,
+            episode=mapped_ep,
             provider="cinemeta",
             provider_id=meta.provider_id,
         )
@@ -724,9 +745,26 @@ class CanonicalMetadataResolver:
         providers = self._get_provider_chain("single_episode", is_anime)
         res = None
         for provider in providers:
-            res = await provider.find_episode(series_title, season, episode, year)
-            if res and res.series_title:
-                if res.episode_title:
+            cand = await provider.find_episode(series_title, season, episode, year)
+            if cand and cand.series_title:
+                if not res:
+                    res = cand
+                else:
+                    if cand.episode_title and not res.episode_title:
+                        res.episode_title = cand.episode_title
+                    if (
+                        cand.season is not None
+                        and cand.episode is not None
+                        and (res.season is None or res.episode is None)
+                    ):
+                        res.season = cand.season
+                        res.episode = cand.episode
+
+                if (
+                    res.episode_title
+                    and res.season is not None
+                    and res.episode is not None
+                ):
                     break
 
         if res:

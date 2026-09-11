@@ -828,7 +828,13 @@ class SmartAutoRename:
                 is_anime=ctx.is_anime,
             )
 
+        if canonical and canonical.season is not None and canonical.episode is not None:
+            ctx.season = canonical.season
+            ctx.episode_start = canonical.episode
+            ctx.has_explicit_season = True
+
         parts = self.builder.make_parts(ctx, canonical, media)
+
         if not parts:
             LOGGER.warning(
                 f"Smart Autorename skipped: required metadata unavailable for {filename}"
