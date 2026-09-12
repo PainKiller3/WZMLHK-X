@@ -53,6 +53,7 @@ leech_options = [
     "LEECH_CAPTION",
     "THUMBNAIL_LAYOUT",
     "AUTO_LEECH_MAX_LINKS",
+    "AUTO_LEECH_EXT",
 ]
 uphoster_options = [
     "GOFILE_TOKEN",
@@ -365,6 +366,11 @@ Here I will explain how to use mltb.* which is reference to files you want to wo
         "Maximum direct media links to auto-leech per message for your requests.",
         "<i>Send the maximum number of direct media links to auto-leech per message (e.g. 5, 10, 20).</i> \n┖ <b>Time Left :</b> <code>60 sec</code>",
     ),
+    "AUTO_LEECH_EXT": (
+        "Space or comma-separated extensions/domains",
+        "Custom extensions or domain keywords to auto-leech for your requests.",
+        "<i>Send custom extensions or domain keywords to auto-leech (e.g. zip, rar, 7z or video-downloads.googleusercontent.com).</i> \n┖ <b>Time Left :</b> <code>60 sec</code>",
+    ),
 }
 
 
@@ -618,6 +624,14 @@ async def get_user_settings(from_user, stype="main"):
         else:
             auto_leech_max_links = f"{Config.AUTO_LEECH_MAX_LINKS} (Default)"
 
+        buttons.data_button(
+            "Auto-Leech Custom Ext", f"userset {user_id} menu AUTO_LEECH_EXT"
+        )
+        if user_dict.get("AUTO_LEECH_EXT"):
+            auto_leech_ext = ", ".join(user_dict["AUTO_LEECH_EXT"])
+        else:
+            auto_leech_ext = "None"
+
         buttons.data_button("Back", f"userset {user_id} back", "footer")
         buttons.data_button(
             "Close", f"userset {user_id} close", "footer", style=ButtonStyle.DANGER
@@ -641,7 +655,8 @@ async def get_user_settings(from_user, stype="main"):
 ┠ Auto Thumbnail → <b>{auto_thumb}</b>
 ┠ Smart Autorename → <b>{smart_autorename}</b>
 ┠ User Auto-Leech → <b>{user_auto_leech}</b>
-┖ Auto-Leech Max Links → <b>{auto_leech_max_links}</b>
+┠ Auto-Leech Max Links → <b>{auto_leech_max_links}</b>
+┖ Auto-Leech Custom Ext → <code>{escape(auto_leech_ext)}</code>
 """
 
     elif stype == "uphoster":
@@ -1397,6 +1412,20 @@ async def set_option(_, message, option, rfunc):
             value = int(value)
         elif not isinstance(value, int):
             await send_message(message, "Auto Leech Max Links must be a whole number.")
+            return
+    elif option == "AUTO_LEECH_EXT":
+        if isinstance(value, str):
+            raw_list = [
+                x.strip().lower() for x in value.replace(",", " ").split() if x.strip()
+            ]
+            value = [
+                x.lstrip(".") if not ("." in x and not x.startswith(".")) else x
+                for x in raw_list
+            ]
+        elif not isinstance(value, list):
+            await send_message(
+                message, "Auto Leech Custom Ext must be a space/comma-separated string."
+            )
             return
     # elif option == "LEECH_DUMP_CHAT": # TODO: Add
     elif option == "EXCLUDED_EXTENSIONS":
