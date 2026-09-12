@@ -9,9 +9,6 @@ from .mirror_leech import leech
 
 
 async def auto_leech_listener(client, message):
-    if not Config.AUTO_LEECH:
-        return
-
     if not message.text or message.text.startswith("/"):
         return
 
@@ -21,7 +18,8 @@ async def auto_leech_listener(client, message):
         else (message.sender_chat.id if message.sender_chat else 0)
     )
     user_dict = user_data.get(user_id, {})
-    if not user_dict.get("USER_AUTO_LEECH", True):
+    is_auto_leech_enabled = user_dict.get("USER_AUTO_LEECH", False)
+    if not is_auto_leech_enabled:
         return
 
     if Config.AUTO_LEECH_CHATS:

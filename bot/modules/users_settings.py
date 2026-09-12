@@ -610,16 +610,21 @@ async def get_user_settings(from_user, stype="main"):
             )
             smart_autorename = "Disabled"
 
-        if user_dict.get("USER_AUTO_LEECH", True):
+        user_auto_leech_val = user_dict.get("USER_AUTO_LEECH", False)
+        if user_auto_leech_val:
             buttons.data_button(
                 "Disable Auto-Leech", f"userset {user_id} tog USER_AUTO_LEECH f"
             )
-            user_auto_leech = "Enabled"
+            user_auto_leech = (
+                "Enabled" if "USER_AUTO_LEECH" in user_dict else "Enabled (Default)"
+            )
         else:
             buttons.data_button(
                 "Enable Auto-Leech", f"userset {user_id} tog USER_AUTO_LEECH t"
             )
-            user_auto_leech = "Disabled"
+            user_auto_leech = (
+                "Disabled" if "USER_AUTO_LEECH" in user_dict else "Disabled (Default)"
+            )
 
         buttons.data_button(
             "Auto-Leech Max Links", f"userset {user_id} menu AUTO_LEECH_MAX_LINKS"
