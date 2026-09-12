@@ -99,6 +99,7 @@ DEFAULT_VALUES = {
 BOOL_VARS = [
     "AS_DOCUMENT",
     "AUTO_THUMBNAIL",
+    "AUTO_LEECH",
     "BOT_PM",
     "COLORED_BTNS",
     "DELETE_LINKS",
@@ -143,6 +144,9 @@ BOOL_VARS = [
 
 DEFAULT_DESP = {
     "AS_DOCUMENT": "Send files as document instead of media. Default: False.",
+    "AUTO_LEECH": "Automatically leech direct media file links posted in allowed chats. Default: False.",
+    "AUTO_LEECH_CHATS": "Space-separated Chat/User IDs where Auto Leech is active. Empty = all authorized chats.",
+    "AUTO_LEECH_MAX_LINKS": "Maximum direct media links to auto-leech per message. Default: 10 (0 = unlimited).",
     "AUTHORIZED_CHATS": "User/Chat IDs authorized to use the bot. Space-separated. Supports thread IDs with | separator.",
     "BASE_URL": "Public URL for torrent web file selection. Format: http://ip or http://ip:port.",
     "BOT_TOKEN": "Telegram Bot Token from @BotFather.",

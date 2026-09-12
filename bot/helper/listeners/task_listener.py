@@ -746,14 +746,25 @@ class TaskListener(TaskConfig):
             )
             else escape(str(error))
         )
+        task_ref = (
+            self.name
+            if self.name
+            else (
+                (self.link[:50] + "...")
+                if isinstance(self.link, str) and len(self.link) > 50
+                else self.link
+            )
+        )
+        name_info = f"<b><i>{escape(str(task_ref))}</i></b>\n│\n" if task_ref else ""
+
         msg = (
             f"""〶 <b><i><u>Limit Breached:</u></i></b>
 
-┎ <b>Task Size</b> → {get_readable_file_size(self.size)}
+{name_info}┎ <b>Task Size</b> → {get_readable_file_size(self.size)}
 ┠ <b>In / Out Mode</b> → {self.mode[0]} | {self.mode[1]}
 {error}"""
             if is_limit
-            else f"""<i><b>〶 Download Stopped!</b></i>
+            else f"""{name_info}<i><b>〶 Download Stopped!</b></i>
 
 ┎ <b>Due To</b> → {error_msg}
 ┠ <b>Task Size</b> → {get_readable_file_size(self.size)}
@@ -801,7 +812,17 @@ class TaskListener(TaskConfig):
             if self.mid in task_dict:
                 del task_dict[self.mid]
             count = len(task_dict)
-        await send_message(self.message, f"{self.tag} {escape(str(error))}")
+        task_ref = (
+            self.name
+            if self.name
+            else (
+                (self.link[:50] + "...")
+                if isinstance(self.link, str) and len(self.link) > 50
+                else self.link
+            )
+        )
+        task_info = f"<b><i>{escape(str(task_ref))}</i></b>\n│\n" if task_ref else ""
+        await send_message(self.message, f"{task_info}{self.tag} {escape(str(error))}")
         await delete_links(self.message)
         if count == 0:
             await self.clean()

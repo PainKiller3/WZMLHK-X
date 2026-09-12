@@ -57,6 +57,7 @@ from .restart import (
     restart_aria2,
     confirm_restart_aria2,
 )
+from .auto_leech import auto_leech_listener
 from .rss import get_rss_menu, rss_listener
 from .search import torrent_search, torrent_search_update, initiate_search_tools
 from .services import start, start_cb, login, ping, log, log_cb
@@ -156,4 +157,5 @@ __all__ = [
     "send_user_settings",
     "ytdl",
     "ytdl_leech",
+    "auto_leech_listener",
 ]

@@ -521,6 +521,7 @@ async def add_handlers():
     TgClient.bot.add_handler(
         CallbackQueryHandler(confirm_drive_clean_cb, filters=regex("^gdccat"))
     )
+    TgClient.bot.add_handler(MessageHandler(auto_leech_listener))
     if Config.SET_COMMANDS:
         global BOT_COMMANDS
 

@@ -183,6 +183,9 @@ class Config:
     YT_CATEGORY_ID = 22
     YT_PRIVACY_STATUS = "unlisted"
     SMART_AUTORENAME = False
+    AUTO_LEECH = False
+    AUTO_LEECH_CHATS = ""
+    AUTO_LEECH_MAX_LINKS = 10
 
     @classmethod
     def get(cls, key):
