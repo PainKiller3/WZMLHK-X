@@ -65,7 +65,7 @@ from .telegram_helper.message_utils import (
 
 class TaskConfig:
     def __init__(self):
-        self.mid = self.message.id
+        self.mid = getattr(self.message, "task_id", self.message.id)
         self.user = self.message.from_user or self.message.sender_chat
         self.user_id = self.user.id
         self.user_dict = user_data.get(self.user_id, {})

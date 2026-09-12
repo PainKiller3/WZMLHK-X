@@ -142,6 +142,9 @@ class Config:
     YT_PRIVACY_STATUS = "unlisted"
     SMART_AUTORENAME = False
     TMDB_ACCESS_TOKEN = ""
+    AUTO_LEECH = False
+    AUTO_LEECH_CHATS = ""
+    AUTO_LEECH_MAX_LINKS = 10
 
     @classmethod
     def get(cls, key):

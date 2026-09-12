@@ -46,6 +46,7 @@ from .restart import (
     restart_sessions,
 )
 from .imdb import imdb_search, imdb_callback
+from .auto_leech import auto_leech_listener
 from .rss import get_rss_menu, rss_listener
 from .search import torrent_search, torrent_search_update, initiate_search_tools
 from .nzb_search import hydra_search
@@ -136,4 +137,5 @@ __all__ = [
     "send_user_settings",
     "ytdl",
     "ytdl_leech",
+    "auto_leech_listener",
 ]
