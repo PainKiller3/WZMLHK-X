@@ -50,6 +50,8 @@ leech_options = [
     "LEECH_SUFFIX",
     "LEECH_CAPTION",
     "THUMBNAIL_LAYOUT",
+    "AUTO_LEECH_MAX_LINKS",
+    "AUTO_LEECH_EXT",
 ]
 uphoster_options = [
     "GOFILE_TOKEN",
@@ -336,6 +338,21 @@ Here I will explain how to use mltb.* which is reference to files you want to wo
         "Your Seedr.cc account password for personal magnet downloads.",
         "<i>Send your Seedr.cc account password.</i> \n┖ <b>Time Left :</b> <code>60 sec</code>",
     ),
+    "USER_AUTO_LEECH": (
+        "Boolean",
+        "Enable or disable Auto-Leech for your direct media links in authorized chats.",
+        "Toggle whether the bot automatically leeches direct media links posted by you.",
+    ),
+    "AUTO_LEECH_MAX_LINKS": (
+        "Number",
+        "Maximum direct media links to auto-leech per message for your requests.",
+        "<i>Send the maximum number of direct media links to auto-leech per message (e.g. 5, 10, 20).</i> \n┖ <b>Time Left :</b> <code>60 sec</code>",
+    ),
+    "AUTO_LEECH_EXT": (
+        "Space or comma-separated extensions/domains",
+        "Custom extensions or domain keywords to auto-leech for your requests.",
+        "<i>Send custom extensions or domain keywords to auto-leech (e.g. zip, rar, 7z or video-downloads.googleusercontent.com).</i> \n┖ <b>Time Left :</b> <code>60 sec</code>",
+    ),
 }
 
 
@@ -546,6 +563,39 @@ async def get_user_settings(from_user, stype="main"):
                 "Enable Smart Autorename", f"userset {user_id} tog SMART_AUTORENAME t"
             )
             smart_autorename = "Disabled"
+
+        user_auto_leech_val = user_dict.get("USER_AUTO_LEECH", False)
+        if user_auto_leech_val:
+            buttons.data_button(
+                "Disable Auto-Leech", f"userset {user_id} tog USER_AUTO_LEECH f"
+            )
+            user_auto_leech = (
+                "Enabled" if "USER_AUTO_LEECH" in user_dict else "Enabled (Default)"
+            )
+        else:
+            buttons.data_button(
+                "Enable Auto-Leech", f"userset {user_id} tog USER_AUTO_LEECH t"
+            )
+            user_auto_leech = (
+                "Disabled" if "USER_AUTO_LEECH" in user_dict else "Disabled (Default)"
+            )
+
+        buttons.data_button(
+            "Auto-Leech Max Links", f"userset {user_id} menu AUTO_LEECH_MAX_LINKS"
+        )
+        if "AUTO_LEECH_MAX_LINKS" in user_dict:
+            auto_leech_max_links = f"{user_dict['AUTO_LEECH_MAX_LINKS']}"
+        else:
+            auto_leech_max_links = f"{Config.AUTO_LEECH_MAX_LINKS} (Default)"
+
+        buttons.data_button(
+            "Auto-Leech Custom Ext", f"userset {user_id} menu AUTO_LEECH_EXT"
+        )
+        if user_dict.get("AUTO_LEECH_EXT"):
+            auto_leech_ext = ", ".join(user_dict["AUTO_LEECH_EXT"])
+        else:
+            auto_leech_ext = "None"
+
         if (
             TgClient.IS_PREMIUM_USER
             and user_dict.get("USER_TRANSMISSION", False)
@@ -626,7 +676,10 @@ async def get_user_settings(from_user, stype="main"):
 ┠ Leech by <b>{leech_method}</b> session
 ┠ Mixed Leech → <b>{hybrid_leech}</b>
 ┠ Thumbnail Layout → <b>{thumb_layout}</b>
-┖ Smart Autorename → <b>{smart_autorename}</b>
+┠ Smart Autorename → <b>{smart_autorename}</b>
+┠ User Auto-Leech → <b>{user_auto_leech}</b>
+┠ Auto-Leech Max Links → <b>{auto_leech_max_links}</b>
+┖ Auto-Leech Custom Ext → <code>{escape(auto_leech_ext)}</code>
 """
 
     elif stype == "uphoster":
@@ -1282,6 +1335,26 @@ async def set_option(_, message, option, rfunc):
         if not value.isdigit():
             value = get_size_bytes(value)
         value = min(int(value), TgClient.MAX_SPLIT_SIZE)
+    elif option == "AUTO_LEECH_MAX_LINKS":
+        if isinstance(value, str) and value.isdigit():
+            value = int(value)
+        elif not isinstance(value, int):
+            await send_message(message, "Auto Leech Max Links must be a whole number.")
+            return
+    elif option == "AUTO_LEECH_EXT":
+        if isinstance(value, str):
+            raw_list = [
+                x.strip().lower() for x in value.replace(",", " ").split() if x.strip()
+            ]
+            value = [
+                x.lstrip(".") if not ("." in x and not x.startswith(".")) else x
+                for x in raw_list
+            ]
+        elif not isinstance(value, list):
+            await send_message(
+                message, "Auto Leech Custom Ext must be a space/comma-separated string."
+            )
+            return
     # elif option == "LEECH_DUMP_CHAT": # TODO: Add
     elif option == "EXCLUDED_EXTENSIONS":
         fx = value.split()
