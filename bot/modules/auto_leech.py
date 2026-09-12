@@ -1,5 +1,6 @@
 import copy
 
+from .. import user_data
 from ..core.config_manager import Config
 from ..helper.ext_utils.auto_leech_helper import extract_media_links
 from ..helper.telegram_helper.bot_commands import BotCommands
@@ -12,6 +13,15 @@ async def auto_leech_listener(client, message):
         return
 
     if not message.text or message.text.startswith("/"):
+        return
+
+    user_id = (
+        message.from_user.id
+        if message.from_user
+        else (message.sender_chat.id if message.sender_chat else 0)
+    )
+    user_dict = user_data.get(user_id, {})
+    if not user_dict.get("USER_AUTO_LEECH", True):
         return
 
     if Config.AUTO_LEECH_CHATS:
@@ -28,7 +38,8 @@ async def auto_leech_listener(client, message):
         if not await CustomFilters.authorized(client, message):
             return
 
-    media_links = extract_media_links(message.text, Config.AUTO_LEECH_MAX_LINKS)
+    max_links = user_dict.get("AUTO_LEECH_MAX_LINKS", Config.AUTO_LEECH_MAX_LINKS)
+    media_links = extract_media_links(message.text, max_links)
     if not media_links:
         return
 

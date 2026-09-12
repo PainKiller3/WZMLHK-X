@@ -52,6 +52,7 @@ leech_options = [
     "LEECH_SUFFIX",
     "LEECH_CAPTION",
     "THUMBNAIL_LAYOUT",
+    "AUTO_LEECH_MAX_LINKS",
 ]
 uphoster_options = [
     "GOFILE_TOKEN",
@@ -354,6 +355,16 @@ Here I will explain how to use mltb.* which is reference to files you want to wo
         'User-defined GDrive categories (name → drive_id). Format: {"name": "drive_id|index_link"}.',
         '<i>Send dict of user drive categories.\nExample: {"Movies": "0Bxxxxxxxx", "TV": "1Ayyyyyyy|https://index.tv"}\nEach value: drive_id or drive_id|index_link</i> \n┖ <b>Time Left :</b> <code>60 sec</code>',
     ),
+    "USER_AUTO_LEECH": (
+        "Boolean",
+        "Enable or disable Auto-Leech for your direct media links in authorized chats.",
+        "Toggle whether the bot automatically leeches direct media links posted by you.",
+    ),
+    "AUTO_LEECH_MAX_LINKS": (
+        "Number",
+        "Maximum direct media links to auto-leech per message for your requests.",
+        "<i>Send the maximum number of direct media links to auto-leech per message (e.g. 5, 10, 20).</i> \n┖ <b>Time Left :</b> <code>60 sec</code>",
+    ),
 }
 
 
@@ -588,6 +599,25 @@ async def get_user_settings(from_user, stype="main"):
             )
             smart_autorename = "Disabled"
 
+        if user_dict.get("USER_AUTO_LEECH", True):
+            buttons.data_button(
+                "Disable Auto-Leech", f"userset {user_id} tog USER_AUTO_LEECH f"
+            )
+            user_auto_leech = "Enabled"
+        else:
+            buttons.data_button(
+                "Enable Auto-Leech", f"userset {user_id} tog USER_AUTO_LEECH t"
+            )
+            user_auto_leech = "Disabled"
+
+        buttons.data_button(
+            "Auto-Leech Max Links", f"userset {user_id} menu AUTO_LEECH_MAX_LINKS"
+        )
+        if "AUTO_LEECH_MAX_LINKS" in user_dict:
+            auto_leech_max_links = f"{user_dict['AUTO_LEECH_MAX_LINKS']}"
+        else:
+            auto_leech_max_links = f"{Config.AUTO_LEECH_MAX_LINKS} (Default)"
+
         buttons.data_button("Back", f"userset {user_id} back", "footer")
         buttons.data_button(
             "Close", f"userset {user_id} close", "footer", style=ButtonStyle.DANGER
@@ -609,7 +639,9 @@ async def get_user_settings(from_user, stype="main"):
 ┠ Leech Destination → <code>{leech_dest}</code>
 ┠ Thumbnail Layout → <b>{thumb_layout}</b>
 ┠ Auto Thumbnail → <b>{auto_thumb}</b>
-┖ Smart Autorename → <b>{smart_autorename}</b>
+┠ Smart Autorename → <b>{smart_autorename}</b>
+┠ User Auto-Leech → <b>{user_auto_leech}</b>
+┖ Auto-Leech Max Links → <b>{auto_leech_max_links}</b>
 """
 
     elif stype == "uphoster":
@@ -1360,6 +1392,12 @@ async def set_option(_, message, option, rfunc):
         if not value.isdigit():
             value = get_size_bytes(value)
         value = min(int(value), TgClient.MAX_SPLIT_SIZE)
+    elif option == "AUTO_LEECH_MAX_LINKS":
+        if isinstance(value, str) and value.isdigit():
+            value = int(value)
+        elif not isinstance(value, int):
+            await send_message(message, "Auto Leech Max Links must be a whole number.")
+            return
     # elif option == "LEECH_DUMP_CHAT": # TODO: Add
     elif option == "EXCLUDED_EXTENSIONS":
         fx = value.split()
