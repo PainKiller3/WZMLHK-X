@@ -318,10 +318,12 @@ def parse_smart_filename(filename: str) -> SmartFilenameContext:
     )
     anime_single_match = None
     if not range_match and not single_match and not anime_range_match:
+        candidates = []
         for m in _ANIME_SINGLE_RE.finditer(logical_stem):
             ep_str = m.group("episode")
             ep_val = int(ep_str)
             has_prefix = bool(m.group("prefix"))
+            prefix_str = (m.group("prefix") or "").lower()
 
             if (
                 (1900 <= ep_val <= 2099)
@@ -335,12 +337,35 @@ def parse_smart_filename(filename: str) -> SmartFilenameContext:
             if after_text.startswith("p"):
                 continue
 
+            if not has_prefix and ep_str in {
+                "480",
+                "540",
+                "576",
+                "720",
+                "1080",
+                "1440",
+                "2160",
+                "4320",
+            }:
+                continue
+
             before_text = logical_stem[: m.start()].strip()
             if before_text.endswith(".") or after_text.startswith("."):
                 continue
 
-            anime_single_match = m
-            break
+            priority = 1.0
+            if "e" in prefix_str or "ep" in prefix_str or "episode" in prefix_str:
+                priority = 3.0
+            elif "-" in prefix_str:
+                priority = 2.0
+            elif len(ep_str) >= 3 or ep_str.startswith("0"):
+                priority = 1.5
+
+            candidates.append((priority, m.start(), m))
+
+        if candidates:
+            candidates.sort(key=lambda x: (-x[0], x[1]))
+            anime_single_match = candidates[0][2]
 
     season = None
     episode_start = None
@@ -811,7 +836,8 @@ class SmartAutoRename:
 
         canonical = None
         if (
-            ctx.media_type == SmartMediaType.SINGLE_EPISODE
+            ctx.media_type
+            in (SmartMediaType.SINGLE_EPISODE, SmartMediaType.EPISODE_RANGE)
             and ctx.season is not None
             and ctx.episode_start is not None
         ):
@@ -831,8 +857,17 @@ class SmartAutoRename:
             )
 
         if canonical and canonical.season is not None and canonical.episode is not None:
+            if (
+                ctx.media_type == SmartMediaType.EPISODE_RANGE
+                and ctx.episode_end is not None
+                and ctx.episode_start is not None
+            ):
+                ep_diff = ctx.episode_end - ctx.episode_start
+                ctx.episode_start = canonical.episode
+                ctx.episode_end = canonical.episode + ep_diff
+            else:
+                ctx.episode_start = canonical.episode
             ctx.season = canonical.season
-            ctx.episode_start = canonical.episode
             ctx.has_explicit_season = True
 
         parts = self.builder.make_parts(ctx, canonical, media)
