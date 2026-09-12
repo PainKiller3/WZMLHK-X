@@ -39,7 +39,10 @@ async def auto_leech_listener(client, message):
             return
 
     max_links = user_dict.get("AUTO_LEECH_MAX_LINKS", Config.AUTO_LEECH_MAX_LINKS)
-    media_links = extract_media_links(message.text, max_links)
+    user_ext = user_dict.get("AUTO_LEECH_EXT", [])
+    media_links = extract_media_links(
+        message.text, max_links, custom_patterns=tuple(user_ext)
+    )
     if not media_links:
         return
 
