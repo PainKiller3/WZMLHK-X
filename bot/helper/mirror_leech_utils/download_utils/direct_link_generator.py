@@ -498,8 +498,10 @@ def gdflix(url):
     with CurlSession(impersonate="chrome") as session:
         res = session.get(url)
         tree = HTML(res.text)
+        parsed = urlparse(res.url)
+        host = f"{parsed.scheme}://{parsed.netloc}"
+
         if "/pack/" in url:
-            host = f"https://{urlparse(res.url).netloc}"
             details = {
                 "contents": [],
                 "title": (tree.xpath("//title/text()") or [""])[0]
@@ -520,14 +522,76 @@ def gdflix(url):
             if not details["contents"]:
                 raise DirectDownloadLinkException("ERROR: No files found in pack")
             return details
-        if not (instant := tree.xpath("//a[contains(@href, 'instant')]/@href")):
-            raise DirectDownloadLinkException("ERROR: Instant DL link not found")
-        res = session.get(instant[0], allow_redirects=False)
-        if not (loc := res.headers.get("location", "").strip()):
-            raise DirectDownloadLinkException("ERROR: File Not Found or Expired")
-        if durl := parse_qs(urlparse(loc).query).get("url"):
-            return durl[0]
-        return loc
+
+        if instant := tree.xpath("//a[contains(@href, 'instant')]/@href"):
+            try:
+                inst_res = session.get(
+                    instant[0], allow_redirects=False, headers={"Referer": res.url}
+                )
+                if loc := inst_res.headers.get("location", "").strip():
+                    if durl := parse_qs(urlparse(loc).query).get("url"):
+                        return durl[0]
+                    return loc
+            except Exception:
+                pass
+
+        if cloud := tree.xpath("//a[contains(@href, '/cloud/')]/@href"):
+            try:
+                cloud_url = (
+                    f"{host}{cloud[0]}" if cloud[0].startswith("/") else cloud[0]
+                )
+                c_res = session.get(cloud_url)
+                c_tree = HTML(c_res.text)
+                if c_dl := c_tree.xpath(
+                    "//a[contains(@href, 'workers.dev') or contains(@href, 'cloud-dl') or contains(text(), 'Resume')]/@href"
+                ):
+                    return c_dl[0]
+            except Exception:
+                pass
+
+        mfile_path = parsed.path.replace("/file/", "/mfile/")
+        mfile_url = f"{host}{mfile_path}"
+
+        cf_token = ""
+        if m_token := search(r'var cf_token\s*=\s*["\']([^"\']+)["\']', res.text):
+            cf_token = m_token.group(1)
+
+        key = ""
+        if m_key := search(
+            r'formData\.append\(\s*["\']key["\']\s*,\s*["\']([^"\']+)["\']', res.text
+        ):
+            key = m_key.group(1)
+
+        headers = {
+            "x-token": parsed.netloc,
+            "Referer": res.url,
+            "Origin": host,
+        }
+
+        data = {
+            "action": "instant",
+            "key": key,
+            "action_token": cf_token,
+        }
+
+        resp = session.post(mfile_url, data=data, headers=headers)
+        if resp.status_code == 200:
+            try:
+                res_data = resp.json()
+                if res_data.get("url"):
+                    return res_data["url"]
+                if res_data.get("visit_url"):
+                    return res_data["visit_url"]
+                if res_data.get("message"):
+                    raise DirectDownloadLinkException(
+                        f"ERROR: GDFlix - {res_data['message']}"
+                    )
+            except Exception as e:
+                if isinstance(e, DirectDownloadLinkException):
+                    raise
+                pass
+
+        raise DirectDownloadLinkException("ERROR: Instant DL link not found")
 
 
 def buzzheavier(url):
@@ -630,46 +694,13 @@ def devuploads(url):
     @param url: URL from devuploads.com
     @return: Direct download link
     """
-    with Session() as session:
-        res = session.get(url)
-        html = HTML(res.text)
-        if not html.xpath("//input[@name]"):
-            raise DirectDownloadLinkException("ERROR: Unable to find link data")
-        data = {i.get("name"): i.get("value") for i in html.xpath("//input[@name]")}
-        res = session.post("https://gujjukhabar.in/", data=data)
-        html = HTML(res.text)
-        if not html.xpath("//input[@name]"):
-            raise DirectDownloadLinkException("ERROR: Unable to find link data")
-        data = {i.get("name"): i.get("value") for i in html.xpath("//input[@name]")}
-        resp = session.get(
-            "https://du2.devuploads.com/dlhash.php",
-            headers={
-                "Origin": "https://gujjukhabar.in",
-                "Referer": "https://gujjukhabar.in/",
-            },
-        )
-        if not resp.text:
-            raise DirectDownloadLinkException("ERROR: Unable to find ipp value")
-        data["ipp"] = resp.text.strip()
-        if not data.get("rand"):
-            raise DirectDownloadLinkException("ERROR: Unable to find rand value")
-        randpost = session.post(
-            "https://devuploads.com/token/token.php",
-            data={"rand": data["rand"], "msg": ""},
-            headers={
-                "Origin": "https://gujjukhabar.in",
-                "Referer": "https://gujjukhabar.in/",
-            },
-        )
-        if not randpost:
-            raise DirectDownloadLinkException("ERROR: Unable to find xd value")
-        data["xd"] = randpost.text.strip()
-        res = session.post(url, data=data)
-        html = HTML(res.text)
-        if not html.xpath("//input[@name='orilink']/@value"):
-            raise DirectDownloadLinkException("ERROR: Unable to find Direct Link")
-        direct_link = html.xpath("//input[@name='orilink']/@value")
-        return direct_link[0]
+    parsed = urlparse(url)
+    file_code = parsed.path.strip("/").split("/")[-1]
+    if file_code:
+        return f"https://devuploads.dzhq.workers.dev/{file_code}"
+    raise DirectDownloadLinkException(
+        "ERROR: Unable to extract file code from DevUploads URL"
+    )
 
 
 def uploadhaven(url):
