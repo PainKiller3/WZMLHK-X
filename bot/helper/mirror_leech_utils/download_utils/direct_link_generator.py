@@ -655,46 +655,13 @@ def devuploads(url):
     @param url: URL from devuploads.com
     @return: Direct download link
     """
-    with Session() as session:
-        res = session.get(url)
-        html = HTML(res.text)
-        if not html.xpath("//input[@name]"):
-            raise DirectDownloadLinkException("ERROR: Unable to find link data")
-        data = {i.get("name"): i.get("value") for i in html.xpath("//input[@name]")}
-        res = session.post("https://gujjukhabar.in/", data=data)
-        html = HTML(res.text)
-        if not html.xpath("//input[@name]"):
-            raise DirectDownloadLinkException("ERROR: Unable to find link data")
-        data = {i.get("name"): i.get("value") for i in html.xpath("//input[@name]")}
-        resp = session.get(
-            "https://du2.devuploads.com/dlhash.php",
-            headers={
-                "Origin": "https://gujjukhabar.in",
-                "Referer": "https://gujjukhabar.in/",
-            },
-        )
-        if not resp.text:
-            raise DirectDownloadLinkException("ERROR: Unable to find ipp value")
-        data["ipp"] = resp.text.strip()
-        if not data.get("rand"):
-            raise DirectDownloadLinkException("ERROR: Unable to find rand value")
-        randpost = session.post(
-            "https://devuploads.com/token/token.php",
-            data={"rand": data["rand"], "msg": ""},
-            headers={
-                "Origin": "https://gujjukhabar.in",
-                "Referer": "https://gujjukhabar.in/",
-            },
-        )
-        if not randpost:
-            raise DirectDownloadLinkException("ERROR: Unable to find xd value")
-        data["xd"] = randpost.text.strip()
-        res = session.post(url, data=data)
-        html = HTML(res.text)
-        if not html.xpath("//input[@name='orilink']/@value"):
-            raise DirectDownloadLinkException("ERROR: Unable to find Direct Link")
-        direct_link = html.xpath("//input[@name='orilink']/@value")
-        return direct_link[0]
+    parsed = urlparse(url)
+    file_code = parsed.path.strip("/").split("/")[-1]
+    if file_code:
+        return f"https://devuploads.dzhq.workers.dev/{file_code}"
+    raise DirectDownloadLinkException(
+        "ERROR: Unable to extract file code from DevUploads URL"
+    )
 
 
 def uploadhaven(url):
