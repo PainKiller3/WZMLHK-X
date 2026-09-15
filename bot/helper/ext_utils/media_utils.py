@@ -41,7 +41,12 @@ async def create_thumb(msg, _id=""):
     await makedirs(path, exist_ok=True)
     photo_dir = await msg.download()
     output = ospath.join(path, f"{_id}.jpg")
-    await sync_to_async(Image.open(photo_dir).convert("RGB").save, output, "JPEG")
+
+    def _convert_image(src, dst):
+        with Image.open(src) as im:
+            im.convert("RGB").save(dst, "JPEG", quality=95)
+
+    await sync_to_async(_convert_image, photo_dir, output)
     await remove(photo_dir)
     return output
 
@@ -107,7 +112,7 @@ async def download_image_thumb(url):
 
             def _process_thumb(src, dst):
                 with Image.open(src) as im:
-                    im.convert("RGB").save(dst, "JPEG")
+                    im.convert("RGB").save(dst, "JPEG", quality=95)
 
             try:
                 await sync_to_async(_process_thumb, tmp_path, output)

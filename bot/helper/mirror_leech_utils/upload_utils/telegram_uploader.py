@@ -46,6 +46,7 @@ from ...ext_utils.media_utils import (
     get_md5_hash,
     is_video_split,
 )
+from ...ext_utils.tmdb_utils import get_poster_thumb
 from ...telegram_helper.message_utils import delete_message
 
 LOGGER = getLogger(__name__)
@@ -98,6 +99,8 @@ class TelegramUploader:
             "LEECH_CAPTION": ("_lcaption", ""),
             "LEECH_FONT": ("_lfont", ""),
         }
+
+        self._auto_thumbnail = getattr(self._listener, "auto_thumbnail", True)
 
         for key, (attr, default) in settings_map.items():
             setattr(
@@ -475,6 +478,7 @@ class TelegramUploader:
         self._is_corrupted = False
         try:
             is_video, is_audio, is_image = await get_document_type(self._up_path)
+            is_vsplit = is_video_split(self._up_path)
 
             if not is_image and thumb is None:
                 file_name = ospath.splitext(file)[0]
@@ -485,8 +489,12 @@ class TelegramUploader:
                     thumb = thumb_path.replace("/yt-dlp-thumb", "")
                 elif is_audio and not is_video:
                     thumb = await get_audio_thumbnail(self._up_path)
-
-            is_vsplit = is_video_split(self._up_path)
+                elif (is_video or is_vsplit) and self._auto_thumbnail:
+                    auto_thumb = await get_poster_thumb(
+                        file, getattr(self._listener, "as_doc", False)
+                    )
+                    if auto_thumb and await aiopath.isfile(auto_thumb):
+                        thumb = auto_thumb
 
             if (
                 self._listener.as_doc

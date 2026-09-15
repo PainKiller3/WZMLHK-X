@@ -566,6 +566,17 @@ async def get_user_settings(from_user, stype="main"):
         else:
             hybrid_leech = "Disabled"
 
+        if user_dict.get("AUTO_THUMBNAIL", True):
+            buttons.data_button(
+                "Disable Auto Thumbnail", f"userset {user_id} tog AUTO_THUMBNAIL f"
+            )
+            auto_thumbnail = "Enabled"
+        else:
+            buttons.data_button(
+                "Enable Auto Thumbnail", f"userset {user_id} tog AUTO_THUMBNAIL t"
+            )
+            auto_thumbnail = "Disabled"
+
         buttons.data_button(
             "Thumbnail Layout", f"userset {user_id} menu THUMBNAIL_LAYOUT"
         )
@@ -587,6 +598,7 @@ async def get_user_settings(from_user, stype="main"):
 ┃
 ┠ Leech Type → <b>{ltype}</b>
 ┠ Custom Thumbnail → <b>{thumbmsg}</b>
+┠ Auto Thumbnail → <b>{auto_thumbnail}</b>
 ┠ Leech Split Size → <b>{get_readable_file_size(split_size)}</b>
 ┠ Equal Splits → <b>{equal_splits}</b>
 ┠ Media Split → <b>{media_split}</b>

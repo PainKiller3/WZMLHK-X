@@ -155,6 +155,7 @@ class TaskConfig:
         self.pm_msg = None
         self.file_details = {}
         self.mode = tuple()
+        self.auto_thumbnail = self.user_dict.get("AUTO_THUMBNAIL", True)
 
     def _set_mode_engine(self):
         self.source_url = (

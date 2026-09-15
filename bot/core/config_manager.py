@@ -143,6 +143,7 @@ class Config:
     YT_TAGS = ["telegram", "bot", "youtube"]
     YT_CATEGORY_ID = 22
     YT_PRIVACY_STATUS = "unlisted"
+    TMDB_ACCESS_TOKEN = ""
 
     @classmethod
     def get(cls, key):
