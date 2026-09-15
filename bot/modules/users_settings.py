@@ -82,7 +82,7 @@ advanced_options = [
 ]
 yt_options = ["YT_DESP", "YT_TAGS", "YT_CATEGORY_ID", "YT_PRIVACY_STATUS"]
 seedr_options = ["SEEDR_EMAIL", "SEEDR_PASSWORD", "SEEDR_DELETE_FOLDER"]
-video_options = ["SMART_AUTORENAME"]
+video_options = ["SMART_AUTORENAME", "AUTO_THUMBNAIL"]
 
 user_settings_text = {
     "THUMBNAIL": (
@@ -610,6 +610,17 @@ async def get_user_settings(from_user, stype="main"):
             )
             smart_autorename = "Disabled"
 
+        if user_dict.get("AUTO_THUMBNAIL", True):
+            buttons.data_button(
+                "Disable Auto Thumbnail", f"userset {user_id} tog AUTO_THUMBNAIL f"
+            )
+            auto_thumbnail = "Enabled"
+        else:
+            buttons.data_button(
+                "Enable Auto Thumbnail", f"userset {user_id} tog AUTO_THUMBNAIL t"
+            )
+            auto_thumbnail = "Disabled"
+
         user_auto_leech_val = user_dict.get("USER_AUTO_LEECH", False)
         if user_auto_leech_val:
             buttons.data_button(
@@ -665,6 +676,7 @@ async def get_user_settings(from_user, stype="main"):
 ┠ Mixed Leech → <b>{hybrid_leech}</b>
 ┠ Thumbnail Layout → <b>{thumb_layout}</b>
 ┠ Smart Autorename → <b>{smart_autorename}</b>
+┠ Auto Thumbnail → <b>{auto_thumbnail}</b>
 ┠ User Auto-Leech → <b>{user_auto_leech}</b>
 ┠ Auto-Leech Max Links → <b>{auto_leech_max_links}</b>
 ┖ Auto-Leech Custom Ext → <code>{escape(auto_leech_ext)}</code>

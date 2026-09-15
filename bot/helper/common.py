@@ -160,6 +160,7 @@ class TaskConfig:
             if "SMART_AUTORENAME" in self.user_dict
             else Config.SMART_AUTORENAME
         )
+        self.auto_thumbnail = self.user_dict.get("AUTO_THUMBNAIL", True)
 
     def _set_mode_engine(self):
         self.source_url = (
