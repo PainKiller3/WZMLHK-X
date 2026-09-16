@@ -204,13 +204,17 @@ class TelegramUploader:
                 cap_file_ = name + self._lsuffix.replace(r"\s", " ") + ext
             self._lsuffix = re_sub(r"<.*?>", "", self._lsuffix).replace(r"\s", " ")
 
+        from html import escape as html_escape
+
+        cap_file_clean = html_escape(cap_file_)
         cap_mono = (
-            f"<{Config.LEECH_FONT}>{cap_file_}</{Config.LEECH_FONT}>"
+            f"<{Config.LEECH_FONT}>{cap_file_clean}</{Config.LEECH_FONT}>"
             if Config.LEECH_FONT
-            else cap_file_
+            else cap_file_clean
         )
         if self._smart_autorename:
             cap_mono = f"<blockquote>{cap_mono}</blockquote>"
+
         if self._lcaption:
             self._lcaption = re_sub(
                 r"(\\\||\\\{|\\\}|\\s)",
