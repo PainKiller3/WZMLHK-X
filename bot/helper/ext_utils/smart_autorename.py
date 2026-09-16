@@ -100,7 +100,7 @@ _ANIME_RANGE_RE = re.compile(
     r"(?i)(?:^|[\s_.-])(?:-\s*|(?:E|EP|Episode)\.?\s*)(?P<start>\d{1,4})\s*(?:-|–|~|\+|to)\s*(?:E|EP|Episode)?(?P<end>\d{1,4})\b"
 )
 _ANIME_SINGLE_RE = re.compile(
-    r"(?i)(?:^|[\s_.-])(?P<prefix>-\s*|(?:E|EP|Episode)\.?\s*)?(?P<episode>\d{1,4})(?=\s*v\d+)?(?=[\s_.\-\]\)]|$)"
+    r"(?i)(?:^|[\s_.-])(?P<prefix>-\s*|(?:E|EP|Episode)\.?\s*)(?P<episode>\d{1,4})(?=\s*v\d+)?(?=[\s_.\-\]\)]|$)"
 )
 
 
@@ -349,10 +349,6 @@ def parse_smart_filename(filename: str) -> SmartFilenameContext:
             }:
                 continue
 
-            before_text = logical_stem[: m.start()].strip()
-            if before_text.endswith(".") or after_text.startswith("."):
-                continue
-
             priority = 1.0
             if "e" in prefix_str or "ep" in prefix_str or "episode" in prefix_str:
                 priority = 3.0
@@ -415,7 +411,7 @@ def parse_smart_filename(filename: str) -> SmartFilenameContext:
     else:
         year_match = _YEAR_RE.search(logical_stem)
         if year_match:
-            pre_year = logical_stem[: year_match.start()].strip(" .-_-")
+            pre_year = logical_stem[: year_match.start()].strip(" .-_-( ")
             if pre_year:
                 title_source = pre_year
 
