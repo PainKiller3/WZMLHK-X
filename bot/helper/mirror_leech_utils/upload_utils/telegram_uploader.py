@@ -543,6 +543,7 @@ class TelegramUploader:
         self._is_corrupted = False
         try:
             is_video, is_audio, is_image = await get_document_type(self._up_path)
+            is_vsplit = is_video_split(self._up_path)
 
             if not is_image and thumb is None:
                 file_name = ospath.splitext(file)[0]
@@ -553,14 +554,12 @@ class TelegramUploader:
                     thumb = thumb_path.replace("/yt-dlp-thumb", "")
                 elif is_audio and not is_video:
                     thumb = await get_audio_thumbnail(self._up_path)
-                elif is_video and self._auto_thumbnail:
+                elif (is_video or is_vsplit) and self._auto_thumbnail:
                     auto_thumb = await get_poster_thumb(
-                        file, getattr(self._listener, "as_doc", False)
+                        file, getattr(self._listener, "as_doc", False) or is_vsplit
                     )
                     if auto_thumb and await aiopath.isfile(auto_thumb):
                         thumb = auto_thumb
-
-            is_vsplit = is_video_split(self._up_path)
 
             if (
                 self._listener.as_doc
