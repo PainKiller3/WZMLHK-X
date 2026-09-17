@@ -7,6 +7,8 @@ from time import time
 from aioshutil import rmtree
 from natsort import natsorted
 from PIL import Image
+from html import unescape as html_unescape
+from pyrogram import enums
 from pyrogram.errors import BadRequest, FloodWait, RPCError
 
 try:
@@ -26,7 +28,7 @@ from pyrogram.types import (
 from tenacity import (
     RetryError,
     retry,
-    retry_if_exception_type,
+    retry_if_exception,
     stop_after_attempt,
     wait_exponential,
 )
@@ -50,6 +52,13 @@ from ...ext_utils.tmdb_utils import get_poster_thumb
 from ...telegram_helper.message_utils import delete_message
 
 LOGGER = getLogger(__name__)
+
+
+def _should_retry(error):
+    if isinstance(error, BadRequest):
+        if "ENTITY_BOUNDS_INVALID" in str(error):
+            return False
+    return True
 
 
 class TelegramUploader:
@@ -79,6 +88,35 @@ class TelegramUploader:
         self._log_msg = None
         self._user_session = self._listener.user_transmission
         self._error = ""
+
+    @staticmethod
+    def _is_entity_bounds_error(error):
+        return "ENTITY_BOUNDS_INVALID" in str(error)
+
+    @staticmethod
+    def _plain_caption(caption):
+        if not caption:
+            return ""
+        text = re_sub(r"<[^>]+>", "", caption)
+        return html_unescape(text)
+
+    async def _send_with_caption_fallback(self, sender, **kwargs):
+        try:
+            kwargs["parse_mode"] = enums.ParseMode.HTML
+            return await sender(**kwargs)
+        except BadRequest as err:
+            if not self._is_entity_bounds_error(err):
+                raise
+
+            LOGGER.warning(
+                "ENTITY_BOUNDS_INVALID for %s; retrying with plain-text caption",
+                self._up_path,
+            )
+
+            kwargs["caption"] = self._plain_caption(kwargs.get("caption", ""))
+            kwargs["parse_mode"] = enums.ParseMode.DISABLED
+
+            return await sender(**kwargs)
 
     async def _upload_progress(self, current, _):
         if self._listener.is_cancelled:
@@ -225,7 +263,19 @@ class TelegramUploader:
                 r"\{([^}]+)\}", lambda m: f"{{{m.group(1).lower()}}}", parts[0]
             )
             up_path = ospath.join(dirpath, pre_file_)
-            dur, qual, lang, subs = await get_media_info(up_path, True)
+
+            # Use original metadata if preserved during split
+            base_name_match = re_match(
+                r"^(.+?)(?:\.[0-9]+|\.part[0-9]+\..+)$", pre_file_
+            )
+            orig_name = base_name_match.group(1) if base_name_match else pre_file_
+
+            if orig_name in self._listener.file_details.get("media_info", {}):
+                dur, qual, lang, subs = self._listener.file_details["media_info"][
+                    orig_name
+                ]
+            else:
+                dur, qual, lang, subs = await get_media_info(up_path, True)
             display_orig = (
                 orig_filename
                 or self._listener.file_details.get("orig_filename")
@@ -234,6 +284,7 @@ class TelegramUploader:
             display_filename = file_ if self._smart_autorename else cap_file_
             smart_meta = (
                 self._listener.file_details.get("smart_metadata", {}).get(pre_file_)
+                or self._listener.file_details.get("smart_metadata", {}).get(orig_name)
                 or {}
             )
             if not smart_meta and (self._smart_autorename or orig_filename):
@@ -255,26 +306,33 @@ class TelegramUploader:
                 except Exception:
                     smart_meta = {}
 
+            def _html_safe(value):
+                from html import escape
+
+                return escape(str(value or ""))
+
             cap_mono = parts[0].format(
-                filename=display_filename,
-                orig_filename=display_orig,
-                smart_filename=pre_file_,
-                size=get_readable_file_size(await aiopath.getsize(up_path)),
-                duration=get_readable_time(dur),
-                quality=qual,
-                languages=lang,
-                subtitles=subs,
-                md5_hash=await sync_to_async(get_md5_hash, up_path),
-                mime_type=self._listener.file_details.get("mime_type", "text/plain"),
-                prefilename=display_orig,
+                filename=_html_safe(display_filename),
+                orig_filename=_html_safe(display_orig),
+                smart_filename=_html_safe(pre_file_),
+                size=_html_safe(get_readable_file_size(await aiopath.getsize(up_path))),
+                duration=_html_safe(get_readable_time(dur)),
+                quality=_html_safe(qual),
+                languages=_html_safe(lang),
+                subtitles=_html_safe(subs),
+                md5_hash=_html_safe(await sync_to_async(get_md5_hash, up_path)),
+                mime_type=_html_safe(
+                    self._listener.file_details.get("mime_type", "text/plain")
+                ),
+                prefilename=_html_safe(display_orig),
                 precaption=self._listener.file_details.get("caption", ""),
-                show_name=smart_meta.get("show_name", ""),
-                season=smart_meta.get("season", ""),
-                episode=smart_meta.get("episode", ""),
-                title=smart_meta.get("title", ""),
-                year=smart_meta.get("year", ""),
-                source=smart_meta.get("source", ""),
-                codec=smart_meta.get("codec", ""),
+                show_name=_html_safe(smart_meta.get("show_name", "")),
+                season=_html_safe(smart_meta.get("season", "")),
+                episode=_html_safe(smart_meta.get("episode", "")),
+                title=_html_safe(smart_meta.get("title", "")),
+                year=_html_safe(smart_meta.get("year", "")),
+                source=_html_safe(smart_meta.get("source", "")),
+                codec=_html_safe(smart_meta.get("codec", "")),
             )
 
             for part in parts[1:]:
@@ -458,7 +516,8 @@ class TelegramUploader:
                             )
                     self._last_msg_in_group = False
                     self._last_uploaded = 0
-                    await self._upload_file(cap_mono, file_, f_path)
+                    uploaded = False
+                    uploaded = await self._upload_file(cap_mono, file_, f_path)
                     if self._log_msg and not is_log_del and Config.CLEAN_LOG_MSG:
                         await delete_message(self._log_msg)
                         is_log_del = True
@@ -482,8 +541,10 @@ class TelegramUploader:
                     self._corrupted += 1
                     if self._listener.is_cancelled:
                         return
-                if not self._listener.is_cancelled and await aiopath.exists(
-                    self._up_path
+                if (
+                    uploaded
+                    and not self._listener.is_cancelled
+                    and await aiopath.exists(self._up_path)
                 ):
                     await remove(self._up_path)
         for key, value in list(self._media_dict.items()):
@@ -516,7 +577,7 @@ class TelegramUploader:
     @retry(
         wait=wait_exponential(multiplier=2, min=4, max=8),
         stop=stop_after_attempt(3),
-        retry=retry_if_exception_type(Exception),
+        retry=retry_if_exception(_should_retry),
     )
     async def _upload_file(self, cap_mono, file, o_path, force_document=False):
         if self._sent_msg is None:
@@ -542,8 +603,16 @@ class TelegramUploader:
         thumb = self._thumb
         self._is_corrupted = False
         try:
-            is_video, is_audio, is_image = await get_document_type(self._up_path)
             is_vsplit = is_video_split(self._up_path)
+            base_name_match = re_match(r"^(.+?)(?:\.[0-9]+|\.part[0-9]+\..+)$", file)
+            orig_name = base_name_match.group(1) if base_name_match else file
+
+            if orig_name in self._listener.file_details.get("document_type", {}):
+                is_video, is_audio, is_image = self._listener.file_details[
+                    "document_type"
+                ][orig_name]
+            else:
+                is_video, is_audio, is_image = await get_document_type(self._up_path)
 
             if not is_image and thumb is None:
                 file_name = ospath.splitext(file)[0]
@@ -561,10 +630,15 @@ class TelegramUploader:
                     if auto_thumb and await aiopath.isfile(auto_thumb):
                         thumb = auto_thumb
 
+            LOGGER.debug(
+                "Telegram upload caption: path=%s caption_length=%d",
+                self._up_path,
+                len(cap_mono or ""),
+            )
+
             if (
                 self._listener.as_doc
                 or force_document
-                or is_vsplit
                 or (not is_video and not is_audio and not is_image)
             ):
                 key = "documents"
@@ -575,7 +649,8 @@ class TelegramUploader:
                     return
                 if thumb == "none":
                     thumb = None
-                self._sent_msg = await self._sent_msg.reply_document(
+                self._sent_msg = await self._send_with_caption_fallback(
+                    self._sent_msg.reply_document,
                     document=self._up_path,
                     quote=True,
                     thumb=thumb,
@@ -605,7 +680,8 @@ class TelegramUploader:
                     return
                 if thumb == "none":
                     thumb = None
-                self._sent_msg = await self._sent_msg.reply_video(
+                self._sent_msg = await self._send_with_caption_fallback(
+                    self._sent_msg.reply_video,
                     video=self._up_path,
                     quote=True,
                     caption=cap_mono,
@@ -624,7 +700,8 @@ class TelegramUploader:
                     return
                 if thumb == "none":
                     thumb = None
-                self._sent_msg = await self._sent_msg.reply_audio(
+                self._sent_msg = await self._send_with_caption_fallback(
+                    self._sent_msg.reply_audio,
                     audio=self._up_path,
                     quote=True,
                     caption=cap_mono,
@@ -639,7 +716,8 @@ class TelegramUploader:
                 key = "photos"
                 if self._listener.is_cancelled:
                     return
-                self._sent_msg = await self._sent_msg.reply_photo(
+                self._sent_msg = await self._send_with_caption_fallback(
+                    self._sent_msg.reply_photo,
                     photo=self._up_path,
                     quote=True,
                     caption=cap_mono,
@@ -700,6 +778,7 @@ class TelegramUploader:
                 and await aiopath.exists(thumb)
             ):
                 await remove(thumb)
+            return True
         except (FloodWait, FloodPremiumWait) as f:
             LOGGER.warning(str(f))
             await sleep(f.value * 1.3)
