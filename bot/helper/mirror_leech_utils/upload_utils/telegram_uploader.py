@@ -89,7 +89,7 @@ class TelegramUploader:
         self._log_msg = None
         self._user_session = self._listener.user_transmission
         self._error = ""
-        self._media_info_cache = {}
+
 
     @staticmethod
     def _is_entity_bounds_error(error):
@@ -270,15 +270,14 @@ class TelegramUploader:
             )
             up_path = ospath.join(dirpath, pre_file_)
 
-            # Extract base name to reuse original metadata for all split parts
+            # Use original metadata if preserved during split
             base_name_match = re_match(r"^(.+?)(?:\.[0-9]+|\.part[0-9]+\..+)$", pre_file_)
-            cache_key = base_name_match.group(1) if base_name_match else pre_file_
+            orig_name = base_name_match.group(1) if base_name_match else pre_file_
 
-            if cache_key in self._media_info_cache:
-                dur, qual, lang, subs = self._media_info_cache[cache_key]
+            if orig_name in self._listener.file_details.get("media_info", {}):
+                dur, qual, lang, subs = self._listener.file_details["media_info"][orig_name]
             else:
                 dur, qual, lang, subs = await get_media_info(up_path, True)
-                self._media_info_cache[cache_key] = (dur, qual, lang, subs)
             display_orig = (
                 orig_filename
                 or self._listener.file_details.get("orig_filename")
@@ -287,7 +286,7 @@ class TelegramUploader:
             display_filename = file_ if self._smart_autorename else cap_file_
             smart_meta = (
                 self._listener.file_details.get("smart_metadata", {}).get(pre_file_)
-                or self._listener.file_details.get("smart_metadata", {}).get(cache_key)
+                or self._listener.file_details.get("smart_metadata", {}).get(orig_name)
                 or {}
             )
             if not smart_meta and (self._smart_autorename or orig_filename):
@@ -480,7 +479,6 @@ class TelegramUploader:
                 if not await aiopath.exists(self._up_path):
                     LOGGER.error(f"{self._up_path} not exists! Continue uploading!")
                     continue
-                uploaded = False
                 try:
                     f_size = await aiopath.getsize(self._up_path)
                     self._total_files += 1
@@ -517,6 +515,7 @@ class TelegramUploader:
                             )
                     self._last_msg_in_group = False
                     self._last_uploaded = 0
+                    uploaded = False
                     uploaded = await self._upload_file(cap_mono, file_, f_path)
                     if self._log_msg and not is_log_del and Config.CLEAN_LOG_MSG:
                         await delete_message(self._log_msg)
@@ -603,8 +602,15 @@ class TelegramUploader:
         thumb = self._thumb
         self._is_corrupted = False
         try:
-            is_video, is_audio, is_image = await get_document_type(self._up_path)
             is_vsplit = is_video_split(self._up_path)
+            base_name_match = re_match(r"^(.+?)(?:\.[0-9]+|\.part[0-9]+\..+)$", file)
+            orig_name = base_name_match.group(1) if base_name_match else file
+
+            if orig_name in self._listener.file_details.get("document_type", {}):
+                is_video, is_audio, is_image = self._listener.file_details["document_type"][orig_name]
+            else:
+                is_video, is_audio, is_image = await get_document_type(self._up_path)
+
 
             if not is_image and thumb is None:
                 file_name = ospath.splitext(file)[0]
@@ -631,7 +637,6 @@ class TelegramUploader:
             if (
                 self._listener.as_doc
                 or force_document
-                or is_vsplit
                 or (not is_video and not is_audio and not is_image)
             ):
                 key = "documents"

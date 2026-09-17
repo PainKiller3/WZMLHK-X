@@ -1164,10 +1164,19 @@ class TaskConfig:
                     split_size = (f_size // parts) + (f_size % parts)
                 else:
                     split_size = self.split_size
+
+                # Cache original media type and info for all split chunks to inherit
+                orig_is_video, orig_is_audio, orig_is_image = await get_document_type(f_path)
+                from bot.helper.ext_utils.media_utils import get_media_info
+                orig_media_info = await get_media_info(f_path, True)
+
+                self.file_details.setdefault("document_type", {})[file_] = (orig_is_video, orig_is_audio, orig_is_image)
+                self.file_details.setdefault("media_info", {})[file_] = orig_media_info
+
                 if (
                     not self.as_doc
                     and self.media_split
-                    and (await get_document_type(f_path))[0]
+                    and orig_is_video
                 ):
                     self.progress = True
                     res = await ffmpeg.split(f_path, file_, parts, split_size)
