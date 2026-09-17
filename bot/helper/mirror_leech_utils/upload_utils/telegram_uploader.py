@@ -89,6 +89,7 @@ class TelegramUploader:
         self._log_msg = None
         self._user_session = self._listener.user_transmission
         self._error = ""
+        self._media_info_cache = {}
 
     @staticmethod
     def _is_entity_bounds_error(error):
@@ -268,7 +269,16 @@ class TelegramUploader:
                 r"\{([^}]+)\}", lambda m: f"{{{m.group(1).lower()}}}", parts[0]
             )
             up_path = ospath.join(dirpath, pre_file_)
-            dur, qual, lang, subs = await get_media_info(up_path, True)
+
+            # Extract base name to reuse original metadata for all split parts
+            base_name_match = re_match(r"^(.+?)(?:\.[0-9]+|\.part[0-9]+\..+)$", pre_file_)
+            cache_key = base_name_match.group(1) if base_name_match else pre_file_
+
+            if cache_key in self._media_info_cache:
+                dur, qual, lang, subs = self._media_info_cache[cache_key]
+            else:
+                dur, qual, lang, subs = await get_media_info(up_path, True)
+                self._media_info_cache[cache_key] = (dur, qual, lang, subs)
             display_orig = (
                 orig_filename
                 or self._listener.file_details.get("orig_filename")
@@ -277,6 +287,7 @@ class TelegramUploader:
             display_filename = file_ if self._smart_autorename else cap_file_
             smart_meta = (
                 self._listener.file_details.get("smart_metadata", {}).get(pre_file_)
+                or self._listener.file_details.get("smart_metadata", {}).get(cache_key)
                 or {}
             )
             if not smart_meta and (self._smart_autorename or orig_filename):
