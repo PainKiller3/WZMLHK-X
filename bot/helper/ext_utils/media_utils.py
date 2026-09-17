@@ -179,11 +179,13 @@ async def get_media_info(path, extra_info=False):
         )
         if extra_info:
             lang, qual, stitles = "", "", ""
-            if (streams := ffresult.get("streams")) and streams[0].get(
-                "codec_type"
-            ) == "video":
-                qual = int(streams[0].get("height"))
-                qual = f"{480 if qual <= 480 else 540 if qual <= 540 else 720 if qual <= 720 else 1080 if qual <= 1080 else 2160 if qual <= 2160 else 4320 if qual <= 4320 else 8640}p"
+            if streams := ffresult.get("streams"):
+                v_stream = next(
+                    (s for s in streams if s.get("codec_type") == "video"), None
+                )
+                if v_stream and (h := v_stream.get("height")):
+                    qual = int(h)
+                    qual = f"{480 if qual <= 480 else 540 if qual <= 540 else 576 if qual <= 576 else 720 if qual <= 720 else 1080 if qual <= 1080 else 2160 if qual <= 2160 else 4320 if qual <= 4320 else 8640}p"
                 for stream in streams:
                     if stream.get("codec_type") == "audio" and (
                         lc := stream.get("tags", {}).get("language")
