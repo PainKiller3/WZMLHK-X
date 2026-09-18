@@ -111,6 +111,7 @@ class KitsuProvider:
         if not data or "data" not in data or not data["data"]:
             return None
 
+        best_match = None
         for item in data["data"]:
             attrs = item.get("attributes", {})
             titles = attrs.get("titles", {})
@@ -124,11 +125,12 @@ class KitsuProvider:
             if not canonical:
                 continue
 
-            if is_title_similar(title, canonical):
+            q_clean = title.strip().lower()
+            c_clean = canonical.strip().lower()
+            if q_clean == c_clean:
                 start_date = attrs.get("startDate") or ""
                 disp_year = start_date[:4] if len(start_date) >= 4 else year
                 item_id = str(item.get("id"))
-
                 return CanonicalMetadata(
                     title=canonical,
                     year=disp_year,
@@ -139,7 +141,21 @@ class KitsuProvider:
                     provider_id=item_id,
                 )
 
-        return None
+            if not best_match and is_title_similar(title, canonical):
+                start_date = attrs.get("startDate") or ""
+                disp_year = start_date[:4] if len(start_date) >= 4 else year
+                item_id = str(item.get("id"))
+                best_match = CanonicalMetadata(
+                    title=canonical,
+                    year=disp_year,
+                    series_title=canonical
+                    if media_type in ("single_episode", "episode_range", "season_pack")
+                    else None,
+                    provider="kitsu",
+                    provider_id=item_id,
+                )
+
+        return best_match
 
     async def find_episode(
         self,
