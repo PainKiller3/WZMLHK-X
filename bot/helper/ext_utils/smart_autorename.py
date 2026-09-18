@@ -569,7 +569,7 @@ class SmartFilenameBuilder:
         quality = media.quality or ctx.filename_quality
         ott = (canonical.ott if canonical else None) or ctx.ott
         audio = media.audio_language or ctx.filename_audio
-        codec = media.video_codec or ctx.filename_codec
+        codec = ctx.filename_codec or media.video_codec
         esubs = media.has_english_subtitle or ctx.filename_esubs
         return quality, ott, audio, codec, esubs
 
