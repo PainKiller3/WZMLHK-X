@@ -459,6 +459,31 @@ async def get_user_settings(from_user, stype="main"):
             f"Swap to {'OWNER' if not def_cookies else 'USER'}'s Cookie File",
             f"userset {user_id} tog USE_DEFAULT_COOKIE {'f' if def_cookies else 't'}",
         )
+
+        social_auto_dl_val = user_dict.get(
+            "SOCIAL_AUTO_DOWNLOAD", Config.SOCIAL_AUTO_DOWNLOAD
+        )
+        if social_auto_dl_val:
+            buttons.data_button(
+                "Disable Social Auto-Download",
+                f"userset {user_id} tog SOCIAL_AUTO_DOWNLOAD f",
+            )
+            social_auto_dl = (
+                "Enabled"
+                if "SOCIAL_AUTO_DOWNLOAD" in user_dict
+                else "Enabled (Default)"
+            )
+        else:
+            buttons.data_button(
+                "Enable Social Auto-Download",
+                f"userset {user_id} tog SOCIAL_AUTO_DOWNLOAD t",
+            )
+            social_auto_dl = (
+                "Disabled"
+                if "SOCIAL_AUTO_DOWNLOAD" in user_dict
+                else "Disabled (Default)"
+            )
+
         btns = buttons.build_menu(2)
 
         text = f"""⌬ <b>General Settings :</b>
@@ -466,7 +491,8 @@ async def get_user_settings(from_user, stype="main"):
 ┃
 ┠ <b>Default Upload Package</b> → <b>{du}</b>
 ┠ <b>Default Usage Mode</b> → <b>{tr}'s</b> token/config
-┖ <b>YT Cookies Mode</b> → <b>{cookie_mode}</b>
+┠ <b>YT Cookies Mode</b> → <b>{cookie_mode}</b>
+┖ <b>Social Auto-Download</b> → <b>{social_auto_dl}</b>
 """
 
     elif stype == "leech":
@@ -1847,7 +1873,7 @@ async def edit_user_settings(client, query):
             back_to = "gdrive"
         elif data[3] == "drive_cat_mode":
             back_to = "mirror"
-        elif data[3] in ["USER_TOKENS", "USE_DEFAULT_COOKIE"]:
+        elif data[3] in ["USER_TOKENS", "USE_DEFAULT_COOKIE", "SOCIAL_AUTO_DOWNLOAD"]:
             back_to = "general"
         elif data[3] == "GOFILE_AUTO_CREATE_FOLDER":
             back_to = "gofile"

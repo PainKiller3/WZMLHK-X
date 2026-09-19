@@ -186,6 +186,8 @@ class Config:
     AUTO_LEECH = False
     AUTO_LEECH_CHATS = ""
     AUTO_LEECH_MAX_LINKS = 10
+    SOCIAL_AUTO_DOWNLOAD = False
+    SOCIAL_AUTO_DOWNLOAD_CHATS = ""
 
     @classmethod
     def get(cls, key):
