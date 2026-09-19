@@ -230,6 +230,8 @@ def direct_link_generator(link):
         return swisstransfer(link)
     elif "instagram.com" in domain:
         return instagram(link)
+    elif any(x in domain for x in ["twitter.com", "x.com"]):
+        return twitter(link)
     elif any(x in domain for x in ["akmfiles.com", "akmfls.xyz"]):
         return akmfiles(link)
     elif any(
@@ -2498,23 +2500,11 @@ def swisstransfer(link):
 
 
 def instagram(link: str) -> str:
-    """
-    Fetches the direct video download URL from an Instagram post.
-
-    Args:
-        link (str): The Instagram post URL.
-
-    Returns:
-        str: The direct video URL.
-
-    Raises:
-        DirectDownloadLinkException: If any error occurs during the process.
-    """
     api_url = Config.INSTADL_API or "https://instagramcdn.vercel.app"
     full_url = f"{api_url}/api/video?postUrl={link}"
 
     try:
-        response = get(full_url)
+        response = get(full_url, timeout=10)
         response.raise_for_status()
         data = response.json()
 
@@ -2524,11 +2514,69 @@ def instagram(link: str) -> str:
             and "videoUrl" in data["data"]
         ):
             return data["data"]["videoUrl"]
+    except Exception:
+        pass
 
-        raise DirectDownloadLinkException("ERROR: Failed to retrieve video URL.")
+    # Fallback to yt-dlp
+    try:
+        from yt_dlp import YoutubeDL
 
-    except Exception as e:
-        raise DirectDownloadLinkException(f"ERROR: {e}")
+        with YoutubeDL({"quiet": True, "no_warnings": True}) as ydl:
+            info = ydl.extract_info(link, download=False)
+            if info and "url" in info:
+                return info["url"]
+    except Exception:
+        pass
+
+    raise DirectDownloadLinkException("ERROR: Failed to retrieve Instagram video URL.")
+
+
+def twitter(link: str) -> str:
+    # 1. Try Twitter official free syndication API
+    try:
+        clean_link = link.split("?")[0].split("#")[0]
+        tweet_id = clean_link.rstrip("/").split("/")[-1]
+        if tweet_id.isdigit():
+            syn_url = (
+                f"https://cdn.syndication.twimg.com/tweet-result?id={tweet_id}&token=x"
+            )
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+                "Accept": "application/json",
+            }
+            res = get(syn_url, headers=headers, timeout=10)
+            if res.status_code == 200:
+                data = res.json()
+                media = data.get("mediaDetails", [])
+                for m in media:
+                    if m.get("type") in ["video", "animated_gif"]:
+                        variants = m.get("video_info", {}).get("variants", [])
+                        mp4s = [
+                            v for v in variants if v.get("content_type") == "video/mp4"
+                        ]
+                        if mp4s:
+                            best_video = max(mp4s, key=lambda x: x.get("bitrate", 0))
+                            return best_video["url"]
+    except Exception:
+        pass
+
+    # 2. Fallback to yt-dlp
+    try:
+        from yt_dlp import YoutubeDL
+
+        with YoutubeDL({"quiet": True, "no_warnings": True}) as ydl:
+            info = ydl.extract_info(link, download=False)
+            if info:
+                if "url" in info:
+                    return info["url"]
+                elif "entries" in info and info["entries"]:
+                    first_entry = info["entries"][0]
+                    if "url" in first_entry:
+                        return first_entry["url"]
+    except Exception:
+        pass
+
+    raise DirectDownloadLinkException("ERROR: Failed to retrieve Twitter video URL.")
 
 
 def debrid_link(url):

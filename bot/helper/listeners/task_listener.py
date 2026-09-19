@@ -560,6 +560,23 @@ class TaskListener(TaskConfig):
             await send_message(self.message, user_message, button)
 
         elif self.is_leech:
+            link_str = f"{getattr(self, 'orig_link', '')} {str(self.link)}"
+            if any(x in link_str for x in ["instagram.com", "twitter.com", "x.com"]):
+                await delete_links(self.message)
+                await clean_download(self.dir)
+                async with task_dict_lock:
+                    if self.mid in task_dict:
+                        del task_dict[self.mid]
+                    count = len(task_dict)
+                if count == 0:
+                    await self.clean()
+                else:
+                    await update_status_message(self.message.chat.id)
+                async with queue_dict_lock:
+                    if self.mid in non_queued_up:
+                        non_queued_up.remove(self.mid)
+                await start_from_queued()
+                return
             msg += f"\n┠ <b>Total Files: </b>{folders}"
             if mime_type != 0:
                 msg += f"\n┠ <b>Corrupted Files</b> → {mime_type}"

@@ -549,6 +549,7 @@ class Mirror(TaskListener):
                 or re_match(r"text/html|text/plain", content_type)
             ):
                 try:
+                    self.orig_link = self.link
                     self.link = await sync_to_async(direct_link_generator, self.link)
                     if isinstance(self.link, tuple):
                         self.link, headers = self.link

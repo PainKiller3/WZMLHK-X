@@ -142,7 +142,21 @@ class TelegramUploader:
         file_ = pre_file_
         lprefix = self._lprefix
         lsuffix = self._lsuffix
-        lcaption = self._lcaption
+        listener_links = f"{getattr(self._listener, 'orig_link', '')} {getattr(self._listener, 'link', '')}"
+        is_social_task = any(
+            x in listener_links for x in ["instagram.com", "twitter.com", "x.com"]
+        )
+        if is_social_task:
+            user_link = (
+                getattr(self._listener, "orig_link", "")
+                or getattr(self._listener, "link", "")
+                or ""
+            )
+            lcaption = (
+                f"<blockquote>Source: {user_link}</blockquote>" if user_link else ""
+            )
+        else:
+            lcaption = self._lcaption
 
         if lprefix:
             cap_file_ = lprefix.replace(r"\s", " ") + file_
@@ -233,6 +247,9 @@ class TelegramUploader:
                 year=smart_meta.get("year", ""),
                 source=smart_meta.get("source", ""),
                 codec=smart_meta.get("codec", ""),
+                username=getattr(self._listener.message.from_user, "username", "")
+                or "",
+                text=getattr(self._listener.message, "text", "") or "",
             )
 
             for part in parts[1:]:
