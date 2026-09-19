@@ -69,9 +69,14 @@ class HypertgUpload(HypertgTransfer):
                 thumb = await get_audio_thumbnail(file_path)
 
         if not is_image and thumb is None and user_thumb is None:
+            listener_links = f"{getattr(self._listener, 'orig_link', '')} {getattr(self._listener, 'link', '')}"
+            is_social_task = any(
+                x in listener_links for x in ["instagram.com", "twitter.com", "x.com"]
+            )
             user_dict = self._listener.user_dict
-            if user_dict.get("AUTO_THUMBNAIL") or (
-                "AUTO_THUMBNAIL" not in user_dict and Config.AUTO_THUMBNAIL
+            if not is_social_task and (
+                user_dict.get("AUTO_THUMBNAIL")
+                or ("AUTO_THUMBNAIL" not in user_dict and Config.AUTO_THUMBNAIL)
             ):
                 try:
                     thumb = await get_auto_thumbnail(

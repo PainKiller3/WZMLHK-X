@@ -354,7 +354,16 @@ class TaskListener(TaskConfig):
         self.name = up_path.replace(f"{up_dir}/", "").split("/", 1)[0]
         self.size = await get_path_size(up_dir)
 
-        if self.is_leech and self.smart_autorename and not self.compress:
+        link_str = f"{getattr(self, 'orig_link', '')} {str(self.link)}"
+        is_social_link = any(
+            x in link_str for x in ["instagram.com", "twitter.com", "x.com"]
+        )
+        if (
+            self.is_leech
+            and self.smart_autorename
+            and not self.compress
+            and not is_social_link
+        ):
             try:
                 from ..ext_utils.smart_autorename import (
                     SmartAutoRename,
