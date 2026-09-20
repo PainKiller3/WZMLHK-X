@@ -520,14 +520,57 @@ def gdflix(url):
             if not details["contents"]:
                 raise DirectDownloadLinkException("ERROR: No files found in pack")
             return details
-        if not (instant := tree.xpath("//a[contains(@href, 'instant')]/@href")):
-            raise DirectDownloadLinkException("ERROR: Instant DL link not found")
-        res = session.get(instant[0], allow_redirects=False)
-        if not (loc := res.headers.get("location", "").strip()):
-            raise DirectDownloadLinkException("ERROR: File Not Found or Expired")
-        if durl := parse_qs(urlparse(loc).query).get("url"):
-            return durl[0]
-        return loc
+        if instant := tree.xpath("//a[contains(@href, 'instant')]/@href"):
+            res = session.get(instant[0], allow_redirects=False)
+            if loc := res.headers.get("location", "").strip():
+                if durl := parse_qs(urlparse(loc).query).get("url"):
+                    return durl[0]
+                return loc
+
+        parsed = urlparse(res.url)
+        mfile_path = parsed.path.replace("/file/", "/mfile/")
+        mfile_url = f"{parsed.scheme}://{parsed.netloc}{mfile_path}"
+
+        cf_token = ""
+        if m_token := search(r'var cf_token\s*=\s*["\']([^"\']+)["\']', res.text):
+            cf_token = m_token.group(1)
+
+        key = ""
+        if m_key := search(
+            r'formData\.append\(\s*["\']key["\']\s*,\s*["\']([^"\']+)["\']', res.text
+        ):
+            key = m_key.group(1)
+
+        headers = {
+            "x-token": parsed.netloc,
+            "Referer": res.url,
+            "Origin": f"{parsed.scheme}://{parsed.netloc}",
+        }
+
+        data = {
+            "action": "instant",
+            "key": key,
+            "action_token": cf_token,
+        }
+
+        resp = session.post(mfile_url, data=data, headers=headers)
+        if resp.status_code == 200:
+            try:
+                res_data = resp.json()
+                if res_data.get("url"):
+                    return res_data["url"]
+                if res_data.get("visit_url"):
+                    return res_data["visit_url"]
+                if res_data.get("message"):
+                    raise DirectDownloadLinkException(
+                        f"ERROR: GDFlix - {res_data['message']}"
+                    )
+            except Exception as e:
+                if isinstance(e, DirectDownloadLinkException):
+                    raise
+                pass
+
+        raise DirectDownloadLinkException("ERROR: Instant DL link not found")
 
 
 def buzzheavier(url):
