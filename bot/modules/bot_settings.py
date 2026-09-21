@@ -50,6 +50,7 @@ from .. import (
     excluded_extensions,
     auth_chats,
     sudo_users,
+    paid_users,
     var_list,
 )
 from ..helper.ext_utils.bot_utils import (
@@ -298,6 +299,9 @@ DEFAULT_DESP = {
     "STOP_DUPLICATE_MIN_SIZE": "Minimum size in MB to enforce stop duplicate check (e.g. 100 to skip files < 100MB). 0 = check all sizes. Default: 0.",
     "STREAMWISH_API": "StreamWish API key for uploads.",
     "SUDO_USERS": "User IDs with sudo access. Space-separated.",
+    "PAID_USERS": "User IDs with paid access to main GDrive/RClone. Space-separated.",
+    "SUB_BOT_API_URL": "API URL of Subscription Bot to check user status (e.g., https://sub-bot.com/api/status).",
+    "SUB_BOT_API_KEY": "Bearer Token / Secret API key for Subscription Bot API authentication.",
     "TELEGRAM_API": "Telegram API ID from my.telegram.org.",
     "TELEGRAM_HASH": "Telegram API Hash from my.telegram.org.",
     "TG_PROXY": "SOCKS5 proxy for Telegram connection. Format: socks5://user:pass@ip:port.",
@@ -918,6 +922,12 @@ async def edit_variable(_, message, pre_message, key):
         aid = value.split()
         for id_ in aid:
             sudo_users.append(int(id_.strip()))
+    elif key == "PAID_USERS":
+        paid_users.clear()
+        pid = value.split()
+        for id_ in pid:
+            if id_.strip().isdigit():
+                paid_users.add(int(id_.strip()))
     elif key == "LOGIN_PASS":
         value = str(value)
     elif key == "DEBRID_LINK_API":

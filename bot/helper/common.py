@@ -30,6 +30,7 @@ from ..helper.ext_utils.bot_lock import ff_lock
 from .ext_utils.bot_utils import (
     fetch_drive_cat,
     get_size_bytes,
+    is_paid_user,
     new_task,
     parse_dest,
     sync_to_async,
@@ -234,6 +235,12 @@ class TaskConfig:
             config_path = self.get_config_path(path)
             if config_path != "rclone.conf" and status == "up":
                 self.private_link = True
+            elif config_path == "rclone.conf":
+                if not await is_paid_user(self.user_id, check_addon=True):
+                    raise ValueError(
+                        "Access Denied: Bot-level Rclone access is restricted to users with an active Addon.\n"
+                        "Please upload your own rclone.conf in /usettings or purchase an addon."
+                    )
             if not await aiopath.exists(config_path):
                 raise ValueError(f"Rclone Config: {config_path} not Exists!")
         elif (
@@ -245,6 +252,12 @@ class TaskConfig:
             token_path = self.get_token_path(path)
             if token_path.startswith("tokens/") and status == "up":
                 self.private_link = True
+            elif token_path in ("token.pickle", "accounts"):
+                if not await is_paid_user(self.user_id, check_addon=True):
+                    raise ValueError(
+                        "Access Denied: Bot-level GDrive access is restricted to users with an active Addon.\n"
+                        "Please upload your own token.pickle in /usettings or purchase an addon."
+                    )
             if not await aiopath.exists(token_path):
                 raise ValueError(f"NO TOKEN! {token_path} not Exists!")
 

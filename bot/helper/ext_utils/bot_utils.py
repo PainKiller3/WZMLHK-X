@@ -666,3 +666,114 @@ def resolve_command(command_str):
     if handler is None:
         LOGGER.warning(f"Unknown command '{cmd_name}' (from '{command_str}')")
     return handler
+
+
+async def is_paid_user(user_id, check_addon=False):
+    from ... import sudo_users, paid_users
+
+    try:
+        # 1. Owner & Sudo users always have full access
+        if str(user_id) == str(Config.OWNER_ID):
+            return True
+        if user_id in sudo_users or bool(user_data.get(user_id, {}).get("SUDO")):
+            return True
+
+        # 2. Check if subscription feature is configured at all
+        sub_feature_enabled = bool(
+            Config.SUB_BOT_API_URL
+            or Config.SUB_BOT_API_KEY
+            or Config.PAID_USERS
+            or paid_users
+        )
+        if not sub_feature_enabled:
+            return True
+
+        # 3. PING API LIVE FIRST IF CONFIGURED
+        if Config.SUB_BOT_API_URL:
+            try:
+                url = Config.SUB_BOT_API_URL.rstrip("/")
+                sep = "&" if "?" in url else "?"
+                url += f"{sep}id={user_id}"
+
+                headers = {}
+                if Config.SUB_BOT_API_KEY:
+                    headers["Authorization"] = f"Bearer {Config.SUB_BOT_API_KEY}"
+                    headers["X-API-Key"] = Config.SUB_BOT_API_KEY
+
+                async with AsyncSession() as session:
+                    res = await session.get(url, headers=headers, timeout=5)
+                    if res.status_code == 200:
+                        raw_data = res.json()
+                        if isinstance(raw_data, dict):
+                            data_obj = raw_data.get("data", raw_data)
+                            if not isinstance(data_obj, dict):
+                                data_obj = raw_data
+
+                            subs = data_obj.get("subscriptions", [])
+                            addons = data_obj.get("active_addons", [])
+
+                            has_active_sub = (
+                                any(
+                                    isinstance(s, dict) and s.get("status") == "active"
+                                    for s in subs
+                                )
+                                if isinstance(subs, list)
+                                else False
+                            )
+
+                            active_addon_list = (
+                                [
+                                    a
+                                    for a in addons
+                                    if isinstance(a, dict)
+                                    and a.get("status") == "active"
+                                ]
+                                if isinstance(addons, list)
+                                else []
+                            )
+
+                            has_active_addon = bool(active_addon_list)
+
+                            active_sub = data_obj.get("active_subscription")
+                            has_active_sub_obj = (
+                                isinstance(active_sub, dict)
+                                and active_sub.get("status") == "active"
+                            )
+
+                            sub_status = (
+                                data_obj.get("subscription", {}).get("status")
+                                if isinstance(data_obj.get("subscription"), dict)
+                                else None
+                            )
+
+                            is_active = (
+                                has_active_sub
+                                or has_active_sub_obj
+                                or has_active_addon
+                                or raw_data.get("is_paid") is True
+                                or data_obj.get("is_paid") is True
+                                or data_obj.get("status") in ("active", "healthy")
+                                or sub_status == "active"
+                            )
+
+                            user_data.setdefault(user_id, {})["IS_PAID"] = is_active
+                            if is_active:
+                                paid_users.add(user_id)
+                            else:
+                                paid_users.discard(user_id)
+
+                            if check_addon:
+                                return has_active_addon
+
+                            return is_active
+            except Exception as e:
+                LOGGER.error(f"Error querying SUB_BOT_API_URL for {user_id}: {e}")
+
+        # Fallback to local cache/DB if API not set or unreachable
+        if user_id in paid_users or bool(user_data.get(user_id, {}).get("IS_PAID")):
+            return True
+
+    except Exception as err:
+        LOGGER.error(f"Error in is_paid_user: {err}")
+
+    return False

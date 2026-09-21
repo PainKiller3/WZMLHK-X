@@ -275,3 +275,8 @@ SEARCH_PLUGINS = [
 SEEDR_EMAIL = ""
 SEEDR_PASSWORD = ""
 SEEDR_DELETE_FOLDER = False
+
+# Subscription Service Config
+PAID_USERS = ""
+SUB_BOT_API_URL = ""
+SUB_BOT_API_KEY = ""

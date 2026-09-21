@@ -44,6 +44,20 @@ async def add_handlers():
     )
     TgClient.bot.add_handler(
         MessageHandler(
+            add_paid,
+            filters=command(BotCommands.AddPaidCommand, case_sensitive=True)
+            & CustomFilters.sudo,
+        )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
+            remove_paid,
+            filters=command(BotCommands.RmPaidCommand, case_sensitive=True)
+            & CustomFilters.sudo,
+        )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
             add_blacklist,
             filters=command(BotCommands.BlackListCommand, case_sensitive=True)
             & CustomFilters.sudo,

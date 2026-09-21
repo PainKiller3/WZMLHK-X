@@ -154,6 +154,9 @@ class Config:
     STOP_DUPLICATE_MIN_SIZE = 0
     STREAMWISH_API = ""
     SUDO_USERS = ""
+    PAID_USERS = ""
+    SUB_BOT_API_URL = ""
+    SUB_BOT_API_KEY = ""
     TELEGRAM_API = 0
     TELEGRAM_HASH = ""
     TG_PROXY = None

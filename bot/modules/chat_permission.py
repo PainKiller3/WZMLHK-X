@@ -1,6 +1,6 @@
 from time import time
 
-from .. import user_data
+from .. import user_data, paid_users
 from ..helper.ext_utils.bot_utils import update_user_ldata, new_task
 from ..helper.ext_utils.db_handler import database
 from ..helper.telegram_helper.message_utils import send_message
@@ -151,6 +151,43 @@ async def remove_sudo(_, message):
             msg = "Already Not Sudo! Sudo users added from config must be removed from config."
     else:
         msg = "Give ID or Reply To message of whom you want to remove from Sudo"
+    await send_message(message, msg)
+
+
+@new_task
+async def add_paid(_, message):
+    id_ = ""
+    msg = message.text.split()
+    if len(msg) > 1 and msg[1].isdigit():
+        id_ = int(msg[1].strip())
+    elif reply_to := message.reply_to_message:
+        id_ = (reply_to.from_user or reply_to.sender_chat).id
+    if id_:
+        paid_users.add(id_)
+        update_user_ldata(id_, "IS_PAID", True)
+        await database.update_user_data(id_)
+        msg = f"User <code>{id_}</code> granted Paid Subscriber Access!"
+    else:
+        msg = "Give ID or Reply To message of whom you want to Grant Paid Access."
+    await send_message(message, msg)
+
+
+@new_task
+async def remove_paid(_, message):
+    id_ = ""
+    msg = message.text.split()
+    if len(msg) > 1 and msg[1].isdigit():
+        id_ = int(msg[1].strip())
+    elif reply_to := message.reply_to_message:
+        id_ = (reply_to.from_user or reply_to.sender_chat).id
+    if id_:
+        if id_ in paid_users:
+            paid_users.remove(id_)
+        update_user_ldata(id_, "IS_PAID", False)
+        await database.update_user_data(id_)
+        msg = f"User <code>{id_}</code> Paid Access Revoked!"
+    else:
+        msg = "Give ID or Reply To message of whom you want to Revoke Paid Access."
     await send_message(message, msg)
 
 

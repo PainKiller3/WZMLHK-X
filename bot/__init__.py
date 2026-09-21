@@ -82,6 +82,7 @@ drives_names = []
 drives_ids = []
 index_urls = []
 sudo_users = []
+paid_users = set()
 non_queued_dl = set()
 non_queued_up = set()
 multi_tags = set()

@@ -27,6 +27,7 @@ from .. import (
     rss_dict,
     sabnzbd_client,
     sudo_users,
+    paid_users,
 )
 from ..helper.ext_utils.bot_utils import cmd_exec, derive_service_password
 from ..helper.ext_utils.db_handler import database
@@ -302,6 +303,12 @@ async def update_variables():
         aid = Config.SUDO_USERS.split()
         for id_ in aid:
             sudo_users.append(int(id_.strip()))
+
+    if Config.PAID_USERS:
+        pid = Config.PAID_USERS.split()
+        for id_ in pid:
+            if id_.strip().isdigit():
+                paid_users.add(int(id_.strip()))
 
     if Config.EXCLUDED_EXTENSIONS:
         fx = Config.EXCLUDED_EXTENSIONS.split()

@@ -20,6 +20,7 @@ from .. import (
     excluded_extensions,
     blacklisted_keywords,
     sudo_users,
+    paid_users,
     user_data,
 )
 from ..core.config_manager import Config
@@ -27,6 +28,7 @@ from ..core.seedr_client import SeedrClient
 from ..core.tg_client import TgClient
 from ..helper.ext_utils.bot_utils import (
     get_size_bytes,
+    is_paid_user,
     new_task,
     update_user_ldata,
 )
@@ -419,10 +421,28 @@ async def get_user_settings(from_user, stype="main"):
             style=ButtonStyle.DANGER,
         )
 
+        sub_feature_enabled = bool(
+            Config.SUB_BOT_API_URL
+            or Config.SUB_BOT_API_KEY
+            or Config.PAID_USERS
+            or paid_users
+        )
+        plan_text = ""
+        if sub_feature_enabled:
+            is_paid = await is_paid_user(user_id)
+            has_addon = await is_paid_user(user_id, check_addon=True)
+            if has_addon:
+                plan_status = "⭐ Paid Plan + Global Addon"
+            elif is_paid:
+                plan_status = "⭐ Base Paid Plan"
+            else:
+                plan_status = "❌ No Active Subscription"
+            plan_text = f"\n┠ <b>Plan Status</b> → <b>{plan_status}</b>"
+
         text = f"""⌬ <b>User Settings :</b>
 │
 ┟ <b>Name</b> → {user_name}
-┠ <b>UserID</b> → #ID{user_id}
+┠ <b>UserID</b> → #ID{user_id}{plan_text}
 ┠ <b>Username</b> → @{from_user.username}
 ┠ <b>Telegram DC</b> → {from_user.dc_id}
 ┖ <b>Telegram Lang</b> → {Language.get(lc).display_name() if (lc := from_user.language_code) else "N/A"}"""
@@ -1984,7 +2004,9 @@ async def get_users_settings(_, message):
     if auth_chats:
         msg += f"AUTHORIZED_CHATS: {auth_chats}\n"
     if sudo_users:
-        msg += f"SUDO_USERS: {sudo_users}\n\n"
+        msg += f"SUDO_USERS: {sudo_users}\n"
+    if paid_users:
+        msg += f"PAID_USERS: {list(paid_users)}\n\n"
     if user_data:
         for u, d in user_data.items():
             kmsg = f"\n<b>{u}:</b>\n"

@@ -17,7 +17,7 @@ from ..mirror_leech_utils.gdrive_utils.search import GoogleDriveSearch
 from ..telegram_helper.filters import CustomFilters
 from ..telegram_helper.button_build import ButtonMaker
 from ..telegram_helper.tg_utils import check_botpm, forcesub, verify_token
-from .bot_utils import get_telegraph_list, sync_to_async, safe_int
+from .bot_utils import get_telegraph_list, sync_to_async, safe_int, is_paid_user
 from .files_utils import get_base_name, check_storage_threshold
 from .links_utils import is_gdrive_id, is_rclone_path
 from .status_utils import get_readable_time, get_readable_file_size
@@ -380,6 +380,15 @@ async def pre_task_check(message):
         menu = button.build_menu(2) if button is not None else None
         return "\n".join(parts), menu
 
+    if Config.RSS_CHAT and user_id == int(Config.RSS_CHAT):
+        return None, None
+
+    if not await is_paid_user(user_id):
+        msg.append(
+            "┠ <b>Access Denied:</b> You do not have an active subscription.\n┠ <i>Please purchase a subscription to use this bot.</i>"
+        )
+        return _format_result()
+
     if await CustomFilters.sudo("", message):
         if (
             Config.BOT_PM
@@ -392,9 +401,6 @@ async def pre_task_check(message):
                 msg.append(_msg)
         if msg:
             return _format_result()
-        return None, None
-
-    if Config.RSS_CHAT and user_id == int(Config.RSS_CHAT):
         return None, None
 
     button = ButtonMaker()
