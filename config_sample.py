@@ -140,6 +140,7 @@ ENABLE_TELEMETRY = True  # Send crash reports to remote worker
 
 # Bot Settings
 BOT_PM = False
+PRIVATE_OUTPUT = False
 COLORED_BTNS = True
 SET_COMMANDS = True
 TIMEZONE = "Asia/Kolkata"
