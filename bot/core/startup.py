@@ -437,6 +437,63 @@ async def load_configurations():
 
         spawn_stream_server()
 
+    bot_loop.create_task(catch_up_subscription_events())
+
+
+async def catch_up_subscription_events():
+    if not Config.SUB_BOT_API_URL:
+        return
+
+    from niquests import AsyncSession
+    from .. import paid_users
+    from ..helper.ext_utils.bot_utils import update_user_ldata
+
+    base_url = Config.SUB_BOT_API_URL.rsplit("/", 1)[0]
+    events_url = f"{base_url}/events"
+
+    headers = {}
+    if Config.SUB_BOT_API_KEY:
+        headers["Authorization"] = f"Bearer {Config.SUB_BOT_API_KEY}"
+        headers["X-API-Key"] = Config.SUB_BOT_API_KEY
+
+    try:
+        async with AsyncSession() as session:
+            res = await session.get(events_url, headers=headers, timeout=10)
+            if res.status_code == 200:
+                data = res.json()
+                events = data.get("events", []) if isinstance(data, dict) else []
+                for ev in events:
+                    if not isinstance(ev, dict):
+                        continue
+                    event_type = ev.get("event_type") or ev.get("event")
+                    ev_data = ev.get("data", {})
+                    telegram_id = ev_data.get("telegram_id") or ev_data.get("user_id")
+                    if not telegram_id:
+                        continue
+                    try:
+                        uid = int(telegram_id)
+                        if event_type in (
+                            "subscription.activated",
+                            "subscription.extended",
+                            "addon.purchased",
+                        ):
+                            update_user_ldata(uid, "IS_PAID", True)
+                            paid_users.add(uid)
+                            if Config.DATABASE_URL:
+                                await database.update_user_data(uid)
+                        elif event_type in ("subscription.expired", "addon.expired"):
+                            update_user_ldata(uid, "IS_PAID", False)
+                            paid_users.discard(uid)
+                            if Config.DATABASE_URL:
+                                await database.update_user_data(uid)
+                    except ValueError:
+                        pass
+                LOGGER.info(
+                    f"CATCH-UP: Processed {len(events)} events from Subscription Bot"
+                )
+    except Exception as e:
+        LOGGER.warning(f"CATCH-UP: Subscription Bot catch-up skipped/failed: {e}")
+
     from ..helper.ext_utils.tunnel_monitor import apply_tunnel_url_once
 
     await apply_tunnel_url_once()

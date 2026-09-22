@@ -157,6 +157,9 @@ class Config:
     PAID_USERS = ""
     SUB_BOT_API_URL = ""
     SUB_BOT_API_KEY = ""
+    SERVICE_BOT_WEBHOOK_URL = ""
+    SERVICE_BOT_WEBHOOK_SECRET = ""
+    SERVICE_BOT_WEBHOOK_API_KEY = ""
     TELEGRAM_API = 0
     TELEGRAM_HASH = ""
     TG_PROXY = None
@@ -260,6 +263,11 @@ class Config:
             if not value:
                 raise ValueError(f"{key} variable is missing!")
 
+        if not cls.SERVICE_BOT_WEBHOOK_URL and cls.BASE_URL:
+            cls.SERVICE_BOT_WEBHOOK_URL = (
+                f"{cls.BASE_URL.rstrip('/')}/webhook/subscription-bot"
+            )
+
     @classmethod
     def load_env(cls):
         legacy_dump_chat = getenv("LEECH_DUMP_CHAT")
@@ -273,6 +281,11 @@ class Config:
             if env_value is not None:
                 converted_value = cls._convert_env_type(key, env_value)
                 cls.set(key, converted_value)
+
+        if not cls.SERVICE_BOT_WEBHOOK_URL and cls.BASE_URL:
+            cls.SERVICE_BOT_WEBHOOK_URL = (
+                f"{cls.BASE_URL.rstrip('/')}/webhook/subscription-bot"
+            )
 
     @classmethod
     def _convert_env_type(cls, key, value):
@@ -357,6 +370,11 @@ class Config:
                 value = value.strip()
             if not value:
                 raise ValueError(f"{key} variable is missing!")
+
+        if not cls.SERVICE_BOT_WEBHOOK_URL and cls.BASE_URL:
+            cls.SERVICE_BOT_WEBHOOK_URL = (
+                f"{cls.BASE_URL.rstrip('/')}/webhook/subscription-bot"
+            )
 
 
 DEFAULT_CONFIG = Config.get_all()

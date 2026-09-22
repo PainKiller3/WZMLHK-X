@@ -146,6 +146,54 @@ async def restart_notification():
             LOGGER.error(e)
         await remove(".restartmsg")
 
+    await send_webhook_config_to_owner()
+
+
+async def send_webhook_config_to_owner():
+    if not Config.OWNER_ID:
+        return
+
+    secret = Config.SERVICE_BOT_WEBHOOK_SECRET
+    api_key = Config.SERVICE_BOT_WEBHOOK_API_KEY
+
+    webhook_url = Config.SERVICE_BOT_WEBHOOK_URL
+    if not webhook_url:
+        base_url = Config.BASE_URL
+        if not base_url:
+            from bot.helper.ext_utils.tunnel_monitor import apply_tunnel_url_once
+
+            base_url = await apply_tunnel_url_once() or ""
+        if base_url:
+            webhook_url = f"{base_url.rstrip('/')}/webhook/subscription-bot"
+
+    sub_feature_enabled = bool(
+        Config.SUB_BOT_API_URL or secret or api_key or Config.PAID_USERS
+    )
+    if not sub_feature_enabled:
+        return
+
+    msg = f"""🔐 <b>Subscription Webhook Configuration</b>
+
+<b>SERVICE_BOT_WEBHOOK_URL:</b> <code>{webhook_url or "N/A"}</code>
+<b>SERVICE_BOT_WEBHOOK_SECRET:</b> <code>{secret or "N/A"}</code>
+<b>SERVICE_BOT_WEBHOOK_API_KEY:</b> <code>{api_key or "N/A"}</code>
+
+<i>Use these values in your Subscription Bot configuration.</i>"""
+
+    try:
+        await TgClient.bot.send_message(
+            chat_id=Config.OWNER_ID,
+            text=msg,
+            disable_web_page_preview=True,
+        )
+        LOGGER.info(
+            f"Webhook configuration details sent to Owner ID ({Config.OWNER_ID})"
+        )
+    except Exception as e:
+        LOGGER.warning(
+            f"Could not send webhook configuration to Owner ID ({Config.OWNER_ID}): {e}"
+        )
+
 
 async def _notify_tasks(notifier_dict, restart_chat_id, now):
     for cid, data in notifier_dict.items():

@@ -788,6 +788,95 @@ async def stream_meta(token: str, request: Request):
     )
 
 
+_processed_events = set()
+
+
+@app.post("/webhook/subscription-bot")
+async def subscription_bot_webhook(request: Request):
+    import hmac
+    import hashlib
+    from bot import paid_users
+    from bot.core.config_manager import Config
+    from bot.helper.ext_utils.bot_utils import update_user_ldata
+    from bot.helper.ext_utils.db_handler import database
+
+    secret = environ.get("SERVICE_BOT_WEBHOOK_SECRET", "") or getattr(
+        Config, "SERVICE_BOT_WEBHOOK_SECRET", ""
+    )
+    api_key = environ.get("SERVICE_BOT_WEBHOOK_API_KEY", "") or getattr(
+        Config, "SERVICE_BOT_WEBHOOK_API_KEY", ""
+    )
+    webhook_url = (
+        environ.get("SERVICE_BOT_WEBHOOK_URL", "")
+        or getattr(Config, "SERVICE_BOT_WEBHOOK_URL", "")
+        or (
+            f"{Config.BASE_URL.rstrip('/')}/webhook/subscription-bot"
+            if Config.BASE_URL
+            else ""
+        )
+    )
+
+    if api_key:
+        req_api_key = request.headers.get("X-API-Key", "")
+        if req_api_key != api_key:
+            raise HTTPException(status_code=401, detail="Invalid API Key")
+
+    raw_body = await request.body()
+    if secret:
+        sig_header = request.headers.get("X-Webhook-Signature", "")
+        if not sig_header or not sig_header.startswith("sha256="):
+            raise HTTPException(status_code=401, detail="Missing signature header")
+        received_sig = sig_header[len("sha256=") :]
+        computed_sig = hmac.new(
+            secret.encode("utf-8"), raw_body, hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(computed_sig, received_sig):
+            raise HTTPException(status_code=401, detail="Invalid HMAC signature")
+
+    payload = await request.json()
+    event_id = payload.get("event_id")
+    event_type = payload.get("event")
+    data = payload.get("data", {})
+
+    if event_id in _processed_events:
+        return JSONResponse({"status": "already_processed", "event_id": event_id})
+
+    if event_id:
+        _processed_events.add(event_id)
+        if len(_processed_events) > 2000:
+            _processed_events.pop()
+
+    telegram_id = data.get("telegram_id") or data.get("user_id")
+    if telegram_id:
+        try:
+            user_id = int(telegram_id)
+            if event_type in (
+                "subscription.activated",
+                "subscription.extended",
+                "addon.purchased",
+            ):
+                update_user_ldata(user_id, "IS_PAID", True)
+                paid_users.add(user_id)
+                if Config.DATABASE_URL:
+                    await database.update_user_data(user_id)
+                LOGGER.info(
+                    f"WEBHOOK: Granted Paid Status to {user_id} via {event_type} (URL: {webhook_url})"
+                )
+
+            elif event_type in ("subscription.expired", "addon.expired"):
+                update_user_ldata(user_id, "IS_PAID", False)
+                paid_users.discard(user_id)
+                if Config.DATABASE_URL:
+                    await database.update_user_data(user_id)
+                LOGGER.info(
+                    f"WEBHOOK: Revoked Paid Status from {user_id} via {event_type}"
+                )
+        except ValueError:
+            pass
+
+    return JSONResponse({"status": "success", "event_id": event_id})
+
+
 @app.exception_handler(HTTPException)
 async def http_error(request: Request, exc: HTTPException):
     if request.url.path.startswith(("/app/files/", "/api/", "/stream/", "/dl/")):
