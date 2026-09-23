@@ -2,6 +2,7 @@ from speedtest import ConfigRetrievalError, Speedtest
 
 from bot import LOGGER
 from bot.helper.ext_utils.bot_utils import new_task, sync_to_async
+from bot.helper.telegram_helper.filters import CustomFilters
 from bot.helper.telegram_helper.message_utils import (
     delete_message,
     edit_message,
@@ -36,7 +37,8 @@ async def speedtest_command(_, message):
         pass
 
     result = results.results.dict()
-    text = format_result(result)
+    is_sudo = await CustomFilters.sudo("", message)
+    text = format_result(result, is_sudo=is_sudo)
     try:
         await send_message(message, text, photo=result.get("share"))
         await delete_message(status)
