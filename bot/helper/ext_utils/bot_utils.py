@@ -726,7 +726,7 @@ async def is_paid_user(user_id, check_addon=False):
                                     a
                                     for a in addons
                                     if isinstance(a, dict)
-                                    and a.get("status") == "active"
+                                    and a.get("status") in ("active", None, "")
                                 ]
                                 if isinstance(addons, list)
                                 else []
@@ -763,6 +763,15 @@ async def is_paid_user(user_id, check_addon=False):
                                 paid_users.discard(user_id)
 
                             if check_addon:
+                                if isinstance(check_addon, str):
+                                    target = check_addon.lower()
+                                    return any(
+                                        target in str(a.get("addon_id", "")).lower()
+                                        or target in str(a.get("id", "")).lower()
+                                        or target in str(a.get("name", "")).lower()
+                                        or target in str(a.get("plan_id", "")).lower()
+                                        for a in active_addon_list
+                                    )
                                 return has_active_addon
 
                             return is_active

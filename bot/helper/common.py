@@ -236,9 +236,9 @@ class TaskConfig:
             if config_path != "rclone.conf" and status == "up":
                 self.private_link = True
             elif config_path == "rclone.conf":
-                if not await is_paid_user(self.user_id, check_addon=True):
+                if not await is_paid_user(self.user_id, check_addon="multi"):
                     raise ValueError(
-                        "Access Denied: Bot-level Rclone access is restricted to users with an active Addon.\n"
+                        "Access Denied: Bot-level Rclone access is restricted to users with the Multi-Upload Addon.\n"
                         "Please upload your own rclone.conf in /usettings or purchase an addon."
                     )
             if not await aiopath.exists(config_path):
@@ -253,9 +253,9 @@ class TaskConfig:
             if token_path.startswith("tokens/") and status == "up":
                 self.private_link = True
             elif token_path in ("token.pickle", "accounts"):
-                if not await is_paid_user(self.user_id, check_addon=True):
+                if not await is_paid_user(self.user_id, check_addon="gdrive"):
                     raise ValueError(
-                        "Access Denied: Bot-level GDrive access is restricted to users with an active Addon.\n"
+                        "Access Denied: Bot-level GDrive access is restricted to users with the GDrive Addon.\n"
                         "Please upload your own token.pickle in /usettings or purchase an addon."
                     )
             if not await aiopath.exists(token_path):

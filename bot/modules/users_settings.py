@@ -430,9 +430,12 @@ async def get_user_settings(from_user, stype="main"):
         plan_text = ""
         if sub_feature_enabled:
             is_paid = await is_paid_user(user_id)
-            has_addon = await is_paid_user(user_id, check_addon=True)
-            if has_addon:
-                plan_status = "⭐ Paid Plan + Global Addon"
+            has_multi = await is_paid_user(user_id, check_addon="multi")
+            has_gdrive = await is_paid_user(user_id, check_addon="gdrive")
+            if has_multi:
+                plan_status = "⭐ Paid Plan + Multi Addon"
+            elif has_gdrive:
+                plan_status = "⭐ Paid Plan + GD Addon"
             elif is_paid:
                 plan_status = "⭐ Base Paid Plan"
             else:

@@ -389,6 +389,14 @@ async def pre_task_check(message):
         )
         return _format_result()
 
+    if user_dict.get("UPLOAD_PATHS") and not await is_paid_user(
+        user_id, check_addon="multi"
+    ):
+        msg.append(
+            "┠ <b>Access Denied:</b> Multi-Upload (UPLOAD_PATHS) is restricted to users with the Multi-Upload Addon.\n┠ <i>Please purchase the Multi-Upload Addon to use this feature.</i>"
+        )
+        return _format_result()
+
     if await CustomFilters.sudo("", message):
         if (
             Config.BOT_PM
