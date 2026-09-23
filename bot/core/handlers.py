@@ -444,7 +444,7 @@ def add_handlers():
             & CustomFilters.authorized,
         )
     )
-    TgClient.bot.add_handler(MessageHandler(auto_leech_listener))
+    TgClient.bot.add_handler(MessageHandler(auto_leech_listener), group=10)
     if Config.SET_COMMANDS:
         global BOT_COMMANDS
 
