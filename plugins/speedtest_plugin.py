@@ -6,6 +6,7 @@ from pyrogram.types import Message
 from bot.core.plugin_manager import PluginBase, PluginInfo
 from bot.helper.ext_utils.bot_utils import new_task, sync_to_async
 from bot.helper.ext_utils.status_utils import get_readable_file_size
+from bot.helper.telegram_helper.filters import CustomFilters
 from bot.helper.telegram_helper.message_utils import (
     send_message,
     edit_message,
@@ -66,6 +67,18 @@ async def speedtest_command(client: Client, message: Message):
         return
     speed_results.results.share()
     result = speed_results.results.dict()
+    is_sudo = await CustomFilters.sudo("", message)
+    ip_isp_line = (
+        f"┠ <b>IP:</b> <code>{result['client']['ip']}</code>\n"
+        f"┖ <b>ISP:</b> <code>{result['client']['isp']}</code>"
+        if is_sudo
+        else f"┖ <b>Data Received:</b> <code>{get_readable_file_size(int(result['bytes_received']))}</code>"
+    )
+    if is_sudo:
+        data_received_line = f"┠ <b>Data Received:</b> <code>{get_readable_file_size(int(result['bytes_received']))}</code>\n"
+    else:
+        data_received_line = ""
+
     string_speed = f"""
 ➲ <b><i>SPEEDTEST INFO</i></b>
 ┠ <b>Upload:</b> <code>{get_readable_file_size(result["upload"] / 8)}/s</code>
@@ -73,7 +86,7 @@ async def speedtest_command(client: Client, message: Message):
 ┠ <b>Ping:</b> <code>{result["ping"]} ms</code>
 ┠ <b>Time:</b> <code>{result["timestamp"]}</code>
 ┠ <b>Data Sent:</b> <code>{get_readable_file_size(int(result["bytes_sent"]))}</code>
-┖ <b>Data Received:</b> <code>{get_readable_file_size(int(result["bytes_received"]))}</code>
+{data_received_line}{ip_isp_line}
 
 ➲ <b><i>SPEEDTEST SERVER</i></b>
 ┠ <b>Name:</b> <code>{result["server"]["name"]}</code>
