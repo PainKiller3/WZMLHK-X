@@ -1,11 +1,17 @@
 from bot.helper.ext_utils.status_utils import get_readable_file_size
 
 
-def format_result(result):
+def format_result(result, is_sudo=False):
     server = result.get("server") or {}
+    client = result.get("client") or {}
+    ip_isp = (
+        f"┠ <b>IP:</b> <code>{client.get('ip')}</code> ({client.get('isp')})\n"
+        if is_sudo
+        else ""
+    )
     return f"""
 ➲ <b><i>SPEEDTEST INFO</i></b>
-┠ <b>Upload:</b> <code>{get_readable_file_size(result["upload"] / 8)}/s</code>
+{ip_isp}┠ <b>Upload:</b> <code>{get_readable_file_size(result["upload"] / 8)}/s</code>
 ┠ <b>Download:</b>  <code>{get_readable_file_size(result["download"] / 8)}/s</code>
 ┠ <b>Ping:</b> <code>{result["ping"]} ms</code>
 ┠ <b>Time:</b> <code>{result["timestamp"]}</code>
