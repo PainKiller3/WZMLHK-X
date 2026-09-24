@@ -128,6 +128,7 @@ class PluginManager:
                 self.loaded_modules[plugin_name] = plugin_instance
                 self._register_handlers(plugin_instance, plugin_info)
                 self._refresh_commands()
+                await self._save_plugin_state()
                 LOGGER.info(f"Plugin {plugin_name} loaded successfully")
                 return True
             else:
@@ -154,6 +155,7 @@ class PluginManager:
                 if plugin_name in sys.modules:
                     del sys.modules[plugin_name]
                 self._refresh_commands()
+                await self._save_plugin_state()
                 LOGGER.info(f"Plugin {plugin_name} unloaded successfully")
                 return True
             else:
@@ -182,6 +184,7 @@ class PluginManager:
             if await plugin_instance.on_enable():
                 self.plugins[plugin_name].enabled = True
                 self._refresh_commands()
+                await self._save_plugin_state()
                 LOGGER.info(f"Plugin {plugin_name} enabled")
                 return True
             else:
@@ -202,6 +205,7 @@ class PluginManager:
             if await plugin_instance.on_disable():
                 self.plugins[plugin_name].enabled = False
                 self._refresh_commands()
+                await self._save_plugin_state()
                 LOGGER.info(f"Plugin {plugin_name} disabled")
                 return True
             else:
@@ -212,6 +216,24 @@ class PluginManager:
             LOGGER.error(f"Error disabling plugin {plugin_name}: {e}", exc_info=True)
             return False
 
+    async def _save_plugin_state(self):
+        from ..helper.ext_utils.db_handler import database
+
+        state = {name: {"enabled": info.enabled} for name, info in self.plugins.items()}
+        await database.update_plugins(state)
+
+    async def load_saved_plugins(self):
+        from ..helper.ext_utils.db_handler import database
+
+        saved_plugins = await database.get_plugins()
+        if not saved_plugins:
+            return
+        for plugin_name, data in saved_plugins.items():
+            loaded = await self.load_plugin(plugin_name)
+            if loaded and not data.get("enabled", True):
+                await self.disable_plugin(plugin_name)
+        LOGGER.info(f"Loaded {len(saved_plugins)} saved plugin(s) from MongoDB")
+
     def list_plugins(self) -> List[PluginInfo]:
         return list(self.plugins.values())
 
@@ -219,6 +241,7 @@ class PluginManager:
         return self.plugins.get(plugin_name)
 
     def _register_handlers(self, plugin_instance: PluginBase, plugin_info: PluginInfo):
+        from ..core.config_manager import Config
         from ..helper.telegram_helper.filters import CustomFilters
         from pyrogram.filters import command
         from pyrogram.handlers import MessageHandler
@@ -233,15 +256,16 @@ class PluginManager:
                 if callable(attr) and attr_name.endswith("_command"):
                     cmd_name = attr_name.replace("_command", "")
                     if cmd_name in plugin_info.commands:
+                        full_cmd = f"{cmd_name}{Config.CMD_SUFFIX}"
                         handler = MessageHandler(
                             attr,
-                            filters=command(cmd_name, case_sensitive=True)
+                            filters=command(full_cmd, case_sensitive=True)
                             & CustomFilters.authorized,
                         )
                         plugin_info.handlers.append(handler)
                         self.bot.add_handler(handler)
                         LOGGER.info(
-                            f"Registered command /{cmd_name} for plugin {plugin_info.name}"
+                            f"Registered command /{full_cmd} for plugin {plugin_info.name}"
                         )
 
     def _unregister_handlers(self, plugin_info: PluginInfo):

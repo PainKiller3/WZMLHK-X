@@ -5,6 +5,7 @@ from pyrogram.handlers import CallbackQueryHandler, MessageHandler
 from pyrogram.types import Message
 
 from .. import LOGGER
+from ..core.config_manager import Config
 from ..core.plugin_manager import get_plugin_manager
 from ..helper.ext_utils.bot_utils import new_task
 from ..helper.telegram_helper.button_build import ButtonMaker
@@ -151,6 +152,8 @@ async def get_plugins_menu(user_id: int, stype: str = "main"):
 
 @new_task
 async def plugins_command(client: Client, message: Message):
+    if Config.DISABLE_PLUGINS:
+        return await send_message(message, "Plugin management is disabled!")
     try:
         plugin_manager = get_plugin_manager()
         plugin_manager.bot = client
