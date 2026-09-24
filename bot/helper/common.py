@@ -106,6 +106,7 @@ class TaskConfig:
         self.rc_flags = ""
         self.tag = ""
         self.name = ""
+        self.custom_name = ""
         self.subname = ""
         self.category = ""
         self.index_link = ""
