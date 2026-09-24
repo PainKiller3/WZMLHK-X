@@ -333,7 +333,13 @@ class TaskListener(TaskConfig):
         self.name = up_path.replace(f"{up_dir}/", "").split("/", 1)[0]
         self.size = await get_path_size(up_dir)
 
-        if self.is_leech and self.smart_autorename and not self.compress:
+        if (
+            self.is_leech
+            and self.smart_autorename
+            and not self.compress
+            and not self.custom_name
+            and not self.name_swap
+        ):
             try:
                 from ..ext_utils.smart_autorename import (
                     SmartAutoRename,
