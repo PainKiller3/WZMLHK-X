@@ -229,6 +229,21 @@ class DbManager:
         await self.db.tasks[TgClient.ID].drop()
         return notifier_dict, task_docs
 
+    async def update_plugins(self, plugins_dict):
+        if self._return:
+            return
+        await self.db.plugins[TgClient.ID].replace_one(
+            {"_id": "plugins_state"},
+            {"_id": "plugins_state", "data": plugins_dict},
+            upsert=True,
+        )
+
+    async def get_plugins(self):
+        if self._return:
+            return {}
+        doc = await self.db.plugins[TgClient.ID].find_one({"_id": "plugins_state"})
+        return doc.get("data", {}) if doc else {}
+
     async def trunc_table(self, name):
         if self._return:
             return
