@@ -5,7 +5,6 @@ from asyncio import (
     sleep,
 )
 from asyncio.subprocess import PIPE
-from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial, wraps
 from hashlib import sha256
@@ -465,9 +464,17 @@ class GitInfo:
         except Exception:
             self._commit_message = ""
         try:
-            self._commit_time = (await cmd_exec(["git", "log", "-1", "--format=%ci"]))[
-                0
-            ]
+            self._commit_time = (
+                await cmd_exec(
+                    [
+                        "git",
+                        "log",
+                        "-1",
+                        "--pretty=%cd ( %cr )",
+                        "--date=format-local:%d/%m/%Y",
+                    ]
+                )
+            )[0]
         except Exception:
             self._commit_time = ""
 
@@ -487,16 +494,7 @@ class GitInfo:
         return self._commit_time or ""
 
     def commit_date(self):
-        if not self._commit_time:
-            return ""
-        try:
-            dt = datetime.strptime(
-                self._commit_time.split(" +")[0].split(" -")[0],
-                "%Y-%m-%d %H:%M:%S",
-            )
-            return dt.strftime("%d/%m/%Y (%H:%M)")
-        except Exception:
-            return self._commit_time
+        return self._commit_time or ""
 
 
 git_info = GitInfo()

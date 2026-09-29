@@ -78,14 +78,33 @@ async def get_stats(event, key="home"):
     user_id = event.from_user.id
     btns = ButtonMaker()
     if key == "home":
-        btns = ButtonMaker()
-        btns.data_button("Bot Stats", f"stats {user_id} stbot")
-        btns.data_button("OS Stats", f"stats {user_id} stsys")
-        btns.data_button("Repo Stats", f"stats {user_id} strepo")
-        btns.data_button("Pkgs Stats", f"stats {user_id} stpkgs")
-        btns.data_button("Task Limits", f"stats {user_id} tlimits")
-        btns.data_button("Sys Tasks", f"stats {user_id} systasks")
-        msg = "⌬ <b><i>Bot & OS Statistics!</i></b>"
+        if not Config.SHOW_STATS_BUTTONS:
+            total, used, free, disk = disk_usage("/")
+            last_commit = git_info.commit_date() or "No Data"
+            changelog = git_info.commit_msg() or "N/A"
+            if git_info.commit_hash() != "unknown":
+                changelog += f" | <code>{git_info.commit_hash()}</code>"
+            msg = f"""⌬ <b>BOT STATISTICS :</b>
+┎ <b>Bot Uptime :</b> {get_readable_time(time() - bot_start_time)}
+┖ <b>Used :</b> {get_readable_file_size(used)} | <b>Free :</b> {get_readable_file_size(free)} | <b>Total :</b> {get_readable_file_size(total)}
+
+⌬ <b>SYSTEM OS :</b>
+┎ <b>OS Uptime :</b> {get_readable_time(time() - boot_time())}
+┠ <b>OS Version :</b> {version()}
+┖ <b>OS Arch :</b> {platform()}
+
+⌬ <b>REPO STATISTICS :</b>
+┎ <b>Current Version :</b> {get_version()}
+┠ <b>Commit Date :</b> {last_commit}
+┖ <b>Last ChangeLog :</b> {changelog}"""
+        else:
+            btns.data_button("Bot Stats", f"stats {user_id} stbot")
+            btns.data_button("OS Stats", f"stats {user_id} stsys")
+            btns.data_button("Repo Stats", f"stats {user_id} strepo")
+            btns.data_button("Pkgs Stats", f"stats {user_id} stpkgs")
+            btns.data_button("Task Limits", f"stats {user_id} tlimits")
+            btns.data_button("Sys Tasks", f"stats {user_id} systasks")
+            msg = "⌬ <b><i>Bot & OS Statistics!</i></b>"
     elif key == "stbot":
         total, used, free, disk = disk_usage("/")
         swap = swap_memory()
@@ -162,9 +181,19 @@ async def get_stats(event, key="home"):
         changelog = git_info.commit_msg() or "N/A"
         if git_info.commit_hash() != "unknown":
             changelog += f" | <code>{git_info.commit_hash()}</code>"
+        repo_url = (
+            (Config.UPSTREAM_REPO or "https://github.com/SilentDemonSD/WZML-X")
+            .rstrip("/")
+            .removesuffix(".git")
+        )
+        if repo_url.startswith("https://github.com/"):
+            repo_path = repo_url.replace("https://github.com/", "")
+            raw_url = f"https://raw.githubusercontent.com/{repo_path}/{Config.UPSTREAM_BRANCH}/bot/version.py"
+        else:
+            raw_url = f"https://raw.githubusercontent.com/SilentDemonSD/WZML-X/{Config.UPSTREAM_BRANCH}/bot/version.py"
         official_v = (
             await cmd_exec(
-                f"curl -o latestversion.py https://raw.githubusercontent.com/SilentDemonSD/WZML-X/{Config.UPSTREAM_BRANCH}/bot/version.py -s && python3 latestversion.py && rm latestversion.py",
+                f"curl -o latestversion.py {raw_url} -s && python3 latestversion.py && rm -f latestversion.py",
                 True,
             )
         )[0]
@@ -257,7 +286,8 @@ async def get_stats(event, key="home"):
 
         btns.data_button("🔄 Refresh", f"stats {user_id} systasks", "header")
 
-    btns.data_button("Back", f"stats {user_id} home", "footer")
+    if key != "home" and Config.SHOW_STATS_BUTTONS:
+        btns.data_button("Back", f"stats {user_id} home", "footer")
     btns.data_button(
         "Close", f"stats {user_id} close", "footer", style=ButtonStyle.DANGER
     )
