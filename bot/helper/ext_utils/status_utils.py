@@ -281,8 +281,7 @@ async def get_readable_message(sid, is_user, page_no=1, status="All", page_step=
         else:
             msg += f"\n┠ <b>Size</b> → <i>{task.size()}</i>"
         msg += f"\n┠ <b>Engine</b> → <i>{task.engine}</i>"
-        msg += f"\n┠ <b>In Mode</b> → <i>{task.listener.mode[0]}</i>"
-        msg += f"\n┠ <b>Out Mode</b> → <i>{task.listener.mode[1]}</i>"
+        msg += f"\n┠ <b>In / Out Mode</b> → <i>{task.listener.mode[0]}</i> | <i>{task.listener.mode[1]}</i>"
         from ..telegram_helper.bot_commands import BotCommands
 
         if tstatus in [
