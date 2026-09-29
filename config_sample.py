@@ -98,6 +98,7 @@ LOGIN_PASS = ""
 # Bot Settings
 BOT_PM = False
 SET_COMMANDS = True
+SHOW_STATS_BUTTONS = True
 TIMEZONE = "Asia/Kolkata"
 
 # GDrive Tools
