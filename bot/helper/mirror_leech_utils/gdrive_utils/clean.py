@@ -14,6 +14,7 @@ from ...ext_utils.status_utils import get_readable_file_size, get_readable_time
 from ...mirror_leech_utils.gdrive_utils.delete import GoogleDriveDelete
 from ...mirror_leech_utils.gdrive_utils.helper import GoogleDriveHelper
 from ...telegram_helper.button_build import ButtonMaker
+from ...telegram_helper.filters import CustomFilters
 from ...telegram_helper.message_utils import (
     delete_message,
     edit_message,
@@ -34,6 +35,13 @@ async def drive_clean_cb(_, query, obj):
         return
     obj.query_proc = True
     action = data[1]
+    if action in ("purge_confirm", "confirm_purge") and not await CustomFilters.sudo(
+        "", query
+    ):
+        obj.query_proc = False
+        return await query.answer(
+            "Sudo permission required to purge all files/folders!", show_alert=True
+        )
     if action == "cancel":
         obj.listener.is_cancelled = True
         obj.event.set()
@@ -107,6 +115,21 @@ async def drive_clean_cb(_, query, obj):
             f"Delete <code>{name}</code> ({size})?",
             buttons.build_menu(2),
         )
+    elif action == "purge_confirm":
+        items_no = len(obj.items_list)
+        path_str = "/".join(i["name"] for i in obj.parents) or "Folder"
+        buttons = ButtonMaker()
+        buttons.data_button(
+            "Yes, Delete All", "gdc confirm_purge", style=ButtonStyle.DANGER
+        )
+        buttons.data_button("No, Back", "gdc cancel_del", style=ButtonStyle.SUCCESS)
+        await edit_message(
+            message,
+            f"⚠️ <b>Are you sure you want to delete ALL {items_no} items in</b> <code>{path_str}</code>?",
+            buttons.build_menu(2),
+        )
+    elif action == "confirm_purge":
+        await obj.purge_current_folder(query.from_user.id)
     elif action == "confirm":
         if obj._pending_del is None:
             obj.query_proc = False
@@ -127,8 +150,9 @@ async def drive_clean_cb(_, query, obj):
 
 
 class GoogleDriveClean(GoogleDriveHelper):
-    def __init__(self, listener):
+    def __init__(self, listener, purge_all=False):
         self.listener = listener
+        self.purge_all = purge_all
         self._token_user = False
         self._token_owner = False
         self._sa_owner = False
@@ -172,6 +196,68 @@ class GoogleDriveClean(GoogleDriveHelper):
             else:
                 await edit_message(self._reply_to, msg, button)
 
+    async def purge_current_folder(self, user_id):
+        if not self.items_list:
+            try:
+                files = await sync_to_async(self.get_files_by_folder_id, self.id)
+                self.items_list = natsorted(files)
+            except Exception as err:
+                self._error_msg = str(err).replace(">", "").replace("<", "")
+                if self._reply_to:
+                    await edit_message(
+                        self._reply_to, f"Error fetching files: {self._error_msg}"
+                    )
+                self.event.set()
+                return
+
+        total = len(self.items_list)
+        if total == 0:
+            if self._reply_to:
+                await edit_message(self._reply_to, "Folder is already empty!")
+            else:
+                await send_message(self.listener.message, "Folder is already empty!")
+            if self.purge_all:
+                self.event.set()
+            return
+
+        path_str = "/".join(i["name"] for i in self.parents) or "Folder"
+        if self._reply_to:
+            await edit_message(
+                self._reply_to,
+                f"⏳ <b>Deleting all {total} items in</b> <code>{path_str}</code>...",
+            )
+
+        success_count = 0
+        fail_count = 0
+        for item in list(self.items_list):
+            file_id = item["id"]
+            link = f"https://drive.google.com/file/d/{file_id}"
+            try:
+                msg = await sync_to_async(GoogleDriveDelete().deletefile, link, user_id)
+                if "Successfully deleted" in msg:
+                    success_count += 1
+                else:
+                    fail_count += 1
+            except Exception:
+                fail_count += 1
+
+        summary = (
+            f"⌬ <b><i>Drive Purge Completed</i></b>\n"
+            f"┟ <b>Path:</b> <code>{path_str}</code>\n"
+            f"┟ <b>Deleted:</b> <code>{success_count}</code>\n"
+            f"┖ <b>Failed:</b> <code>{fail_count}</code>"
+        )
+        if self.purge_all:
+            self.event.set()
+            if self._reply_to:
+                await edit_message(self._reply_to, summary)
+            else:
+                await send_message(self.listener.message, summary)
+        else:
+            if self._reply_to:
+                await edit_message(self._reply_to, summary)
+            await self.get_items()
+
     async def get_items_buttons(self):
         items_no = len(self.items_list)
         pages = (items_no + LIST_LIMIT - 1) // LIST_LIMIT
@@ -197,6 +283,13 @@ class GoogleDriveClean(GoogleDriveHelper):
                 buttons.data_button(i, f"gdc ps {i}", position="header")
             buttons.data_button("<< Previous", "gdc pre", position="footer")
             buttons.data_button("Next >>", "gdc nex", position="footer")
+        if items_no > 0:
+            buttons.data_button(
+                "⚠️ Delete All",
+                "gdc purge_confirm",
+                position="footer",
+                style=ButtonStyle.DANGER,
+            )
         if len(self.parents) > 1:
             buttons.data_button("Back", "gdc back", position="footer")
         if len(self.parents) > 1:
@@ -240,7 +333,10 @@ class GoogleDriveClean(GoogleDriveHelper):
             return
         self.items_list = natsorted(files)
         self.iter_start = 0
-        await self.get_items_buttons()
+        if self.purge_all:
+            await self.purge_current_folder(self.listener.user_id)
+        else:
+            await self.get_items_buttons()
 
     async def list_drives(self):
         self.service = self.authorize()
