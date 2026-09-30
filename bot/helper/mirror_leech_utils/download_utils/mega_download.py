@@ -332,7 +332,9 @@ async def add_mega_download(listener, path):
                     for root, dirs, files in os.walk(download_path):
                         for filename in files:
                             try:
-                                local_size += os.path.getsize(os.path.join(root, filename))
+                                local_size += os.path.getsize(
+                                    os.path.join(root, filename)
+                                )
                             except OSError:
                                 pass
                 elif os.path.isfile(download_path):

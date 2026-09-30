@@ -106,14 +106,37 @@ def _cache_trim(aggressive=False):
 register_cache("stream", _cache_bytes, _cache_trim)
 _vtt_inflight = {}
 _LANG = {
-    "eng": "English", "jpn": "Japanese", "spa": "Spanish", "fre": "French",
-    "fra": "French", "ger": "German", "deu": "German", "ita": "Italian",
-    "por": "Portuguese", "rus": "Russian", "hin": "Hindi", "tam": "Tamil",
-    "tel": "Telugu", "ben": "Bengali", "kor": "Korean", "chi": "Chinese",
-    "zho": "Chinese", "ara": "Arabic", "tur": "Turkish", "pol": "Polish",
-    "dut": "Dutch", "nld": "Dutch", "swe": "Swedish", "tha": "Thai",
-    "vie": "Vietnamese", "ind": "Indonesian", "mal": "Malayalam",
-    "kan": "Kannada", "mar": "Marathi", "urd": "Urdu", "fil": "Filipino",
+    "eng": "English",
+    "jpn": "Japanese",
+    "spa": "Spanish",
+    "fre": "French",
+    "fra": "French",
+    "ger": "German",
+    "deu": "German",
+    "ita": "Italian",
+    "por": "Portuguese",
+    "rus": "Russian",
+    "hin": "Hindi",
+    "tam": "Tamil",
+    "tel": "Telugu",
+    "ben": "Bengali",
+    "kor": "Korean",
+    "chi": "Chinese",
+    "zho": "Chinese",
+    "ara": "Arabic",
+    "tur": "Turkish",
+    "pol": "Polish",
+    "dut": "Dutch",
+    "nld": "Dutch",
+    "swe": "Swedish",
+    "tha": "Thai",
+    "vie": "Vietnamese",
+    "ind": "Indonesian",
+    "mal": "Malayalam",
+    "kan": "Kannada",
+    "mar": "Marathi",
+    "urd": "Urdu",
+    "fil": "Filipino",
 }
 
 
@@ -189,9 +212,21 @@ async def _wait_quietly(proc):
 
 async def _ffprobe(raw):
     proc = await create_subprocess_exec(
-        *_nice(["ffprobe", "-hide_banner", "-loglevel", "error",
-                "-print_format", "json", "-show_streams", "-"]),
-        stdin=PIPE, stdout=PIPE, stderr=PIPE,
+        *_nice(
+            [
+                "ffprobe",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-print_format",
+                "json",
+                "-show_streams",
+                "-",
+            ]
+        ),
+        stdin=PIPE,
+        stdout=PIPE,
+        stderr=PIPE,
     )
     try:
         try:
@@ -234,9 +269,7 @@ async def _build_probe(cid, mid):
             codec = (st_.get("codec_name") or "").lower()
             if codec in ("dvd_subtitle", "hdmv_pgs_subtitle", "dvb_subtitle"):
                 continue
-            subtitle.append(
-                {"index": seat, "title": _title(st_, len(subtitle))}
-            )
+            subtitle.append({"index": seat, "title": _title(st_, len(subtitle))})
     result = {"audio": audio, "subtitle": subtitle}
     _probe_cache[key] = result
     while len(_probe_cache) > _PROBE_KEEP:
@@ -359,9 +392,7 @@ async def _neighbours(token):
         "prev": None,
         "next": None,
     }
-    around = [
-        items[at] for at in (idx - 1, idx + 1) if 0 <= at < len(items)
-    ]
+    around = [items[at] for at in (idx - 1, idx + 1) if 0 <= at < len(items)]
     found = await _locate(around) if around else {}
     for key, at in (("prev", idx - 1), ("next", idx + 1)):
         if at < 0 or at >= len(items):
@@ -580,9 +611,7 @@ def _nice(args):
 async def _spawn_ffmpeg(args, what):
     args = _nice(args)
     try:
-        proc = await create_subprocess_exec(
-            *args, stdin=PIPE, stdout=PIPE, stderr=PIPE
-        )
+        proc = await create_subprocess_exec(*args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
     except FileNotFoundError:
         LOGGER.error(f"{what} failed: {BinConfig.FFMPEG_NAME} not found on PATH")
         raise web.HTTPServiceUnavailable(
@@ -979,10 +1008,23 @@ async def _subs(request):
     spare = await _spare_tracks(cid, mid, idx)
     stage = mkdtemp(prefix="wzx-vtt-") if spare else None
     args = [
-        BinConfig.FFMPEG_NAME, "-hide_banner", "-loglevel", "error",
-        "-threads", "1", "-vn", "-an",
-        "-i", "pipe:0", "-map", f"0:s:{idx}",
-        "-f", "webvtt", "-flush_packets", "1", "pipe:1",
+        BinConfig.FFMPEG_NAME,
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-threads",
+        "1",
+        "-vn",
+        "-an",
+        "-i",
+        "pipe:0",
+        "-map",
+        f"0:s:{idx}",
+        "-f",
+        "webvtt",
+        "-flush_packets",
+        "1",
+        "pipe:1",
     ]
     for j in spare:
         args += ["-map", f"0:s:{j}", "-f", "webvtt", pathjoin(stage, f"{j}.vtt")]
@@ -1059,9 +1101,7 @@ async def _subs(request):
             _vtt_keep(key, data)
             if not done.done():
                 done.set_result(data)
-            LOGGER.info(
-                f"subtitle track cached: {cid}/{mid}/{idx} ({len(data)} bytes)"
-            )
+            LOGGER.info(f"subtitle track cached: {cid}/{mid}/{idx} ({len(data)} bytes)")
     except (ConnectionResetError, ConnectionError, CancelledError):
         LOGGER.debug(f"subtitle stream aborted: {cid}/{mid}")
     finally:

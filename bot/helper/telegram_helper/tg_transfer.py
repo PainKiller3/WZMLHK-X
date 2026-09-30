@@ -17,6 +17,7 @@ _global_work_loads = None
 class NoHelperClient(Exception):
     pass
 
+
 _MEDIA_ATTRS = (
     "audio",
     "document",
@@ -117,9 +118,7 @@ class MtprotoPool:
                         except AuthBytesInvalid:
                             await sleep(1)
                     else:
-                        raise RuntimeError(
-                            f"Auth export/import failed for DC {dc_id}"
-                        )
+                        raise RuntimeError(f"Auth export/import failed for DC {dc_id}")
                 except BaseException:
                     try:
                         await s.stop()

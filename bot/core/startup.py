@@ -245,9 +245,7 @@ async def load_settings():
                 for key in dead:
                     await database.update_user_doc(uid, key)
             if migrated:
-                LOGGER.info(
-                    f"Cleared deprecated settings for {len(migrated)} user(s)"
-                )
+                LOGGER.info(f"Cleared deprecated settings for {len(migrated)} user(s)")
 
         if rss_exists:
             rows = database.db.rss[PART].find({})
@@ -416,10 +414,12 @@ async def load_configurations():
             access_pwd = token_bytes(32).hex()
             Config.WEB_ACCESS_PASSWORD = access_pwd
         env = f"WEB_ACCESS_PASSWORD={access_pwd} "
-        bot_loop.create_task(cmd_exec(
-            f"{env}gunicorn -k uvicorn.workers.UvicornWorker -w 1 web.wserver:app --bind 0.0.0.0:{PORT}",
-            shell=True,
-        ))
+        bot_loop.create_task(
+            cmd_exec(
+                f"{env}gunicorn -k uvicorn.workers.UvicornWorker -w 1 web.wserver:app --bind 0.0.0.0:{PORT}",
+                shell=True,
+            )
+        )
         bot_loop.create_task(cmd_exec("python3 cron_boot.py", shell=True))
 
     if Config.DISABLE_STREAM:

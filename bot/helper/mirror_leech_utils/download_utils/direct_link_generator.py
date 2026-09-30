@@ -399,7 +399,9 @@ def transfer_it(url):
     api = "https://g.api.mega.co.nz/cs"
     with CurlSession(impersonate="chrome") as session:
         try:
-            info = session.post(api, params={"x": xh}, json=[{"a": "xi", "xh": xh}]).json()[0]
+            info = session.post(
+                api, params={"x": xh}, json=[{"a": "xi", "xh": xh}]
+            ).json()[0]
             name = b64decode(
                 info["t"].replace("-", "+").replace("_", "/") + "=="
             ).decode()

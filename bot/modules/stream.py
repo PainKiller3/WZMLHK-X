@@ -506,9 +506,7 @@ async def stream_links(_, message):
         return
 
     if args["playlist"]:
-        title = args["name"] or (
-            getattr(minted[0][1], "file_name", "") or "Playlist"
-        )
+        title = args["name"] or (getattr(minted[0][1], "file_name", "") or "Playlist")
         await database.add_playlist(
             pl_token, title, [t for t, _m in minted], poster, exp
         )

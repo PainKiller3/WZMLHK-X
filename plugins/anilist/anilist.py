@@ -80,7 +80,7 @@ async def anime_command(_, message):
 def _tags(media):
     return "<b>Tags :</b>\n\n" + "\n".join(
         f'<a href="https://anilist.co/search/anime?genres={quote(tag["name"])}">'
-        f'{tag["name"]}</a> {tag["rank"]}%'
+        f"{tag['name']}</a> {tag['rank']}%"
         for tag in media.get("tags") or []
     )
 
@@ -96,8 +96,8 @@ def _reviews(media):
     nodes = (media.get("reviews") or {}).get("nodes") or []
     return "<b>Reviews :</b>\n\n" + "\n\n".join(
         f'<a href="{item["siteUrl"]}">{item["summary"]}</a>\n'
-        f'<b>Score :</b> <code>{item["score"]} / 100</code>\n'
-        f'<i>By {item["user"]["name"]}</i>'
+        f"<b>Score :</b> <code>{item['score']} / 100</code>\n"
+        f"<i>By {item['user']['name']}</i>"
         for item in nodes[:8]
     )
 
@@ -110,7 +110,7 @@ def _relations(media):
         title = node.get("title") or {}
         rows.append(
             f'<a href="{node.get("siteUrl")}">{title.get("english") or title.get("romaji")}</a>'
-            f' ({title.get("romaji")})\n'
+            f" ({title.get('romaji')})\n"
             f"<b>Format</b>: <code>{(node.get('format') or '').capitalize()}</code>\n"
             f"<b>Status</b>: <code>{(node.get('status') or '').capitalize()}</code>\n"
             f"<b>Average Score</b>: <code>{node.get('averageScore')}%</code>\n"
@@ -128,7 +128,7 @@ def _characters(media):
         name = node.get("name") or {}
         rows.append(
             f'• <a href="{node.get("siteUrl")}">{name.get("full")}</a>'
-            f' ({name.get("native")})\n'
+            f" ({name.get('native')})\n"
             f"<b>Role :</b> {(edge.get('role') or '').capitalize()}"
         )
     return "<b>List of Characters :</b>\n\n" + "\n\n".join(rows)

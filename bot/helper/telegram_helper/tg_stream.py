@@ -454,9 +454,7 @@ class HypertgStream:
 
     async def open(self):
         key = (self.chat_id, self.msg_id, self.viewer) if self.viewer else None
-        picked, loads = await POOL.acquire(
-            self.prof, self.prof.clients, sticky_key=key
-        )
+        picked, loads = await POOL.acquire(self.prof, self.prof.clients, sticky_key=key)
         self._idxs = picked
         self._book = [(ci, loads) for ci in picked]
         try:
