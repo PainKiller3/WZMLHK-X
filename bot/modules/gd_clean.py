@@ -7,6 +7,7 @@ from ..helper.ext_utils.links_utils import is_gdrive_link
 from ..helper.listeners.task_listener import TaskListener
 from ..helper.mirror_leech_utils.gdrive_utils.clean import GoogleDriveClean
 from ..helper.telegram_helper.button_build import ButtonMaker
+from ..helper.telegram_helper.filters import CustomFilters
 from ..helper.telegram_helper.message_utils import (
     edit_message,
     open_drive_clean,
@@ -22,10 +23,16 @@ class GDClean(TaskListener):
 
     async def new_event(self):
         args = self.message.text.split()
-        arg_base = {"link": "", "-gc": ""}
+        arg_base = {"link": "", "-gc": "", "-all": False, "-purge": False}
         arg_parser(args[1:], arg_base)
         link = arg_base["link"]
         gc_name = arg_base["-gc"]
+        purge_all = arg_base["-all"] or arg_base["-purge"]
+        if purge_all and not await CustomFilters.sudo("", self.message):
+            return await send_message(
+                self.message,
+                "Sudo permission required to purge all files/folders in GDrive!",
+            )
         if reply_to := self.message.reply_to_message:
             reply_text = reply_to.text or reply_to.caption or ""
             if reply_text:
@@ -33,10 +40,10 @@ class GDClean(TaskListener):
         if link and not is_gdrive_link(link):
             return await send_message(
                 self.message,
-                "Provide a valid GDrive link or use /gdclean -gc <category>",
+                "Provide a valid GDrive link or use /gdclean -gc <category> [-all|-purge]",
             )
         self.link = link
-        obj = GoogleDriveClean(self)
+        obj = GoogleDriveClean(self, purge_all=purge_all)
         if gc_name:
             cat_name = gc_name.replace("_", " ")
             default_id = (

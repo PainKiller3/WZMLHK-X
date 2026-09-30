@@ -252,6 +252,8 @@ def arg_parser(items, arg_base):
         "-ad",
         "-seedr",
         "-fwd",
+        "-all",
+        "-purge",
     }
     if Config.DISABLE_BULK and "-b" in items:
         arg_base["-b"] = False
@@ -288,6 +290,8 @@ def arg_parser(items, arg_base):
                     "-yt",
                     "-ad",
                     "-fwd",
+                    "-all",
+                    "-purge",
                 ]
             ):
                 arg_base[part] = True
