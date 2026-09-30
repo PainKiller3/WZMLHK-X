@@ -21,6 +21,7 @@ class BotCommands:
         "Clone": ["clone", "cl"],
         "Count": "count",
         "Delete": "del",
+        "GDClean": ["gdclean", "gdc"],
         "List": "list",
         "Search": "search",
         "Users": "users",

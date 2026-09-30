@@ -60,6 +60,7 @@ qb_torrents = {}
 jd_downloads = {}
 nzb_jobs = {}
 user_data = {}
+categories_dict = {}
 aria2_options = {}
 qbit_options = {}
 nzb_options = {}

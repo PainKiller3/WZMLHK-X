@@ -248,6 +248,16 @@ def update_user_ldata(id_, key, value):
     user_data[id_][key] = value
 
 
+def fetch_drive_cat(user_id, force=False):
+    user_dict = user_data.get(user_id, {})
+    if (
+        getattr(Config, "DRIVE_CATEGORY_MODE", False)
+        and user_dict.get("drive_cat_mode", False)
+    ) or force:
+        return user_dict.get("DRIVE_CAT", {})
+    return {}
+
+
 async def cmd_exec(cmd, shell=False):
     if shell:
         proc = await create_subprocess_shell(cmd, stdout=PIPE, stderr=PIPE)

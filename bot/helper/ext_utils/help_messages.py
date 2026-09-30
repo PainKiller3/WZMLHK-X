@@ -481,6 +481,10 @@ def get_help_string():
             help_lines.append(
                 f"{cmd_str} [drive_url]: Delete file/folder from Google Drive (Only Owner & Sudo)."
             )
+        elif key == "GDClean":
+            help_lines.append(
+                f"{cmd_str} [drive_url]: Clean file/folder from Google Drive interactively."
+            )
         elif key == "UserSet":
             help_lines.append(f"{cmd_str} [query]: Users settings.")
         elif key == "BotSet":

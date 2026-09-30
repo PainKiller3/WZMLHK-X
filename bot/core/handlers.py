@@ -141,6 +141,16 @@ def add_handlers():
     )
     TgClient.bot.add_handler(
         MessageHandler(
+            drive_clean,
+            filters=command(BotCommands.GDCleanCommand, case_sensitive=True)
+            & CustomFilters.authorized,
+        )
+    )
+    TgClient.bot.add_handler(
+        CallbackQueryHandler(confirm_drive_clean_cb, filters=regex("^gdccat"))
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
             gdrive_search,
             filters=command(BotCommands.ListCommand, case_sensitive=True)
             & CustomFilters.authorized,
