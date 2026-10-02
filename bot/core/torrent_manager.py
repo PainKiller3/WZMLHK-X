@@ -97,10 +97,17 @@ class TorrentManager:
             cls._qbit_process = await create_subprocess_exec(
                 BinConfig.QBIT_NAME, "-d", f"--profile={getcwd()}/configs/qbittorrent"
             )
-            await sleep(2)
-            LOGGER.info("qBittorrent started !")
-
-            cls.qbittorrent = await create_client("http://localhost:8090/api/v2/")
+            for attempt in range(15):
+                try:
+                    await sleep(1)
+                    cls.qbittorrent = await create_client(
+                        "http://localhost:8090/api/v2/"
+                    )
+                    LOGGER.info("qBittorrent started !")
+                    break
+                except Exception:
+                    if attempt == 14:
+                        raise
             cls.qbittorrent = wrap_with_retry(cls.qbittorrent)
             await cls._auth_qbit()
 
