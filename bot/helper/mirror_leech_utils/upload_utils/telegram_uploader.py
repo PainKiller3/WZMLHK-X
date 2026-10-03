@@ -133,27 +133,107 @@ class TelegramUploader:
         orig_filename = orig_filenames.get(
             pre_file_
         ) or self._listener.file_details.get("orig_filename")
-        cap_file_ = (
-            orig_filename if (orig_filename and self._smart_autorename) else pre_file_
-        )
+
         file_ = pre_file_
         lprefix = self._lprefix
         lsuffix = self._lsuffix
         lcaption = self._lcaption
 
+        display_orig = (
+            orig_filename
+            or self._listener.file_details.get("orig_filename")
+            or pre_file_
+        )
+
+        smart_meta = (
+            self._listener.file_details.get("smart_metadata", {}).get(pre_file_) or {}
+        )
+        if not smart_meta and (self._smart_autorename or orig_filename):
+            try:
+                from ...ext_utils.smart_autorename import (
+                    parse_smart_filename,
+                    SmartMediaMetadata,
+                    SmartFilenameBuilder,
+                )
+
+                ctx = parse_smart_filename(display_orig)
+                builder = SmartFilenameBuilder()
+                snapshot = builder.build_snapshot(
+                    display_orig, ctx, None, SmartMediaMetadata()
+                )
+                v1_fallback = builder.render_v1(
+                    snapshot, prefix=self._lprefix, suffix=self._lsuffix
+                )
+                v2_fallback = builder.render_v2(
+                    snapshot, prefix=self._lprefix, suffix=self._lsuffix
+                )
+                smart_meta = {
+                    "show_name": snapshot.title or "",
+                    "season": f"{snapshot.season:02d}"
+                    if snapshot.season is not None
+                    else "",
+                    "episode": f"{snapshot.episode_start:02d}"
+                    if snapshot.episode_start is not None
+                    else "",
+                    "title": snapshot.episode_title or "",
+                    "year": str(snapshot.year or ""),
+                    "source": snapshot.ott
+                    or (snapshot.source_tokens[0] if snapshot.source_tokens else ""),
+                    "codec": ", ".join(snapshot.codec_tokens)
+                    if snapshot.codec_tokens
+                    else "",
+                    "encoder": ", ".join(snapshot.encoder_tokens)
+                    if snapshot.encoder_tokens
+                    else "",
+                    "quality": snapshot.quality or "",
+                    "bit_depth": snapshot.bit_depth or "",
+                    "audio_summary": snapshot.audio_summary or "",
+                    "subtitle": snapshot.subtitle_summary or "",
+                    "split_suffix": snapshot.split_suffix or "",
+                    "smartcaption": v2_fallback or display_orig,
+                    "smartcaptionv1": v1_fallback or display_orig,
+                    "smartcaptionv2": v2_fallback or display_orig,
+                }
+            except Exception:
+                smart_meta = {}
+
+        smartcaption_val = smart_meta.get("smartcaption") or display_orig
+        smartcaption_v1_val = smart_meta.get("smartcaptionv1") or smartcaption_val
+        smartcaption_v2_val = smart_meta.get("smartcaptionv2") or smartcaption_val
+
+        from ...ext_utils.smart_autorename import split_media_filename
+
+        _, _, s_suf = split_media_filename(pre_file_)
+        if s_suf:
+            if not smartcaption_val.endswith(s_suf):
+                smartcaption_val = f"{smartcaption_val}{s_suf}"
+            if not smartcaption_v1_val.endswith(s_suf):
+                smartcaption_v1_val = f"{smartcaption_v1_val}{s_suf}"
+            if not smartcaption_v2_val.endswith(s_suf):
+                smartcaption_v2_val = f"{smartcaption_v2_val}{s_suf}"
+
+        cap_file_ = (
+            smartcaption_val
+            if (self._smart_autorename and smartcaption_val)
+            else (
+                orig_filename
+                if (orig_filename and self._smart_autorename)
+                else pre_file_
+            )
+        )
+
         if lprefix:
-            cap_file_ = lprefix.replace(r"\s", " ") + file_
+            cap_file_ = lprefix.replace(r"\s", " ") + cap_file_
             lprefix = re_sub(r"<.*?>", "", lprefix).replace(r"\s", " ")
             if not file_.startswith(lprefix):
                 file_ = f"{lprefix}{file_}"
 
         if lsuffix:
-            split_match = re_match(
-                r"(?i)(?P<stem>.*?)(?P<ext>\.(?:mkv|mp4|webm|avi|flv|mov|m4v|3gp|ts|m2ts|wmv|asf))(?P<split>\.0*\d+)$",
-                cap_file_,
-            )
-            if split_match:
-                cap_file_ = f"{split_match.group('stem')}{lsuffix.replace(r'\\s', ' ')}{split_match.group('ext')}{split_match.group('split')}"
+            split_stem, split_ext, split_part = split_media_filename(cap_file_)
+            if split_part:
+                cap_file_ = (
+                    f"{split_stem}{lsuffix.replace(r'\\s', ' ')}{split_ext}{split_part}"
+                )
             else:
                 name, ext = ospath.splitext(cap_file_)
                 cap_file_ = name + lsuffix.replace(r"\s", " ") + ext
@@ -164,8 +244,9 @@ class TelegramUploader:
             if Config.LEECH_FONT
             else cap_file_
         )
-        if orig_filename and self._smart_autorename:
+        if (orig_filename or smartcaption_val) and self._smart_autorename:
             cap_mono = f"<blockquote>{cap_mono}</blockquote>"
+
         if lcaption:
             lcaption = re_sub(
                 r"(\\\||\\\{|\\\}|\\s)",
@@ -181,42 +262,22 @@ class TelegramUploader:
             )
             up_path = ospath.join(dirpath, pre_file_)
             dur, qual, lang, subs = await get_media_info(up_path, True)
-            display_orig = (
-                orig_filename
-                or self._listener.file_details.get("orig_filename")
-                or pre_file_
-            )
             display_filename = file_ if self._smart_autorename else cap_file_
-            smart_meta = (
-                self._listener.file_details.get("smart_metadata", {}).get(pre_file_)
-                or {}
-            )
-            if not smart_meta and (self._smart_autorename or orig_filename):
-                try:
-                    from ...ext_utils.smart_autorename import parse_smart_filename
 
-                    ctx = parse_smart_filename(display_orig)
-                    smart_meta = {
-                        "show_name": ctx.title or "",
-                        "season": f"{ctx.season:02d}" if ctx.season is not None else "",
-                        "episode": f"{ctx.episode_start:02d}"
-                        if ctx.episode_start is not None
-                        else "",
-                        "title": "",
-                        "year": str(ctx.year or ""),
-                        "source": ctx.ott or "",
-                        "codec": ctx.filename_codec or "",
-                    }
-                except Exception:
-                    smart_meta = {}
+            class SafeDict(dict):
+                def __missing__(self, key):
+                    return f"{{{key}}}"
 
-            cap_mono = parts[0].format(
+            format_data = SafeDict(
                 filename=display_filename,
                 orig_filename=display_orig,
                 smart_filename=pre_file_,
+                smartcaption=smartcaption_val,
+                smartcaptionv1=smartcaption_v1_val,
+                smartcaptionv2=smartcaption_v2_val,
                 size=get_readable_file_size(await aiopath.getsize(up_path)),
                 duration=get_readable_time(dur),
-                quality=qual,
+                quality=smart_meta.get("quality") or qual,
                 languages=lang,
                 subtitles=subs,
                 md5_hash=await sync_to_async(get_md5_hash, up_path),
@@ -230,7 +291,13 @@ class TelegramUploader:
                 year=smart_meta.get("year", ""),
                 source=smart_meta.get("source", ""),
                 codec=smart_meta.get("codec", ""),
+                encoder=smart_meta.get("encoder", ""),
+                bit_depth=smart_meta.get("bit_depth", ""),
+                audio_summary=smart_meta.get("audio_summary", ""),
+                subtitle=smart_meta.get("subtitle", ""),
+                split_suffix=smart_meta.get("split_suffix", ""),
             )
+            cap_mono = parts[0].format_map(format_data)
 
             for part in parts[1:]:
                 if not part:

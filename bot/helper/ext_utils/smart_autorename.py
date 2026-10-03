@@ -59,12 +59,62 @@ class SmartFilenameContext:
 
 
 @dataclass
+class AudioTrackDetail:
+    index: int
+    languages: str
+    codec: str
+    channels: str
+    bitrate: Optional[str] = None
+    flags: tuple[str, ...] = ()
+
+
+@dataclass
 class SmartMediaMetadata:
     quality: Optional[str] = None
     video_codec: Optional[str] = None
     audio_language: Optional[str] = None
     subtitle_languages: tuple[str, ...] = ()
     has_english_subtitle: bool = False
+    audio_count: int = 0
+    subtitle_count: int = 0
+    audio_tracks_detail: tuple[AudioTrackDetail, ...] = ()
+    subtitle_flags: tuple[str, ...] = ()
+
+
+@dataclass
+class MetadataSnapshot:
+    original_filename: str
+    title: str
+    year: Optional[str] = None
+    season: Optional[int] = None
+    episode_start: Optional[int] = None
+    episode_end: Optional[int] = None
+    episode_title: Optional[str] = None
+    media_type: SmartMediaType = SmartMediaType.UNKNOWN
+    is_anime: bool = False
+
+    quality: Optional[str] = None
+    source_tokens: tuple[str, ...] = ()
+    encoder_tokens: tuple[str, ...] = ()
+    codec_tokens: tuple[str, ...] = ()
+    bit_depth: Optional[str] = None
+    hdr: Optional[str] = None
+    fps: Optional[str] = None
+    edition_flags: tuple[str, ...] = ()
+
+    audio_track_count: int = 0
+    audio_summary: str = ""
+    audio_tracks: tuple[AudioTrackDetail, ...] = ()
+    explicit_release_audio_label: Optional[str] = None
+
+    subtitle_track_count: int = 0
+    subtitle_summary: str = ""
+    subtitle_languages: tuple[str, ...] = ()
+    subtitle_flags: tuple[str, ...] = ()
+
+    ott: Optional[str] = None
+    extension: str = ".mkv"
+    split_suffix: str = ""
 
 
 @dataclass
@@ -82,9 +132,17 @@ class SmartNameParts:
     split_suffix: str = ""
 
 
-_VIDEO_EXT_RE = re.compile(
-    r"(?i)(?P<ext>\.(?:mkv|mp4|avi|webm|flv|mov|m4v|3gp|ts|m2ts|wmv|asf|divx|ogv|vob|mpg|mpeg))(?P<split>\.0*\d+)?$"
+_MEDIA_EXT_PATTERN = r"\.(?:mkv|mp4|avi|webm|flv|mov|m4v|3gp|ts|m2ts|wmv|asf|divx|ogv|vob|mpg|mpeg|rar|zip|7z|tar|gz|iso)"
+
+_SPLIT_PATTERN_RE = re.compile(
+    r"(?i)(?:"
+    r"(?P<part_pre>\.part\d+)(?P<ext1>" + _MEDIA_EXT_PATTERN + r")|"
+    r"(?P<ext2>" + _MEDIA_EXT_PATTERN + r")(?P<split_post>\.(?:part\d+|\d+))|"
+    r"(?P<standalone>\.(?:part\d+|\d+))"
+    r")$"
 )
+
+_VIDEO_EXT_RE = _SPLIT_PATTERN_RE
 
 _RANGE_RE = re.compile(
     r"(?i)(?:^|[\s_.-])S(?P<season>\d{1,2})\s*E(?P<start>\d{1,4})\s*(?:-|–|~|\+|&|,|to|and)\s*E?(?P<end>\d{1,4})\b"
@@ -102,7 +160,6 @@ _ANIME_RANGE_RE = re.compile(
 _ANIME_SINGLE_RE = re.compile(
     r"(?i)(?:^|[\s_.-])(?P<prefix>-\s*|(?:E|EP|Episode)\.?\s*)(?P<episode>\d{1,4})(?=\s*v\d+)?(?=[\s_.\-\]\)]|$)"
 )
-
 
 _YEAR_RE = re.compile(r"(?<!\d)(?:19|20)\d{2}(?!\d)")
 
@@ -203,12 +260,20 @@ LANGUAGE_NAME_MAP = {
 
 def split_media_filename(filename: str) -> tuple[str, str, str]:
     """Return (logical_stem, extension, split_suffix)."""
-    match = _VIDEO_EXT_RE.search(filename)
+    match = _SPLIT_PATTERN_RE.search(filename)
     if match:
-        logical_stem = filename[: match.start()]
-        extension = match.group("ext")
-        split_suffix = match.group("split") or ""
-        return logical_stem, extension.lower(), split_suffix
+        stem = filename[: match.start()]
+        if match.group("part_pre"):
+            ext = match.group("ext1").lower()
+            split = f"{match.group('part_pre')}{match.group('ext1')}"
+            return stem, ext, split
+        elif match.group("ext2"):
+            ext = match.group("ext2").lower()
+            split = match.group("split_post")
+            return stem, ext, split
+        elif match.group("standalone"):
+            split = match.group("standalone")
+            return stem, "", split
 
     path_stem, path_ext = ospath.splitext(filename)
     return path_stem, path_ext.lower(), ""
@@ -253,7 +318,7 @@ def normalize_language(lang_code: str | None) -> str | None:
 
 
 _SITE_TAGS_RE = re.compile(
-    r"(?i)\b(?:www\.)?[\w-]+\.(?:com|net|org|xyz|me|in|to|co|cc|info|tv|link|app|online|site|club|work|icu|top|vip|pro|party|fun|cam|lol|sbs|ws|is|download|store|page|click|live)\b|\b(?:vegamovies|1xbet|9xmovies|yts|rarbg|psa|bolly4u|desiremovies|hdhub4u|mkvking|katmoviehd|worldfree4u|filmyzilla|skymovieshd|uwatchfree)\b"
+    r"(?i)\b(?:www\.)?[\w-]+\.(?:com|net|org|xyz|me|in|to|co|cc|info|tv|link|app|online|site|club|work|icu|top|vip|pro|party|fun|cam|lol|sbs|ws|is|download|store|page|click|live|ms|ai)\b|\b(?:vegamovies|1xbet|9xmovies|yts|rarbg|psa|bolly4u|desiremovies|hdhub4u|mkvking|katmoviehd|worldfree4u|filmyzilla|skymovieshd|uwatchfree|moviesmod)\b"
 )
 
 
@@ -484,19 +549,57 @@ async def probe_smart_media_metadata(
 
     audio_language = None
     subtitle_languages = []
+    subtitle_flags = []
+    audio_count = 0
+    subtitle_count = 0
+    audio_tracks_detail = []
 
     for stream in streams:
         codec_type = stream.get("codec_type")
-        language = ((stream.get("tags") or {}).get("language") or "").strip()
+        tags = stream.get("tags") or {}
+        language = (tags.get("language") or "").strip()
 
-        if codec_type == "audio" and not audio_language and language:
-            if language.lower() not in {"und", "unknown", "none"}:
-                audio_language = normalize_language(language)
+        if codec_type == "audio":
+            audio_count += 1
+            lang_norm = normalize_language(language) or "Unknown"
+            if not audio_language and language:
+                if language.lower() not in {"und", "unknown", "none"}:
+                    audio_language = lang_norm
 
-        elif codec_type == "subtitle" and language:
-            normalized = normalize_language(language)
-            if normalized:
-                subtitle_languages.append(normalized)
+            acodec = (stream.get("codec_name") or "AAC").upper()
+            if acodec == "EAC3":
+                acodec = "E-AC3"
+            ch_num = stream.get("channels") or 2
+            ch_str = "5.1" if ch_num == 6 else ("7.1" if ch_num == 8 else "2.0")
+            bitrate = None
+            bps = tags.get("BPS") or tags.get("bit_rate") or stream.get("bit_rate")
+            if bps and str(bps).isdigit():
+                bps_val = int(bps) // 1000
+                if bps_val > 0:
+                    bitrate = f"{bps_val}Kbps"
+
+            audio_tracks_detail.append(
+                AudioTrackDetail(
+                    index=audio_count,
+                    languages=lang_norm,
+                    codec=acodec,
+                    channels=ch_str,
+                    bitrate=bitrate,
+                )
+            )
+
+        elif codec_type == "subtitle":
+            subtitle_count += 1
+            disp = stream.get("disposition") or {}
+            if disp.get("forced"):
+                subtitle_flags.append("Forced")
+            if disp.get("hearing_impaired"):
+                subtitle_flags.append("SDH")
+
+            if language:
+                normalized = normalize_language(language)
+                if normalized:
+                    subtitle_languages.append(normalized)
 
     height = None
     codec = None
@@ -513,12 +616,17 @@ async def probe_smart_media_metadata(
         audio_language=audio_language or ctx.filename_audio,
         subtitle_languages=tuple(subtitle_languages),
         has_english_subtitle=english or ctx.filename_esubs,
+        audio_count=audio_count,
+        subtitle_count=subtitle_count,
+        audio_tracks_detail=tuple(audio_tracks_detail),
+        subtitle_flags=tuple(set(subtitle_flags)),
     )
 
 
 def clean_component(value: str) -> str:
     value = re.sub(r"[<>:\"/\\|?*]", " ", str(value))
-    value = re.sub(r"[-–—]", " ", value)
+    # Replace en-dash / em-dash / isolated hyphens with space while preserving hyphenated technical tokens (e.g. WEB-DL)
+    value = re.sub(r"(?<!\w)[-–—]|[-–—](?!\w)", " ", value)
     value = re.sub(r"[.]+", " ", value)
     value = re.sub(r"\s+", ".", value).strip(".")
     return value
@@ -690,6 +798,419 @@ class SmartFilenameBuilder:
             extension=ctx.media_extension,
             split_suffix=ctx.split_suffix,
         )
+
+    def build_snapshot(
+        self,
+        original_filename: str,
+        ctx: SmartFilenameContext,
+        canonical: Optional[CanonicalMetadata],
+        media: SmartMediaMetadata,
+    ) -> MetadataSnapshot:
+        parts = self.make_parts(ctx, canonical, media)
+        title = (
+            (canonical.series_title or canonical.title if canonical else None)
+            or (parts.title if parts else ctx.title)
+            or ""
+        )
+        ep_title = (canonical.episode_title if canonical else None) or (
+            parts.episode_title if parts else ""
+        )
+        year = str((canonical.year if canonical else None) or ctx.year or "") or None
+
+        stem_source, ext, split_suffix = split_media_filename(original_filename)
+        stem_clean = _SITE_TAGS_RE.sub(" ", stem_source)
+        stem_clean = re.sub(r"https?://\S+", " ", stem_clean, flags=re.I)
+
+        tech_pattern = re.compile(
+            r"(?i)\b("
+            r"480p|540p|576p|720p|1080p|1440p|2160p|4320p|4k|"
+            r"hevc|h\.?265|h\.?264|x265|x264|avc1?|av1|vp9|vp8|"
+            r"10bit|8bit|hdr\d*|sdr|dovi|dolbyvision|open\s*matte|remastered|60fps|ds\d*k?|uhd|remux|imax|"
+            r"unrated|extended|uncut|untouched|directors\s*cut|theatrical\s*cut|upscaled|"
+            r"web[- ]?dl|web[- ]?rip|bluray|brrip|hdrip|dvdrip|hdtvrip|hdtv|tv-dl|predvd|s-print|hdts|pre-hd|"
+            r"amzn|amazon|nf|netflix|cr|crunchyroll|sm|shemaroo|hs|hotstar|hstar|mxp|crav|snxt|zee5|jc|jiocinema|it|itunes|atv|apple\s*tv|dsnp|disney\+?|hmax|hulu|pcok|peacock|sonyliv|bms|"
+            r"ddp\d*\.?\d*|dd\+?\d*\.?\d*|ac3\d*\.?\d*|aac\d*\.?\d*|dts(?:-hd)?(?:\s*ma)?|truehd|opus|flac|mp3|"
+            r"hindi|english|tamil|telugu|malayalam|kannada|marathi|bengali|punjabi|japanese|korean|spanish|french|german|chinese|italian|russian|"
+            r"dual\s*audio|multi\s*audio|\d+\s*dubs|multi\s*sub|esubs?|engsubs?|msubs?|hc-subs?|sdh|forced"
+            r")\b"
+        )
+
+        sources = []
+        encoders = []
+        codecs = []
+        bit_depth = None
+        hdr = None
+        flags = []
+        explicit_audio_label = None
+
+        for m in tech_pattern.finditer(stem_clean):
+            tok = m.group(0).strip(" ._-")
+            tok_l = tok.lower()
+            if tok_l in {
+                "web-dl",
+                "webdl",
+                "web-rip",
+                "webrip",
+                "bluray",
+                "bdrip",
+                "brrip",
+                "hdrip",
+                "dvdrip",
+                "hdtv",
+                "hdtvrip",
+                "remux",
+            }:
+                sources.append(tok)
+            elif tok_l in {"x265", "x264"}:
+                encoders.append(tok)
+            elif tok_l in {
+                "hevc",
+                "h.265",
+                "h265",
+                "h.264",
+                "h264",
+                "avc",
+                "avc1",
+                "av1",
+                "vp9",
+                "vp8",
+            }:
+                codecs.append(tok)
+            elif tok_l in {"10bit", "8bit"}:
+                bit_depth = tok
+            elif tok_l in {"hdr", "sdr", "dovi", "dolbyvision", "dv"}:
+                hdr = tok
+            elif tok_l in {
+                "ds4k",
+                "ds2k",
+                "open matte",
+                "remastered",
+                "60fps",
+                "imax",
+                "unrated",
+                "extended",
+                "uncut",
+                "untouched",
+                "directors cut",
+                "theatrical cut",
+            }:
+                flags.append(tok)
+            elif "multi" in tok_l and "audio" in tok_l:
+                explicit_audio_label = "MultiAudio"
+            elif "dual" in tok_l and "audio" in tok_l:
+                explicit_audio_label = "DualAudio"
+
+        if not codecs and media.video_codec:
+            codecs.append(media.video_codec)
+        quality_val = media.quality or ctx.filename_quality
+        if not quality_val:
+            quality_val = "1080p" if "1080p" in stem_clean.lower() else None
+
+        if explicit_audio_label:
+            audio_sum = explicit_audio_label
+        elif media.audio_count >= 3:
+            audio_sum = "MultiAudio"
+        elif media.audio_count == 2:
+            audio_sum = "DualAudio"
+        elif media.audio_count == 1:
+            audio_sum = media.audio_language or ctx.filename_audio or "English"
+        else:
+            audio_sum = ctx.filename_audio or ""
+
+        if media.subtitle_count >= 2:
+            sub_sum = "MSub"
+        elif (
+            media.subtitle_count == 1
+            or media.has_english_subtitle
+            or ctx.filename_esubs
+        ):
+            sub_sum = "ESub"
+        else:
+            sub_sum = ""
+
+        ott_val = (
+            (canonical.ott if canonical else None)
+            or ctx.ott
+            or (parts.ott if parts else None)
+        )
+
+        return MetadataSnapshot(
+            original_filename=original_filename,
+            title=title,
+            year=year,
+            season=ctx.season,
+            episode_start=ctx.episode_start,
+            episode_end=ctx.episode_end,
+            episode_title=ep_title or None,
+            media_type=ctx.media_type,
+            is_anime=ctx.is_anime,
+            quality=quality_val,
+            source_tokens=tuple(dict.fromkeys(sources)),
+            encoder_tokens=tuple(dict.fromkeys(encoders)),
+            codec_tokens=tuple(dict.fromkeys(codecs)),
+            bit_depth=bit_depth,
+            hdr=hdr,
+            edition_flags=tuple(dict.fromkeys(flags)),
+            audio_track_count=media.audio_count,
+            audio_summary=audio_sum,
+            audio_tracks=media.audio_tracks_detail,
+            explicit_release_audio_label=explicit_audio_label,
+            subtitle_track_count=media.subtitle_count,
+            subtitle_summary=sub_sum,
+            subtitle_languages=media.subtitle_languages,
+            subtitle_flags=media.subtitle_flags,
+            ott=ott_val,
+            extension=ext or ctx.media_extension or ".mkv",
+            split_suffix=split_suffix or ctx.split_suffix or "",
+        )
+
+    def render_v2(
+        self,
+        snapshot: MetadataSnapshot,
+        prefix: str = "",
+        suffix: str = "",
+    ) -> str:
+        clean_prefix = re.sub(r"<.*?>", "", prefix or "").replace(r"\s", " ")
+        clean_suffix = re.sub(r"<.*?>", "", suffix or "").replace(r"\s", " ")
+
+        values = []
+        if snapshot.title:
+            values.append(clean_component(snapshot.title))
+
+        if snapshot.media_type in (
+            SmartMediaType.SINGLE_EPISODE,
+            SmartMediaType.EPISODE_RANGE,
+            SmartMediaType.SEASON_PACK,
+        ):
+            if snapshot.season is not None:
+                if (
+                    snapshot.episode_start is not None
+                    and snapshot.episode_end is not None
+                ):
+                    if snapshot.is_anime:
+                        values.append(
+                            f"E{snapshot.episode_start}-E{snapshot.episode_end}"
+                        )
+                    else:
+                        values.append(
+                            f"S{snapshot.season:02d}E{snapshot.episode_start:02d}-E{snapshot.episode_end:02d}"
+                        )
+                elif snapshot.episode_start is not None:
+                    if snapshot.is_anime:
+                        values.append(f"E{snapshot.episode_start}")
+                    else:
+                        values.append(
+                            f"S{snapshot.season:02d}E{snapshot.episode_start:02d}"
+                        )
+                else:
+                    values.append(f"S{snapshot.season:02d}")
+
+        if snapshot.year and snapshot.media_type == SmartMediaType.MOVIE:
+            values.append(clean_component(snapshot.year))
+
+        if snapshot.episode_title:
+            values.append(clean_component(snapshot.episode_title))
+
+        if snapshot.quality:
+            values.append(clean_component(snapshot.quality))
+        if snapshot.bit_depth:
+            values.append(clean_component(snapshot.bit_depth))
+
+        for src in snapshot.source_tokens:
+            values.append(clean_component(src))
+        for flag in snapshot.edition_flags:
+            values.append(clean_component(flag))
+        for enc in snapshot.encoder_tokens:
+            values.append(clean_component(enc))
+        for cod in snapshot.codec_tokens:
+            values.append(clean_component(cod))
+        if snapshot.ott:
+            values.append(clean_component(snapshot.ott))
+        if snapshot.hdr:
+            values.append(clean_component(snapshot.hdr))
+
+        if snapshot.audio_summary:
+            values.append(clean_component(snapshot.audio_summary))
+        if snapshot.subtitle_summary:
+            values.append(clean_component(snapshot.subtitle_summary))
+
+        seen = set()
+        final_values = []
+        for v in values:
+            if v and v.lower() not in seen:
+                seen.add(v.lower())
+                final_values.append(v)
+
+        stem = ".".join(final_values)
+        res = f"{clean_prefix}{stem}{clean_suffix}{snapshot.extension}{snapshot.split_suffix}"
+        CaptionValidator.validate(res, snapshot, is_v1=False)
+        return res
+
+    def render_v1(
+        self,
+        snapshot: MetadataSnapshot,
+        prefix: str = "",
+        suffix: str = "",
+    ) -> str:
+        clean_prefix = re.sub(r"<.*?>", "", prefix or "").replace(r"\s", " ")
+        clean_suffix = re.sub(r"<.*?>", "", suffix or "").replace(r"\s", " ")
+
+        values = []
+        if snapshot.title:
+            values.append(clean_component(snapshot.title))
+
+        if snapshot.media_type in (
+            SmartMediaType.SINGLE_EPISODE,
+            SmartMediaType.EPISODE_RANGE,
+            SmartMediaType.SEASON_PACK,
+        ):
+            if snapshot.season is not None:
+                if (
+                    snapshot.episode_start is not None
+                    and snapshot.episode_end is not None
+                ):
+                    if snapshot.is_anime:
+                        values.append(
+                            f"E{snapshot.episode_start}-E{snapshot.episode_end}"
+                        )
+                    else:
+                        values.append(
+                            f"S{snapshot.season:02d}E{snapshot.episode_start:02d}-E{snapshot.episode_end:02d}"
+                        )
+                elif snapshot.episode_start is not None:
+                    if snapshot.is_anime:
+                        values.append(f"E{snapshot.episode_start}")
+                    else:
+                        values.append(
+                            f"S{snapshot.season:02d}E{snapshot.episode_start:02d}"
+                        )
+                else:
+                    values.append(f"S{snapshot.season:02d}")
+
+        if snapshot.year and snapshot.media_type == SmartMediaType.MOVIE:
+            values.append(clean_component(snapshot.year))
+
+        if snapshot.episode_title:
+            values.append(clean_component(snapshot.episode_title))
+
+        if snapshot.quality:
+            values.append(clean_component(snapshot.quality))
+        if snapshot.bit_depth:
+            values.append(clean_component(snapshot.bit_depth))
+
+        for src in snapshot.source_tokens:
+            values.append(clean_component(src))
+        for flag in snapshot.edition_flags:
+            values.append(clean_component(flag))
+        for enc in snapshot.encoder_tokens:
+            values.append(clean_component(enc))
+        for cod in snapshot.codec_tokens:
+            values.append(clean_component(cod))
+        if snapshot.ott:
+            values.append(clean_component(snapshot.ott))
+        if snapshot.hdr:
+            values.append(clean_component(snapshot.hdr))
+
+        if snapshot.audio_tracks:
+            track_strs = []
+            for trk in snapshot.audio_tracks:
+                parts = [trk.languages, trk.codec, trk.channels]
+                if trk.bitrate:
+                    parts.append(f"~.{trk.bitrate}")
+                track_strs.append(".".join(p for p in parts if p))
+            rendered_tracks = f"[{' .+. '.join(track_strs)}]"
+            values.append(rendered_tracks)
+        elif snapshot.audio_summary:
+            values.append(clean_component(snapshot.audio_summary))
+
+        if snapshot.subtitle_summary:
+            values.append(clean_component(snapshot.subtitle_summary))
+
+        seen = set()
+        final_values = []
+        for v in values:
+            if v and v.lower() not in seen:
+                seen.add(v.lower())
+                final_values.append(v)
+
+        stem = ".".join(final_values)
+        res = f"{clean_prefix}{stem}{clean_suffix}{snapshot.extension}{snapshot.split_suffix}"
+        CaptionValidator.validate(res, snapshot, is_v1=True)
+        return res
+
+    def make_smart_caption(
+        self,
+        original_filename: str,
+        ctx: SmartFilenameContext,
+        canonical: Optional[CanonicalMetadata],
+        media: SmartMediaMetadata,
+        prefix: str = "",
+        suffix: str = "",
+        version: str = "v2",
+    ) -> str:
+        snapshot = self.build_snapshot(original_filename, ctx, canonical, media)
+        if version.lower() in {"v1", "smartcaptionv1"}:
+            return self.render_v1(snapshot, prefix=prefix, suffix=suffix)
+        return self.render_v2(snapshot, prefix=prefix, suffix=suffix)
+
+    def make_smart_caption_v1(
+        self,
+        original_filename: str,
+        ctx: SmartFilenameContext,
+        canonical: Optional[CanonicalMetadata],
+        media: SmartMediaMetadata,
+        prefix: str = "",
+        suffix: str = "",
+    ) -> str:
+        snapshot = self.build_snapshot(original_filename, ctx, canonical, media)
+        return self.render_v1(snapshot, prefix=prefix, suffix=suffix)
+
+    def make_smart_caption_v2(
+        self,
+        original_filename: str,
+        ctx: SmartFilenameContext,
+        canonical: Optional[CanonicalMetadata],
+        media: SmartMediaMetadata,
+        prefix: str = "",
+        suffix: str = "",
+    ) -> str:
+        snapshot = self.build_snapshot(original_filename, ctx, canonical, media)
+        return self.render_v2(snapshot, prefix=prefix, suffix=suffix)
+
+
+class CaptionValidator:
+    @staticmethod
+    def validate(caption: str, snapshot: MetadataSnapshot, is_v1: bool = False) -> bool:
+        if not caption or not snapshot.title:
+            return False
+
+        for tok in snapshot.source_tokens:
+            tok_c = clean_component(tok).lower()
+            if tok_c and tok_c not in caption.lower():
+                LOGGER.warning(
+                    f"CaptionValidator Warning: Source token '{tok}' missing from caption '{caption}'"
+                )
+
+        for tok in snapshot.encoder_tokens:
+            tok_c = clean_component(tok).lower()
+            if tok_c and tok_c not in caption.lower():
+                LOGGER.warning(
+                    f"CaptionValidator Warning: Encoder token '{tok}' missing from caption '{caption}'"
+                )
+
+        for tok in snapshot.codec_tokens:
+            tok_c = clean_component(tok).lower()
+            if tok_c and tok_c not in caption.lower():
+                LOGGER.warning(
+                    f"CaptionValidator Warning: Codec token '{tok}' missing from caption '{caption}'"
+                )
+
+        if snapshot.split_suffix and not caption.endswith(snapshot.split_suffix):
+            LOGGER.warning(
+                f"CaptionValidator Warning: Split suffix '{snapshot.split_suffix}' missing from end of caption '{caption}'"
+            )
+
+        return True
 
 
 TV_REDUCTION_ORDER = (
@@ -874,23 +1395,38 @@ class SmartAutoRename:
             )
             return file_path, meta
 
+        snapshot = self.builder.build_snapshot(filename, ctx, canonical, media)
+        smart_caption_v1_val = self.builder.render_v1(
+            snapshot, prefix=prefix, suffix=suffix
+        )
+        smart_caption_v2_val = self.builder.render_v2(
+            snapshot, prefix=prefix, suffix=suffix
+        )
+
         meta = {
-            "show_name": (
-                canonical.series_title or canonical.title if canonical else None
-            )
-            or ctx.title
-            or "",
-            "season": f"{ctx.season:02d}" if ctx.season is not None else "",
-            "episode": f"{ctx.episode_start:02d}"
-            if ctx.episode_start is not None
+            "show_name": snapshot.title or "",
+            "season": f"{snapshot.season:02d}" if snapshot.season is not None else "",
+            "episode": f"{snapshot.episode_start:02d}"
+            if snapshot.episode_start is not None
             else "",
-            "title": (canonical.episode_title if canonical else None) or "",
-            "year": str((canonical.year if canonical else None) or ctx.year or ""),
-            "source": (canonical.ott if canonical else None)
-            or ctx.ott
-            or parts.ott
-            or "",
-            "codec": parts.codec or media.video_codec or ctx.filename_codec or "",
+            "title": snapshot.episode_title or "",
+            "year": str(snapshot.year or ""),
+            "source": snapshot.ott
+            or (snapshot.source_tokens[0] if snapshot.source_tokens else ""),
+            "codec": ", ".join(snapshot.codec_tokens)
+            if snapshot.codec_tokens
+            else (parts.codec or ""),
+            "encoder": ", ".join(snapshot.encoder_tokens)
+            if snapshot.encoder_tokens
+            else "",
+            "quality": snapshot.quality or parts.quality or "",
+            "bit_depth": snapshot.bit_depth or "",
+            "audio_summary": snapshot.audio_summary or "",
+            "subtitle": snapshot.subtitle_summary or "",
+            "split_suffix": snapshot.split_suffix or "",
+            "smartcaption": smart_caption_v2_val,
+            "smartcaptionv1": smart_caption_v1_val,
+            "smartcaptionv2": smart_caption_v2_val,
         }
 
         new_name = self.fitter.fit(
