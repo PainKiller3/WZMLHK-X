@@ -184,9 +184,13 @@ class TaskConfig:
             ChatType.FORUM,
         ]
         self.source_url = None
-        self.bot_pm = Config.BOT_PM or self.user_dict.get("BOT_PM")
-        self.private_output = Config.PRIVATE_OUTPUT or self.user_dict.get(
-            "PRIVATE_OUTPUT"
+        self.bot_pm = (
+            self.user_dict["BOT_PM"] if "BOT_PM" in self.user_dict else Config.BOT_PM
+        )
+        self.private_output = (
+            self.user_dict["PRIVATE_OUTPUT"]
+            if "PRIVATE_OUTPUT" in self.user_dict
+            else Config.PRIVATE_OUTPUT
         )
         self.pm_msg = None
         self.file_details = {}

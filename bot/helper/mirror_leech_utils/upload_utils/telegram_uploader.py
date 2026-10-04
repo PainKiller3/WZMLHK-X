@@ -83,11 +83,12 @@ class TelegramUploader:
         self._smart_autorename = getattr(self._listener, "smart_autorename", False)
 
         for key, (attr, default) in settings_map.items():
-            setattr(
-                self,
-                attr,
-                self._listener.user_dict.get(key) or getattr(Config, key, default),
+            val = (
+                self._listener.user_dict[key]
+                if key in self._listener.user_dict
+                else getattr(Config, key, default)
             )
+            setattr(self, attr, val)
 
         if self._thumb != "none" and not await aiopath.exists(self._thumb):
             self._thumb = None
@@ -300,7 +301,7 @@ class TelegramUploader:
         ]
         for i in range(0, len(inputs), 10):
             batch = inputs[i : i + 10]
-            if Config.BOT_PM:
+            if self._bot_pm:
                 await _call_with_flood_retry(
                     TgClient.bot.send_media_group,
                     chat_id=self._listener.user_id,

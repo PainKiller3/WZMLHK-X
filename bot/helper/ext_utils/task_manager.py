@@ -380,13 +380,15 @@ async def pre_task_check(message):
         menu = button.build_menu(2) if button is not None else None
         return "\n".join(parts), menu
 
+    user_bot_pm = user_dict["BOT_PM"] if "BOT_PM" in user_dict else Config.BOT_PM
+    user_private_output = (
+        user_dict["PRIVATE_OUTPUT"]
+        if "PRIVATE_OUTPUT" in user_dict
+        else Config.PRIVATE_OUTPUT
+    )
+
     if await CustomFilters.sudo("", message):
-        if (
-            Config.BOT_PM
-            or user_dict.get("BOT_PM")
-            or Config.PRIVATE_OUTPUT
-            or user_dict.get("PRIVATE_OUTPUT")
-        ):
+        if user_bot_pm or user_private_output:
             _msg, button = await check_botpm(message, ButtonMaker())
             if _msg:
                 msg.append(_msg)
@@ -402,12 +404,7 @@ async def pre_task_check(message):
     if message.chat.type != message.chat.type.BOT:
         if Config.FORCE_SUB_IDS:
             checks.append(forcesub(message, Config.FORCE_SUB_IDS, button))
-        if (
-            Config.BOT_PM
-            or user_dict.get("BOT_PM")
-            or Config.PRIVATE_OUTPUT
-            or user_dict.get("PRIVATE_OUTPUT")
-        ):
+        if user_bot_pm or user_private_output:
             checks.append(check_botpm(message, button))
     checks.append(verify_token(user_id, button))
 
