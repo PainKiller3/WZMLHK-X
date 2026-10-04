@@ -883,55 +883,68 @@ class TaskConfig:
 
     async def proceed_extract(self, dl_path, gid):
         pswd = self.extract if isinstance(self.extract, str) else ""
-        self.files_to_proceed = []
-        if self.is_file and is_archive(dl_path):
-            self.files_to_proceed.append(dl_path)
-        else:
-            for dirpath, _, files in await sync_to_async(walk, dl_path, topdown=False):
+        sevenz = SevenZ(self)
+        LOGGER.info(f"Extracting: {self.name}")
+        async with task_dict_lock:
+            task_dict[self.mid] = SevenZStatus(self, sevenz, gid, "Extract")
+
+        t_path = dl_path
+        max_passes = 3
+        pass_count = 0
+
+        while pass_count < max_passes:
+            pass_count += 1
+            self.files_to_proceed = []
+            if self.is_file and pass_count == 1 and is_archive(dl_path):
+                self.files_to_proceed.append(dl_path)
+            else:
+                target_dir = self.up_dir or self.dir
+                for dirpath, _, files in await sync_to_async(
+                    walk, target_dir, topdown=False
+                ):
+                    for file_ in files:
+                        if (
+                            is_first_archive_split(file_)
+                            or is_archive(file_)
+                            and not file_.strip().lower().endswith(".rar")
+                        ):
+                            f_path = ospath.join(dirpath, file_)
+                            self.files_to_proceed.append(f_path)
+
+            if not self.files_to_proceed:
+                break
+
+            for dirpath, _, files in await sync_to_async(
+                walk, self.up_dir or self.dir, topdown=False
+            ):
+                code = 0
                 for file_ in files:
+                    if self.is_cancelled:
+                        return False
                     if (
                         is_first_archive_split(file_)
                         or is_archive(file_)
                         and not file_.strip().lower().endswith(".rar")
                     ):
+                        self.proceed_count += 1
                         f_path = ospath.join(dirpath, file_)
-                        self.files_to_proceed.append(f_path)
-
-        if not self.files_to_proceed:
-            return dl_path
-        sevenz = SevenZ(self)
-        LOGGER.info(f"Extracting: {self.name}")
-        async with task_dict_lock:
-            task_dict[self.mid] = SevenZStatus(self, sevenz, gid, "Extract")
-        t_path = dl_path
-        for dirpath, _, files in await sync_to_async(
-            walk, self.up_dir or self.dir, topdown=False
-        ):
-            code = 0
-            for file_ in files:
+                        t_path = get_base_name(f_path) if self.is_file else dirpath
+                        if not self.is_file:
+                            self.subname = file_
+                        code = await sevenz.extract(f_path, t_path, pswd)
                 if self.is_cancelled:
-                    return False
-                if (
-                    is_first_archive_split(file_)
-                    or is_archive(file_)
-                    and not file_.strip().lower().endswith(".rar")
-                ):
-                    self.proceed_count += 1
-                    f_path = ospath.join(dirpath, file_)
-                    t_path = get_base_name(f_path) if self.is_file else dirpath
-                    if not self.is_file:
-                        self.subname = file_
-                    code = await sevenz.extract(f_path, t_path, pswd)
-            if self.is_cancelled:
-                return code
-            if code == 0:
-                for file_ in files:
-                    if is_archive_split(file_) or is_archive(file_):
-                        del_path = ospath.join(dirpath, file_)
-                        try:
-                            await remove(del_path)
-                        except Exception:
-                            self.is_cancelled = True
+                    return code
+                if code == 0:
+                    for file_ in files:
+                        if is_archive_split(file_) or is_archive(file_):
+                            del_path = ospath.join(dirpath, file_)
+                            try:
+                                await remove(del_path)
+                            except Exception:
+                                self.is_cancelled = True
+                else:
+                    break
+
         return t_path if self.is_file and code == 0 else dl_path
 
     async def proceed_ffmpeg(self, dl_path, gid):
