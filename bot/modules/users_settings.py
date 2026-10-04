@@ -353,6 +353,11 @@ Here I will explain how to use mltb.* which is reference to files you want to wo
         "Custom extensions or domain keywords to auto-leech for your requests.",
         "<i>Send custom extensions or domain keywords to auto-leech (e.g. zip, rar, 7z or video-downloads.googleusercontent.com).</i> \n┖ <b>Time Left :</b> <code>60 sec</code>",
     ),
+    "BOT_PM": (
+        "Boolean",
+        "Enable or disable receiving files and links in bot DM (Private Message).",
+        "Toggle whether the bot sends finished task files/links to your Telegram DM.",
+    ),
 }
 
 
@@ -381,6 +386,7 @@ async def get_user_settings(from_user, stype="main"):
             for key in list(user_settings_text.keys())
             + [
                 "USER_TOKENS",
+                "BOT_PM",
                 "AS_DOCUMENT",
                 "EQUAL_SPLITS",
                 "MEDIA_SPLIT",
@@ -431,6 +437,14 @@ async def get_user_settings(from_user, stype="main"):
             f"userset {user_id} tog USER_TOKENS {'f' if user_tokens else 't'}",
         )
 
+        user_bot_pm = user_dict["BOT_PM"] if "BOT_PM" in user_dict else Config.BOT_PM
+        if user_bot_pm:
+            buttons.data_button("Disable Bot PM", f"userset {user_id} tog BOT_PM f")
+            bot_pm_str = "Enabled" if "BOT_PM" in user_dict else "Enabled (Default)"
+        else:
+            buttons.data_button("Enable Bot PM", f"userset {user_id} tog BOT_PM t")
+            bot_pm_str = "Disabled" if "BOT_PM" in user_dict else "Disabled (Default)"
+
         buttons.data_button("Back", f"userset {user_id} back", "footer")
         buttons.data_button(
             "Close", f"userset {user_id} close", "footer", style=ButtonStyle.DANGER
@@ -449,6 +463,7 @@ async def get_user_settings(from_user, stype="main"):
 ┃
 ┠ <b>Default Upload Package</b> → <b>{du}</b>
 ┠ <b>Default Usage Mode</b> → <b>{tr}'s</b> token/config
+┠ <b>Bot PM Delivery</b> → <b>{bot_pm_str}</b>
 ┖ <b>yt Cookies Mode</b> → <b>{cookie_mode}</b>
 """
 
@@ -1705,7 +1720,7 @@ async def edit_user_settings(client, query):
         update_user_ldata(user_id, data[3], data[4] == "t")
         if data[3] == "STOP_DUPLICATE":
             back_to = "gdrive"
-        elif data[3] in ["USER_TOKENS", "USE_DEFAULT_COOKIE"]:
+        elif data[3] in ["USER_TOKENS", "USE_DEFAULT_COOKIE", "BOT_PM"]:
             back_to = "general"
         elif data[3] == "SEEDR_DELETE_FOLDER":
             back_to = "seedr"
