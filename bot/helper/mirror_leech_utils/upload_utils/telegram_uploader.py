@@ -75,6 +75,7 @@ class TelegramUploader:
         self._bot_pm = False
         self._media_group = False
         self._is_private = False
+        self._only_leech_dump = False
         self._sent_msg = None
         self._log_msg = None
         self._user_session = self._listener.user_transmission
@@ -94,6 +95,7 @@ class TelegramUploader:
         settings_map = {
             "MEDIA_GROUP": ("_media_group", False),
             "BOT_PM": ("_bot_pm", False),
+            "ONLY_LEECH_DUMP": ("_only_leech_dump", False),
             "PRIVATE_OUTPUT": ("_private_output", False),
             "LEECH_PREFIX": ("_lprefix", ""),
             "LEECH_SUFFIX": ("_lsuffix", ""),
@@ -141,7 +143,7 @@ class TelegramUploader:
                     )
                 else:
                     self._is_private = self._sent_msg.chat.type.name == "PRIVATE"
-                if self._listener.leech_dest:
+                if self._listener.leech_dest and not self._only_leech_dump:
                     try:
                         leech_dest = self._listener.leech_dest
                         if not isinstance(leech_dest, int):
@@ -698,6 +700,18 @@ class TelegramUploader:
                             from_chat_id=self._sent_msg.chat.id,
                             message_id=self._sent_msg.id,
                         )
+                        if (
+                            self._only_leech_dump
+                            and self._sent_msg.chat.id == self._listener.message.chat.id
+                            and not self._is_private
+                        ):
+                            try:
+                                await TgClient.bot.delete_messages(
+                                    chat_id=self._sent_msg.chat.id,
+                                    message_ids=self._sent_msg.id,
+                                )
+                            except Exception:
+                                pass
                     except Exception as e:
                         if not self._listener.is_cancelled:
                             LOGGER.error(

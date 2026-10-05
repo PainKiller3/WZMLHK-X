@@ -160,6 +160,11 @@ class TaskConfig:
             if "PRIVATE_OUTPUT" in self.user_dict
             else Config.PRIVATE_OUTPUT
         )
+        self.only_leech_dump = (
+            self.user_dict["ONLY_LEECH_DUMP"]
+            if "ONLY_LEECH_DUMP" in self.user_dict
+            else getattr(Config, "ONLY_LEECH_DUMP", False)
+        )
         self.pm_msg = None
         self.file_details = {}
         self.mode = tuple()
