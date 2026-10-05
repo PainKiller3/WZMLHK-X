@@ -62,6 +62,7 @@ class TelegramUploader:
         self._bot_pm = False
         self._media_group = False
         self._is_private = False
+        self._only_leech_dump = False
         self._sent_msg = None
         self._user_session = self._listener.transmission_mode in ("user", "both")
         self._hu: HypertgUpload | None = None
@@ -73,6 +74,7 @@ class TelegramUploader:
         settings_map = {
             "MEDIA_GROUP": ("_media_group", False),
             "BOT_PM": ("_bot_pm", False),
+            "ONLY_LEECH_DUMP": ("_only_leech_dump", False),
             "PRIVATE_OUTPUT": ("_private_output", False),
             "LEECH_PREFIX": ("_lprefix", ""),
             "LEECH_SUFFIX": ("_lsuffix", ""),
@@ -411,6 +413,8 @@ class TelegramUploader:
             copy_from_msg = msg_id
             in_dump = chat_id != src_chat.id and not self._listener.up_dest
             if in_dump:
+                if self._only_leech_dump:
+                    continue
                 try:
                     bot_copy = await _call_with_flood_retry(
                         TgClient.bot.copy_message,
@@ -488,26 +492,31 @@ class TelegramUploader:
                             )
                         else:
                             LOGGER.error(f"Failed To Send in BotPM:\n{err_msg}")
-            extras = [
-                (self._listener.cmd_up_dest, self._listener.cmd_thread_id),
-                *getattr(self._listener, "leech_dests", ()),
-            ]
-            done = {(self._listener.up_dest, self._listener.chat_thread_id)}
-            for dest, thread_id in extras:
-                if not dest or (dest, thread_id) in done:
-                    continue
-                done.add((dest, thread_id))
-                try:
-                    await _call_with_flood_retry(
-                        TgClient.bot.copy_message,
-                        chat_id=dest,
-                        from_chat_id=copy_from_chat,
-                        message_id=copy_from_msg,
-                        message_thread_id=thread_id,
-                    )
-                except Exception as e:
-                    if not self._listener.is_cancelled:
-                        LOGGER.error(f"Failed to forward to {dest}: {e}")
+            if self._only_leech_dump:
+                pass
+            else:
+                extras = [
+                    (self._listener.cmd_up_dest, self._listener.cmd_thread_id),
+                    *getattr(self._listener, "leech_dests", ()),
+                ]
+                done = set()
+                if self._listener.up_dest:
+                    done.add((self._listener.up_dest, self._listener.chat_thread_id))
+                for dest, thread_id in extras:
+                    if not dest or (dest, thread_id) in done:
+                        continue
+                    done.add((dest, thread_id))
+                    try:
+                        await _call_with_flood_retry(
+                            TgClient.bot.copy_message,
+                            chat_id=dest,
+                            from_chat_id=copy_from_chat,
+                            message_id=copy_from_msg,
+                            message_thread_id=thread_id,
+                        )
+                    except Exception as e:
+                        if not self._listener.is_cancelled:
+                            LOGGER.error(f"Failed to forward to {dest}: {e}")
 
     async def _upload_file_task(self, file_, f_path, dirpath, user_session, seq_idx):
         up_path = None

@@ -697,6 +697,21 @@ async def get_user_settings(from_user, stype="main"):
         else:
             auto_leech_ext = "None"
 
+        if (
+            user_dict.get("ONLY_LEECH_DUMP", False)
+            or "ONLY_LEECH_DUMP" not in user_dict
+            and getattr(Config, "ONLY_LEECH_DUMP", False)
+        ):
+            buttons.data_button(
+                "Disable Only Leech Dump", f"userset {user_id} tog ONLY_LEECH_DUMP f"
+            )
+            only_leech_dump = "Enabled"
+        else:
+            buttons.data_button(
+                "Enable Only Leech Dump", f"userset {user_id} tog ONLY_LEECH_DUMP t"
+            )
+            only_leech_dump = "Disabled"
+
         buttons.data_button("Back", f"userset {user_id} back", "footer")
         buttons.data_button(
             "Close", f"userset {user_id} close", "footer", style=ButtonStyle.DANGER
@@ -715,6 +730,7 @@ async def get_user_settings(from_user, stype="main"):
 ┠ Leech Suffix → <code>{escape(lsuffix)}</code>
 ┠ Leech Caption → <code>{escape(lcap)}</code>
 ┠ Leech Dump Chats → <code>{escape(leech_dest)}</code>
+┠ Only Leech Dump → <b>{only_leech_dump}</b>
 ┠ Smart Autorename → <b>{smart_autorename}</b>
 ┠ User Auto-Leech → <b>{user_auto_leech}</b>
 ┠ Auto-Leech Max Links → <b>{auto_leech_max_links}</b>

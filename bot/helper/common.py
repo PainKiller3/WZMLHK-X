@@ -195,6 +195,11 @@ class TaskConfig:
         self.pm_msg = None
         self.file_details = {}
         self.mode = tuple()
+        self.only_leech_dump = (
+            self.user_dict["ONLY_LEECH_DUMP"]
+            if "ONLY_LEECH_DUMP" in self.user_dict
+            else getattr(Config, "ONLY_LEECH_DUMP", False)
+        )
         self.smart_autorename = (
             self.user_dict["SMART_AUTORENAME"]
             if "SMART_AUTORENAME" in self.user_dict
@@ -605,7 +610,11 @@ class TaskConfig:
                 self.transmission_mode = "both"
 
             self.up_dest = Config.LEECH_LOG_CHAT
-            if self.dump_dest:
+            if not self.dump_dest and self.leech_dests and self.only_leech_dump:
+                self.up_dest = self.leech_dests[0][0]
+                if self.leech_dests[0][1]:
+                    self.chat_thread_id = self.leech_dests[0][1]
+            elif self.dump_dest:
                 self.up_dest = await self.resolve_dump_dest(self.dump_dest)
                 if self.is_cancelled:
                     return
