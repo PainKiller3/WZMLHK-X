@@ -557,15 +557,52 @@ mapfile -t RAW_COMMITS < <(git log --no-merges --format='%H' --reverse "${MATCH_
 # Filter out commits whose patches are already applied to local branch (detected via git cherry)
 mapfile -t APPLIED_HASHES < <(git cherry "$LOCAL_BRANCH" "${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}" 2>/dev/null | grep '^-' | awk '{print $2}')
 
+# Commits explicitly defined to be skipped (by full or short hash, comma or space separated)
+SKIP_COMMITS_LIST="${SKIP_COMMITS:-}"
+
 COMMITS=()
 for commit in "${RAW_COMMITS[@]}"; do
     IS_APPLIED="false"
-    for app_hash in "${APPLIED_HASHES[@]}"; do
-        if [ "$commit" = "$app_hash" ]; then
-            IS_APPLIED="true"
-            break
-        fi
-    done
+    
+    # Check if hash is in explicit skip list
+    if [ -n "$SKIP_COMMITS_LIST" ]; then
+        for skip_item in ${SKIP_COMMITS_LIST//,/ }; do
+            if [[ "$commit" == "${skip_item}"* ]]; then
+                IS_APPLIED="true"
+                info "Skipping commit ${commit:0:10} (matches SKIP_COMMITS entry: ${skip_item})"
+                break
+            fi
+        done
+    fi
+
+    # Check git cherry matched hash
+    if [ "$IS_APPLIED" = "false" ]; then
+        for app_hash in "${APPLIED_HASHES[@]}"; do
+            if [ "$commit" = "$app_hash" ]; then
+                IS_APPLIED="true"
+                break
+            fi
+        done
+    fi
+
+    # Fallback message matching: check if local history already has this exact commit message
+    if [ "$IS_APPLIED" = "false" ]; then
+        UPSTREAM_MSG=$(git log -1 --format='%s' "$commit")
+        NORM_UPSTREAM_MSG=$(echo "$UPSTREAM_MSG" | sed -E 's/ \(#[0-9]+\)$//')
+
+        for local_line in "${LOCAL_COMMITS[@]}"; do
+            LOCAL_MSG="${local_line#*|}"
+            NORM_LOCAL_MSG=$(echo "$LOCAL_MSG" | sed -E 's/ \(_*#[0-9]+\)$//')
+            NORM_LOCAL_MSG=$(echo "$NORM_LOCAL_MSG" | sed -E 's/ \(#[0-9]+\)$//')
+
+            if [ "$NORM_UPSTREAM_MSG" = "$NORM_LOCAL_MSG" ]; then
+                IS_APPLIED="true"
+                info "Skipping commit ${commit:0:10} (\"${UPSTREAM_MSG}\"): matching commit already present in local branch."
+                break
+            fi
+        done
+    fi
+
     if [ "$IS_APPLIED" = "false" ]; then
         COMMITS+=("$commit")
     fi

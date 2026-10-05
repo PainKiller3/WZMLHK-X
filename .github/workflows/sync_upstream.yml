@@ -75,5 +75,6 @@ jobs:
           UPSTREAM_URL: 'https://github.com/SilentDemonSD/WZML-X.git'
           UPSTREAM_BRANCH: 'wzv3'
           LOCAL_BRANCH: 'main'
+          SKIP_COMMITS: ${{ secrets.SKIP_COMMITS || '' }}
         run: |
           bash .github/scripts/sync_upstream.sh
