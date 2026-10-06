@@ -1,3 +1,4 @@
+from ast import literal_eval
 from importlib import import_module
 from os import getenv
 
@@ -118,6 +119,9 @@ class Config:
     STATUS_UPDATE_INTERVAL = 15
     STOP_DUPLICATE = False
     STOP_DUPLICATE_MIN_SIZE = 0
+    STREMIO_DUMP_CHAT = ""
+    STREMIO_DB_URL = ""
+    STREMIO_USERS = ""
     STREAMWISH_API = ""
     SUDO_USERS = ""
     TELEGRAM_API = 0
@@ -244,6 +248,17 @@ class Config:
                 return float(value)
             except (ValueError, TypeError):
                 return original_value
+        if key == "STREMIO_DUMP_CHAT" and isinstance(value, str):
+            val_str = value.strip()
+            if val_str.startswith("{") and val_str.endswith("}"):
+                try:
+                    parsed = literal_eval(val_str)
+                    if isinstance(parsed, dict):
+                        return parsed
+                except Exception:
+                    pass
+            elif val_str.lstrip("-").isdigit():
+                return int(val_str)
         return value
 
     @classmethod

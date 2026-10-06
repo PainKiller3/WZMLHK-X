@@ -244,6 +244,20 @@ def add_handlers():
     )
     TgClient.bot.add_handler(
         MessageHandler(
+            stremio_leech,
+            filters=command(BotCommands.SleechCommand, case_sensitive=True)
+            & CustomFilters.stremio,
+        )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
+            stremio_list,
+            filters=command(BotCommands.StremioListCommand, case_sensitive=True)
+            & CustomFilters.stremio,
+        )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
             qb_leech,
             filters=command(BotCommands.QbLeechCommand, case_sensitive=True)
             & CustomFilters.authorized,
@@ -288,6 +302,9 @@ def add_handlers():
     )
     TgClient.bot.add_handler(
         CallbackQueryHandler(seedrcancel_cb, filters=regex("^seedrcancel"))
+    )
+    TgClient.bot.add_handler(
+        CallbackQueryHandler(confirm_dump_chat, filters=regex("^sdump"))
     )
     TgClient.bot.add_handler(
         MessageHandler(

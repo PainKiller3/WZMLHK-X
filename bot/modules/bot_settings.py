@@ -1,3 +1,4 @@
+from ast import literal_eval
 from asyncio import (
     create_subprocess_exec,
     create_subprocess_shell,
@@ -34,6 +35,7 @@ from .. import (
     excluded_extensions,
     auth_chats,
     sudo_users,
+    stremio_users,
 )
 from ..helper.ext_utils.bot_utils import (
     SetInterval,
@@ -379,6 +381,55 @@ async def edit_variable(_, message, pre_message, key):
                     "Invalid value! MIRROR_LOG_ID must be a valid integer chat ID.",
                 )
                 return await update_buttons(pre_message, "var")
+    elif key == "STREMIO_DUMP_CHAT":
+        if isinstance(value, str) and value.strip():
+            val_str = value.strip()
+            if val_str.startswith("{") and val_str.endswith("}"):
+                try:
+                    value = literal_eval(val_str)
+                except Exception:
+                    await send_message(
+                        message,
+                        "Invalid dict format for STREMIO_DUMP_CHAT! Example: {'Movies': -100123, 'Anime': -100456}",
+                    )
+                    return await update_buttons(pre_message, "var")
+            else:
+                chat = val_str
+                if (
+                    chat.startswith("b:")
+                    or chat.startswith("u:")
+                    or chat.startswith("h:")
+                ):
+                    chat = chat[2:]
+                if "|" in chat:
+                    c_id, t_id = chat.split("|", 1)
+                    if c_id.lstrip("-").isdigit() and t_id.isdigit():
+                        value = val_str
+                    else:
+                        await send_message(
+                            message,
+                            "Invalid value! STREMIO_DUMP_CHAT must be a chat ID, or dict: {'Movies': -100123, 'Anime': -100456}",
+                        )
+                        return await update_buttons(pre_message, "var")
+                elif chat.lstrip("-").isdigit():
+                    value = int(chat)
+                else:
+                    await send_message(
+                        message,
+                        "Invalid value! STREMIO_DUMP_CHAT must be a chat ID, or dict: {'Movies': -100123, 'Anime': -100456}",
+                    )
+                    return await update_buttons(pre_message, "var")
+    elif key == "STREMIO_USERS":
+        aid = value.split()
+        stremio_users.clear()
+        for id_ in aid:
+            if not id_.strip().lstrip("-").isdigit():
+                await send_message(
+                    message,
+                    "Invalid value! STREMIO_USERS must be space-separated User IDs.",
+                )
+                return await update_buttons(pre_message, "var")
+            stremio_users.append(int(id_.strip()))
     elif key == "AUTHORIZED_CHATS":
         aid = value.split()
         auth_chats.clear()
@@ -399,12 +450,13 @@ async def edit_variable(_, message, pre_message, key):
         value = str(value)
     elif key == "DEBRID_LINK_API":
         value = str(value)
-    elif value.isdigit():
-        value = int(value)
-    elif value.startswith("[") and value.endswith("]"):
-        value = eval(value)
-    elif value.startswith("{") and value.endswith("}"):
-        value = eval(value)
+    elif isinstance(value, str):
+        if value.isdigit():
+            value = int(value)
+        elif value.startswith("[") and value.endswith("]"):
+            value = eval(value)
+        elif value.startswith("{") and value.endswith("}"):
+            value = eval(value)
     Config.set(key, value)
     await update_buttons(pre_message, "var")
     await delete_message(message)

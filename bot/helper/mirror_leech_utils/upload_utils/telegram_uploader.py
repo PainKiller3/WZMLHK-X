@@ -114,6 +114,9 @@ class TelegramUploader:
             )
             setattr(self, attr, val)
 
+        if self._listener.is_stremio:
+            self._only_leech_dump = True
+
         if self._thumb != "none" and not await aiopath.exists(self._thumb):
             self._thumb = None
 
@@ -128,39 +131,40 @@ class TelegramUploader:
 ┖ <b>Source :</b> <a href='{self._listener.source_url}'>Click Here</a>"""
             try:
                 await TgClient.bot.resolve_peer(self._listener.up_dest)
-                self._log_msg = await TgClient.bot.send_message(
-                    chat_id=self._listener.up_dest,
-                    text=msg,
-                    disable_web_page_preview=True,
-                    message_thread_id=self._listener.chat_thread_id,
-                    disable_notification=True,
-                )
-                self._sent_msg = self._log_msg
-                if self._user_session:
-                    self._sent_msg = await TgClient.user.get_messages(
-                        chat_id=self._sent_msg.chat.id,
-                        message_ids=self._sent_msg.id,
+                if not self._listener.is_stremio:
+                    self._log_msg = await TgClient.bot.send_message(
+                        chat_id=self._listener.up_dest,
+                        text=msg,
+                        disable_web_page_preview=True,
+                        message_thread_id=self._listener.chat_thread_id,
+                        disable_notification=True,
                     )
-                else:
-                    self._is_private = self._sent_msg.chat.type.name == "PRIVATE"
-                if self._listener.leech_dest and not self._only_leech_dump:
-                    try:
-                        leech_dest = self._listener.leech_dest
-                        if not isinstance(leech_dest, int):
-                            if "|" in str(leech_dest):
-                                leech_dest, _ = str(leech_dest).split("|", 1)
-                            if leech_dest.lstrip("-").isdigit():
-                                leech_dest = int(leech_dest)
-                        await self._log_msg.copy(chat_id=leech_dest)
-                    except Exception as e:
-                        if not self._listener.is_cancelled:
-                            LOGGER.error(
-                                f"Failed to copy 'Leech Started' message to {self._listener.leech_dest}: {e}"
-                            )
-                            await send_message(
-                                self._listener.user_id,
-                                f"Failed to send 'Leech Started' message to {self._listener.leech_dest}\n{e}",
-                            )
+                    self._sent_msg = self._log_msg
+                    if self._user_session:
+                        self._sent_msg = await TgClient.user.get_messages(
+                            chat_id=self._sent_msg.chat.id,
+                            message_ids=self._sent_msg.id,
+                        )
+                    else:
+                        self._is_private = self._sent_msg.chat.type.name == "PRIVATE"
+                    if self._listener.leech_dest and not self._only_leech_dump:
+                        try:
+                            leech_dest = self._listener.leech_dest
+                            if not isinstance(leech_dest, int):
+                                if "|" in str(leech_dest):
+                                    leech_dest, _ = str(leech_dest).split("|", 1)
+                                if leech_dest.lstrip("-").isdigit():
+                                    leech_dest = int(leech_dest)
+                            await self._log_msg.copy(chat_id=leech_dest)
+                        except Exception as e:
+                            if not self._listener.is_cancelled:
+                                LOGGER.error(
+                                    f"Failed to copy 'Leech Started' message to {self._listener.leech_dest}: {e}"
+                                )
+                                await send_message(
+                                    self._listener.user_id,
+                                    f"Failed to send 'Leech Started' message to {self._listener.leech_dest}\n{e}",
+                                )
             except Exception as e:
                 await self._listener.on_upload_error(str(e))
                 return False
@@ -475,7 +479,11 @@ class TelegramUploader:
                     self._last_msg_in_group = False
                     self._last_uploaded = 0
                     await self._upload_file(cap_mono, file_, f_path)
-                    if self._log_msg and not is_log_del and Config.CLEAN_LOG_MSG:
+                    if (
+                        self._log_msg
+                        and not is_log_del
+                        and (Config.CLEAN_LOG_MSG or self._listener.is_stremio)
+                    ):
                         await delete_message(self._log_msg)
                         is_log_del = True
                     if self._listener.is_cancelled:
@@ -511,6 +519,12 @@ class TelegramUploader:
                         LOGGER.info(
                             f"While sending media group at the end of task. Error: {e}"
                         )
+        if (
+            self._log_msg
+            and not is_log_del
+            and (Config.CLEAN_LOG_MSG or self._listener.is_stremio)
+        ):
+            await delete_message(self._log_msg)
         if self._listener.is_cancelled:
             return
         if self._total_files == 0:
@@ -535,14 +549,16 @@ class TelegramUploader:
         retry=retry_if_exception_type(Exception),
     )
     async def _upload_file(self, cap_mono, file, o_path, force_document=False):
-        if self._sent_msg is None:
+        if self._sent_msg is None and not self._listener.is_stremio:
             LOGGER.error("Cannot upload: _sent_msg is None")
             await self._listener.on_upload_error(
                 "Upload failed: Message not initialized"
             )
             return
 
-        if not hasattr(self._sent_msg, "chat") or self._sent_msg.chat is None:
+        if self._sent_msg is not None and (
+            not hasattr(self._sent_msg, "chat") or self._sent_msg.chat is None
+        ):
             LOGGER.error("Cannot upload: _sent_msg.chat is None")
             await self._listener.on_upload_error(
                 "Upload failed: Invalid message object"
@@ -591,15 +607,28 @@ class TelegramUploader:
                     return
                 if thumb == "none":
                     thumb = None
-                self._sent_msg = await self._sent_msg.reply_document(
-                    document=self._up_path,
-                    quote=True,
-                    thumb=thumb,
-                    caption=cap_mono,
-                    disable_content_type_detection=True,
-                    disable_notification=True,
-                    progress=self._upload_progress,
-                )
+                if self._sent_msg is None:
+                    client = TgClient.user if self._user_session else TgClient.bot
+                    self._sent_msg = await client.send_document(
+                        chat_id=self._listener.up_dest,
+                        document=self._up_path,
+                        thumb=thumb,
+                        caption=cap_mono,
+                        disable_content_type_detection=True,
+                        disable_notification=True,
+                        message_thread_id=self._listener.chat_thread_id,
+                        progress=self._upload_progress,
+                    )
+                else:
+                    self._sent_msg = await self._sent_msg.reply_document(
+                        document=self._up_path,
+                        quote=True,
+                        thumb=thumb,
+                        caption=cap_mono,
+                        disable_content_type_detection=True,
+                        disable_notification=True,
+                        progress=self._upload_progress,
+                    )
             elif is_video:
                 key = "videos"
                 duration = (await get_media_info(self._up_path))[0]
@@ -621,18 +650,34 @@ class TelegramUploader:
                     return
                 if thumb == "none":
                     thumb = None
-                self._sent_msg = await self._sent_msg.reply_video(
-                    video=self._up_path,
-                    quote=True,
-                    caption=cap_mono,
-                    duration=duration,
-                    width=width,
-                    height=height,
-                    thumb=thumb,
-                    supports_streaming=True,
-                    disable_notification=True,
-                    progress=self._upload_progress,
-                )
+                if self._sent_msg is None:
+                    client = TgClient.user if self._user_session else TgClient.bot
+                    self._sent_msg = await client.send_video(
+                        chat_id=self._listener.up_dest,
+                        video=self._up_path,
+                        caption=cap_mono,
+                        duration=duration,
+                        width=width,
+                        height=height,
+                        thumb=thumb,
+                        supports_streaming=True,
+                        disable_notification=True,
+                        message_thread_id=self._listener.chat_thread_id,
+                        progress=self._upload_progress,
+                    )
+                else:
+                    self._sent_msg = await self._sent_msg.reply_video(
+                        video=self._up_path,
+                        quote=True,
+                        caption=cap_mono,
+                        duration=duration,
+                        width=width,
+                        height=height,
+                        thumb=thumb,
+                        supports_streaming=True,
+                        disable_notification=True,
+                        progress=self._upload_progress,
+                    )
             elif is_audio:
                 key = "audios"
                 duration, artist, title = await get_media_info(self._up_path)
@@ -640,28 +685,54 @@ class TelegramUploader:
                     return
                 if thumb == "none":
                     thumb = None
-                self._sent_msg = await self._sent_msg.reply_audio(
-                    audio=self._up_path,
-                    quote=True,
-                    caption=cap_mono,
-                    duration=duration,
-                    performer=artist,
-                    title=title,
-                    thumb=thumb,
-                    disable_notification=True,
-                    progress=self._upload_progress,
-                )
+                if self._sent_msg is None:
+                    client = TgClient.user if self._user_session else TgClient.bot
+                    self._sent_msg = await client.send_audio(
+                        chat_id=self._listener.up_dest,
+                        audio=self._up_path,
+                        caption=cap_mono,
+                        duration=duration,
+                        performer=artist,
+                        title=title,
+                        thumb=thumb,
+                        disable_notification=True,
+                        message_thread_id=self._listener.chat_thread_id,
+                        progress=self._upload_progress,
+                    )
+                else:
+                    self._sent_msg = await self._sent_msg.reply_audio(
+                        audio=self._up_path,
+                        quote=True,
+                        caption=cap_mono,
+                        duration=duration,
+                        performer=artist,
+                        title=title,
+                        thumb=thumb,
+                        disable_notification=True,
+                        progress=self._upload_progress,
+                    )
             else:
                 key = "photos"
                 if self._listener.is_cancelled:
                     return
-                self._sent_msg = await self._sent_msg.reply_photo(
-                    photo=self._up_path,
-                    quote=True,
-                    caption=cap_mono,
-                    disable_notification=True,
-                    progress=self._upload_progress,
-                )
+                if self._sent_msg is None:
+                    client = TgClient.user if self._user_session else TgClient.bot
+                    self._sent_msg = await client.send_photo(
+                        chat_id=self._listener.up_dest,
+                        photo=self._up_path,
+                        caption=cap_mono,
+                        disable_notification=True,
+                        message_thread_id=self._listener.chat_thread_id,
+                        progress=self._upload_progress,
+                    )
+                else:
+                    self._sent_msg = await self._sent_msg.reply_photo(
+                        photo=self._up_path,
+                        quote=True,
+                        caption=cap_mono,
+                        disable_notification=True,
+                        progress=self._upload_progress,
+                    )
 
             if (
                 not self._listener.is_cancelled

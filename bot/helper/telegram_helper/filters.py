@@ -1,7 +1,7 @@
 from pyrogram.filters import create
 from pyrogram.enums import ChatType
 
-from ... import auth_chats, sudo_users, user_data
+from ... import auth_chats, sudo_users, stremio_users, user_data
 from ...core.config_manager import Config
 from .tg_utils import chat_info
 
@@ -80,3 +80,19 @@ class CustomFilters:
         )
 
     sudo = create(sudo_user)
+
+    async def stremio_user(self, _, update):
+        if not await CustomFilters.authorized("", update):
+            return False
+        if not Config.STREMIO_USERS and not stremio_users:
+            return True
+        user = update.from_user or update.sender_chat
+        uid = user.id
+        return bool(
+            uid == Config.OWNER_ID
+            or (uid in user_data and user_data[uid].get("SUDO"))
+            or uid in sudo_users
+            or uid in stremio_users
+        )
+
+    stremio = create(stremio_user)

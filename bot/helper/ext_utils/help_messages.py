@@ -398,6 +398,8 @@ def get_bot_commands():
         "Ytdl": "[link] Mirror YouTube, m3u8, Social Media and yt-dlp supported urls",
         "UpHoster": "[link/file] Upload to DDL Servers",
         "Leech": "[link/file] Leech files to Upload to Telegram",
+        "Sleech": "[link/file] Leech media directly to Stremio Dump channel",
+        "StremioList": "View and get Stremio Media Library catalog",
         "QbLeech": "[magnet/torrent] Leech files to Upload to Telegram using qbit",
         "YtdlLeech": "[link] Leech YouTube, m3u8, Social Media and yt-dlp supported urls",
         "Clone": "[link] Clone files/folders to GDrive",
@@ -481,6 +483,10 @@ def get_help_string():
             help_lines.append(f"{cmd_str}: Start leeching using JDownloader.")
         elif key == "NzbLeech":
             help_lines.append(f"{cmd_str}: Start leeching using Sabnzbd.")
+        elif key == "Sleech":
+            help_lines.append(
+                f"{cmd_str}: Leech media directly to Stremio Dump channel."
+            )
         elif key == "SeedrLink":
             help_lines.append(f"{cmd_str}: Get direct Seedr HTTP download links.")
         elif key == "YtdlLeech":

@@ -262,5 +262,47 @@ class DbManager:
             {"_id": "total_bw"}, {"$set": {"bytes": bytes_count}}, upsert=True
         )
 
+    async def get_stremio_items(self, limit=200):
+        if not Config.STREMIO_DB_URL:
+            return []
+        urls = [
+            u.strip()
+            for u in str(Config.STREMIO_DB_URL).replace(",", " ").split()
+            if u.strip()
+        ]
+        if not urls:
+            return []
+
+        all_items = []
+        for url in urls:
+            try:
+                client = AsyncMongoClient(url, server_api=ServerApi("1"))
+                try:
+                    default_db = client.get_default_database()
+                    dbs_to_scan = [default_db]
+                except Exception:
+                    db_names = await client.list_database_names()
+                    target_names = [
+                        d for d in db_names if d not in ("admin", "local", "config")
+                    ]
+                    dbs_to_scan = [client[d] for d in target_names]
+
+                for db in dbs_to_scan:
+                    collections = await db.list_collection_names()
+                    for coll in collections:
+                        if coll in ("admin", "local", "config"):
+                            continue
+                        cursor = db[coll].find().limit(limit)
+                        async for doc in cursor:
+                            doc["collection"] = coll
+                            all_items.append(doc)
+                await client.close()
+            except Exception as e:
+                LOGGER.error(
+                    f"Failed to fetch Stremio items from MongoDB ({url[:20]}...): {e}"
+                )
+
+        return all_items[:limit]
+
 
 database = DbManager()

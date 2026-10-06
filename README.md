@@ -181,6 +181,19 @@ Then tune the optional behavior from `config_sample.py`.
    - RSS, search, media metadata, and logging controls
 </details>
 
+<details>
+   <summary>Stremio Integration (<code>/sleech</code> & <code>/stremiolist</code>)</summary>
+
+   Integrate directly with [Telegram-Stremio](https://github.com/weebzone/Telegram-Stremio) for streaming leeched media.
+
+   - `STREMIO_DUMP_CHAT`: Single chat ID or dictionary of named channels (`{"Movies": -100111, "Anime": -100222}`).
+   - `STREMIO_DB_URL`: Read-only connection URL for your Telegram-Stremio MongoDB database (`dbFyvio`).
+
+   **Commands:**
+   - `/sleech <link>` (or `/stremio` / `/slch`): Automatically strips non-media files (`.exe`, `.iso`, `.apk`), sends non-split videos as media preview, and splits large videos (> 2GB) losslessly into document chunks (`.001`, `.002`). Prompts with interactive channel buttons when multiple Stremio dump chats exist (or pass `-ud <name>` to skip).
+   - `/stremiolist` (or `/slist`): Queries `STREMIO_DB_URL` and generates an organized Telegraph media library catalog grouped by **Movies** and **TV Series**.
+</details>
+
 ## Project Layout
 
 | Path | Purpose |

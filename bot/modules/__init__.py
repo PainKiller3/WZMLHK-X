@@ -26,6 +26,8 @@ from .broadcast import broadcast
 from .mirror_leech import (
     mirror,
     leech,
+    stremio_leech,
+    stremio_list,
     qb_leech,
     qb_mirror,
     jd_leech,
@@ -38,6 +40,7 @@ from .mirror_leech import (
     seedr_del_cb,
     seedrsync_cb,
     seedrcancel_cb,
+    confirm_dump_chat,
     uphoster,
 )
 from .restart import (
@@ -97,6 +100,8 @@ __all__ = [
     "uphoster",
     "mirror",
     "leech",
+    "stremio_leech",
+    "stremio_list",
     "qb_leech",
     "qb_mirror",
     "jd_leech",
@@ -109,6 +114,7 @@ __all__ = [
     "seedr_del_cb",
     "seedrsync_cb",
     "seedrcancel_cb",
+    "confirm_dump_chat",
     "restart_bot",
     "restart_notification",
     "confirm_restart",

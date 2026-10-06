@@ -58,6 +58,7 @@ from .mirror_leech_utils.status_utils.sevenz_status import SevenZStatus
 from .telegram_helper.bot_commands import BotCommands
 from .telegram_helper.message_utils import (
     get_tg_link_message,
+    open_dump_chat_btns,
     send_message,
     send_status_message,
 )
@@ -87,6 +88,7 @@ class TaskConfig:
         self.link = ""
         self.up_dest = ""
         self.leech_dest = ""
+        self.dump_dest = ""
         self.rc_flags = ""
         self.tag = ""
         self.name = ""
@@ -102,6 +104,7 @@ class TaskConfig:
         self.subsize = 0
         self.proceed_count = 0
         self.is_leech = False
+        self.is_stremio = False
         self.is_yt = False
         self.is_qbit = False
         self.is_mega = False
@@ -114,6 +117,9 @@ class TaskConfig:
         self.is_rclone = False
         self.is_ytdlp = False
         self.equal_splits = False
+        self.media_split = False
+        self.as_doc = False
+        self.as_med = False
         self.user_transmission = False
         self.hybrid_leech = False
         self.extract = False
@@ -232,6 +238,29 @@ class TaskConfig:
                 self.private_link = True
             if not await aiopath.exists(token_path):
                 raise ValueError(f"NO TOKEN! {token_path} not Exists!")
+
+    async def resolve_stremio_dump(self):
+        stremio_chats = Config.STREMIO_DUMP_CHAT or Config.LEECH_DUMP_CHAT
+        if not stremio_chats:
+            return Config.LEECH_DUMP_CHAT
+        if isinstance(stremio_chats, (int, str)):
+            return stremio_chats
+        if isinstance(stremio_chats, dict):
+            if len(stremio_chats) == 1:
+                return next(iter(stremio_chats.values()))
+            dump_dest = getattr(self, "dump_dest", "") or getattr(self, "up_dest", "")
+            if dump_dest and dump_dest in stremio_chats:
+                return stremio_chats[dump_dest]
+            picked, is_cancelled = await open_dump_chat_btns(
+                self.message, stremio_chats, dump_dest
+            )
+            if is_cancelled:
+                self.is_cancelled = True
+                return None
+            if not picked:
+                raise ValueError("No Stremio channel selected!")
+            return picked
+        return Config.LEECH_DUMP_CHAT
 
     async def before_start(self):
         self.name_swap = (
@@ -416,7 +445,12 @@ class TaskConfig:
                     raise ValueError("You must use the same config to clone!")
         else:
             self.leech_dest = self.up_dest or self.user_dict.get("LEECH_DUMP_CHAT")
-            self.up_dest = Config.LEECH_DUMP_CHAT
+            if self.is_stremio:
+                self.up_dest = await self.resolve_stremio_dump()
+                if self.is_cancelled:
+                    return
+            else:
+                self.up_dest = Config.LEECH_DUMP_CHAT
             self.hybrid_leech = TgClient.IS_PREMIUM_USER and (
                 self.user_dict.get("HYBRID_LEECH")
                 or Config.HYBRID_LEECH
@@ -520,16 +554,17 @@ class TaskConfig:
             ) and not self.is_super_chat:
                 self.user_transmission = False
                 self.hybrid_leech = False
-            if self.split_size:
-                if self.split_size.isdigit():
-                    self.split_size = int(self.split_size)
-                else:
-                    self.split_size = get_size_bytes(self.split_size)
             self.split_size = (
                 self.split_size
                 or self.user_dict.get("LEECH_SPLIT_SIZE")
                 or Config.LEECH_SPLIT_SIZE
             )
+            if self.split_size:
+                if isinstance(self.split_size, str):
+                    if self.split_size.isdigit():
+                        self.split_size = int(self.split_size)
+                    else:
+                        self.split_size = get_size_bytes(self.split_size)
             self.equal_splits = (
                 self.user_dict.get("EQUAL_SPLITS")
                 or Config.EQUAL_SPLITS
@@ -543,9 +578,17 @@ class TaskConfig:
             self.max_split_size = (
                 TgClient.MAX_SPLIT_SIZE if self.user_transmission else 2097152000
             )
-            self.split_size = min(self.split_size, self.max_split_size)
+            self.split_size = (
+                min(int(self.split_size), self.max_split_size)
+                if self.split_size
+                else self.max_split_size
+            )
 
-            if not self.as_doc:
+            if self.is_stremio:
+                self.media_split = False
+                if not self.as_doc and not self.as_med:
+                    self.as_doc = False
+            elif not self.as_doc:
                 self.as_doc = (
                     not self.as_med
                     if self.as_med
@@ -1163,6 +1206,13 @@ class TaskConfig:
 
     async def proceed_split(self, dl_path, gid):
         self.files_to_proceed = {}
+        if isinstance(self.split_size, str):
+            if self.split_size.isdigit():
+                self.split_size = int(self.split_size)
+            else:
+                self.split_size = get_size_bytes(self.split_size)
+        if not self.split_size:
+            self.split_size = self.max_split_size or 2097152000
         if self.is_file:
             f_size = await get_path_size(dl_path)
             if f_size > self.split_size:
@@ -1192,8 +1242,8 @@ class TaskConfig:
                 else:
                     split_size = self.split_size
                 if (
-                    not self.as_doc
-                    and self.media_split
+                    not getattr(self, "as_doc", False)
+                    and getattr(self, "media_split", False)
                     and (await get_document_type(f_path))[0]
                 ):
                     self.progress = True
