@@ -19,6 +19,7 @@ from .. import (
     user_data,
 )
 from ..core.seedr_client import SeedrClient
+from ..helper.ext_utils.db_handler import database
 from ..helper.ext_utils.telegraph_helper import telegraph
 from ..helper.ext_utils.bot_utils import (
     COMMAND_USAGE,
@@ -98,6 +99,7 @@ class Mirror(TaskListener):
         message,
         is_qbit=False,
         is_leech=False,
+        is_stremio=False,
         is_jd=False,
         is_nzb=False,
         is_seedr=False,
@@ -121,6 +123,7 @@ class Mirror(TaskListener):
         super().__init__()
         self.is_qbit = is_qbit
         self.is_leech = is_leech
+        self.is_stremio = is_stremio
         self.is_jd = is_jd
         self.is_nzb = is_nzb
         self.is_seedr = is_seedr
@@ -443,6 +446,11 @@ class Mirror(TaskListener):
             await delete_links(self.message)
             return
 
+        if self.is_cancelled:
+            await self.remove_from_same_dir()
+            await delete_links(self.message)
+            return
+
         if getattr(self, "is_staged_qbit", False):
             unsupported = []
             for enabled, label in (
@@ -664,6 +672,93 @@ async def nzb_mirror(client, message):
 
 async def leech(client, message):
     bot_loop.create_task(Mirror(client, message, is_leech=True).new_event())
+
+
+async def stremio_leech(client, message):
+    bot_loop.create_task(
+        Mirror(client, message, is_leech=True, is_stremio=True).new_event()
+    )
+
+
+async def stremio_list(client, message):
+    reply_msg = await send_message(
+        message, "⏳ <i>Fetching Stremio library catalog from database...</i>"
+    )
+    items = await database.get_stremio_items(limit=100)
+    if not items:
+        await edit_message(reply_msg, "<i>No Stremio media items found in catalog!</i>")
+        return
+
+    movies = [i for i in items if i.get("collection") == "movie"]
+    tv_shows = [i for i in items if i.get("collection") == "tv"]
+    other_items = [i for i in items if i.get("collection") not in ("movie", "tv")]
+
+    content = "<h3>🎬 <b><u>Stremio Library Catalog</u></b></h3>"
+
+    if movies:
+        content += "<h4>🍿 <b>Movies</b></h4><ol>"
+        for item in movies:
+            title = escape(
+                item.get("title") or item.get("title_english") or "Unknown Movie"
+            )
+            year = item.get("release_year", "")
+            year_str = f" ({year})" if year else ""
+            rating = item.get("rating")
+            rating_str = f" — ⭐ <b>{rating}</b>" if rating else ""
+            imdb_id = item.get("imdb_id")
+            imdb_url = f"https://www.imdb.com/title/{imdb_id}" if imdb_id else "#"
+            if imdb_url != "#":
+                content += f"<li><a href='{imdb_url}'><b>{title}</b></a>{year_str}{rating_str}</li>"
+            else:
+                content += f"<li><b>{title}</b>{year_str}{rating_str}</li>"
+        content += "</ol>"
+
+    if tv_shows:
+        content += "<h4>📺 <b>TV Series</b></h4><ol>"
+        for item in tv_shows:
+            title = escape(
+                item.get("title") or item.get("title_english") or "Unknown Show"
+            )
+            year = item.get("release_year", "")
+            year_str = f" ({year})" if year else ""
+            rating = item.get("rating")
+            rating_str = f" — ⭐ <b>{rating}</b>" if rating else ""
+            imdb_id = item.get("imdb_id")
+            imdb_url = f"https://www.imdb.com/title/{imdb_id}" if imdb_id else "#"
+            if imdb_url != "#":
+                content += f"<li><a href='{imdb_url}'><b>{title}</b></a>{year_str}{rating_str}</li>"
+            else:
+                content += f"<li><b>{title}</b>{year_str}{rating_str}</li>"
+        content += "</ol>"
+
+    if other_items:
+        content += "<h3>📁 <b>Other Media</b></h3><ol>"
+        for item in other_items:
+            name = escape(
+                item.get("title")
+                or item.get("name")
+                or item.get("filename")
+                or "Unknown Item"
+            )
+            content += f"<li><b>{name}</b></li>"
+        content += "</ol>"
+
+    try:
+        t_page = await telegraph.create_page(
+            title="Stremio Media Catalog", content=content
+        )
+        t_path = t_page.get("path", "") if isinstance(t_page, dict) else ""
+        t_url = f"https://telegra.ph/{t_path}" if t_path else ""
+        buttons = ButtonMaker()
+        if t_url:
+            buttons.url_button("📖 Open Stremio Library", t_url)
+        await edit_message(
+            reply_msg,
+            f"⌬ <b><u>Stremio Media Catalog</u></b>\n\nTotal Items: <b>{len(items)}</b>",
+            buttons.build_menu(1) if t_url else None,
+        )
+    except Exception as e:
+        await edit_message(reply_msg, f"Failed to generate Telegraph page: {e}")
 
 
 async def qb_leech(client, message):

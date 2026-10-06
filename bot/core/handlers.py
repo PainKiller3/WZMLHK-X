@@ -274,6 +274,20 @@ async def add_handlers():
     )
     TgClient.bot.add_handler(
         MessageHandler(
+            stremio_leech,
+            filters=command(BotCommands.SleechCommand, case_sensitive=True)
+            & CustomFilters.stremio,
+        )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
+            stremio_list,
+            filters=command(BotCommands.StremioListCommand, case_sensitive=True)
+            & CustomFilters.stremio,
+        )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
             qb_leech,
             filters=command(BotCommands.QbLeechCommand, case_sensitive=True)
             & CustomFilters.authorized,

@@ -160,6 +160,9 @@ class Config:
     STATUS_UPDATE_INTERVAL = 15
     STOP_DUPLICATE = False
     STOP_DUPLICATE_MIN_SIZE = 0
+    STREMIO_DUMP_CHAT = ""
+    STREMIO_DB_URL = ""
+    STREMIO_USERS = ""
     STREAMWISH_API = ""
     SUDO_USERS = ""
     TELEGRAM_API = 0
@@ -329,6 +332,14 @@ class Config:
                 except (ValueError, SyntaxError):
                     pass
             return original_value
+        if key == "STREMIO_DUMP_CHAT" and isinstance(value, str):
+            if value.strip().startswith("{") and value.strip().endswith("}"):
+                try:
+                    parsed = literal_eval(value.strip())
+                    if isinstance(parsed, dict):
+                        return parsed
+                except Exception:
+                    pass
         return value
 
     @classmethod

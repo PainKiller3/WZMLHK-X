@@ -37,6 +37,8 @@ from .broadcast import broadcast
 from .mirror_leech import (
     mirror,
     leech,
+    stremio_leech,
+    stremio_list,
     qb_leech,
     qb_mirror,
     jd_leech,
@@ -115,6 +117,8 @@ __all__ = [
     "uphoster",
     "mirror",
     "leech",
+    "stremio_leech",
+    "stremio_list",
     "qb_leech",
     "qb_mirror",
     "jd_leech",

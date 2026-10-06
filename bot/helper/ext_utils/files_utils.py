@@ -224,6 +224,35 @@ async def remove_excluded_files(fpath, ee):
                 await remove(ospath.join(root, f))
 
 
+async def remove_non_stremio_files(fpath):
+    STREMIO_EXCLUDED_EXT = (
+        ".exe",
+        ".iso",
+        ".dmg",
+        ".bat",
+        ".sh",
+        ".apk",
+        ".msi",
+        ".cmd",
+        ".com",
+        ".vbs",
+        ".ps1",
+        ".txt",
+        ".nfo",
+        ".url",
+        ".website",
+        ".sfv",
+        ".md5",
+    )
+    for root, _, files in await sync_to_async(walk, fpath):
+        if root.strip().endswith("/yt-dlp-thumb"):
+            continue
+        for f in files:
+            f_lower = f.lower()
+            if any(f_lower.endswith(ext) for ext in STREMIO_EXCLUDED_EXT):
+                await remove(ospath.join(root, f))
+
+
 async def move_and_merge(source, destination, mid):
     if not await aiopath.exists(destination):
         await aiomakedirs(destination, exist_ok=True)

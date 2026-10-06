@@ -27,6 +27,7 @@ from .. import (
     rss_dict,
     sabnzbd_client,
     sudo_users,
+    stremio_users,
 )
 from ..helper.ext_utils.bot_utils import cmd_exec, derive_service_password
 from ..helper.ext_utils.deprecations import Deprecations
@@ -312,6 +313,12 @@ async def update_variables():
         aid = Config.SUDO_USERS.split()
         for id_ in aid:
             sudo_users.append(int(id_.strip()))
+
+    if Config.STREMIO_USERS:
+        aid = Config.STREMIO_USERS.split()
+        for id_ in aid:
+            if id_.strip().lstrip("-").isdigit():
+                stremio_users.append(int(id_.strip()))
 
     if Config.EXCLUDED_EXTENSIONS:
         fx = Config.EXCLUDED_EXTENSIONS.split()

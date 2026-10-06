@@ -234,6 +234,11 @@ LEECH_DUMP_CHATS = {
 LINKS_LOG_ID = ""
 MIRROR_LOG_ID = ""
 
+# Stremio Integration
+STREMIO_DUMP_CHAT = ""
+STREMIO_DB_URL = ""
+STREMIO_USERS = ""
+
 # qBittorrent/Aria2c
 TORRENT_TIMEOUT = 0
 BASE_URL = ""

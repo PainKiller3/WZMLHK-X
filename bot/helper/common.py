@@ -120,6 +120,7 @@ class TaskConfig:
         self.subsize = 0
         self.proceed_count = 0
         self.is_leech = False
+        self.is_stremio = False
         self.is_yt = False
         self.is_qbit = False
         self.is_mega = False
@@ -316,7 +317,28 @@ class TaskConfig:
             return None
         if not picked:
             raise ValueError("No dump chat selected!")
-        return picked
+
+    async def resolve_stremio_dump(self):
+        stremio_chats = Config.STREMIO_DUMP_CHAT or Config.LEECH_LOG_CHAT
+        if not stremio_chats:
+            return Config.LEECH_LOG_CHAT
+        if isinstance(stremio_chats, (int, str)):
+            return stremio_chats
+        if isinstance(stremio_chats, dict):
+            if len(stremio_chats) == 1:
+                return next(iter(stremio_chats.values()))
+            if self.dump_dest and self.dump_dest in stremio_chats:
+                return stremio_chats[self.dump_dest]
+            picked, is_cancelled = await open_dump_chat_btns(
+                self.message, stremio_chats, self.dump_dest
+            )
+            if is_cancelled:
+                self.is_cancelled = True
+                return None
+            if not picked:
+                raise ValueError("No Stremio channel selected!")
+            return picked
+        return Config.LEECH_LOG_CHAT
 
     async def resolve_clone_dests(self):
         wanted = (self.dump_dest or "").split()
@@ -609,12 +631,23 @@ class TaskConfig:
             if self.hybrid_leech:
                 self.transmission_mode = "both"
 
-            self.up_dest = Config.LEECH_LOG_CHAT
-            if not self.dump_dest and self.leech_dests and self.only_leech_dump:
+            if self.is_stremio:
+                self.up_dest = await self.resolve_stremio_dump()
+                if self.is_cancelled:
+                    return
+            else:
+                self.up_dest = Config.LEECH_LOG_CHAT
+
+            if (
+                not self.dump_dest
+                and self.leech_dests
+                and self.only_leech_dump
+                and not self.is_stremio
+            ):
                 self.up_dest = self.leech_dests[0][0]
                 if self.leech_dests[0][1]:
                     self.chat_thread_id = self.leech_dests[0][1]
-            elif self.dump_dest:
+            elif self.dump_dest and not self.is_stremio:
                 self.up_dest = await self.resolve_dump_dest(self.dump_dest)
                 if self.is_cancelled:
                     return
@@ -716,7 +749,11 @@ class TaskConfig:
             )
             self.split_size = min(self.split_size, self.max_split_size)
 
-            if not self.as_doc:
+            if self.is_stremio:
+                self.media_split = False
+                if not self.as_doc and not self.as_med:
+                    self.as_doc = False
+            elif not self.as_doc:
                 self.as_doc = (
                     not self.as_med
                     if self.as_med

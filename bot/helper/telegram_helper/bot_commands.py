@@ -20,6 +20,8 @@ class BotCommands:
         "JdLeech": ["jdleech", "jl"],
         "YtdlLeech": ["ytdlleech", "yl"],
         "NzbLeech": ["nzbleech", "nl"],
+        "Sleech": ["sleech", "stremio", "slch"],
+        "StremioList": ["stremiolist", "slist"],
         "SeedrLink": ["seedrlink", "slink", "srlink"],
         "SeedrClean": ["seedrclean", "sclean", "seedrdel"],
         "Clone": ["clone", "cl"],

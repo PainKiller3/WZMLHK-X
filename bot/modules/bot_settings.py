@@ -50,6 +50,7 @@ from .. import (
     excluded_extensions,
     auth_chats,
     sudo_users,
+    stremio_users,
     var_list,
 )
 from ..helper.ext_utils.bot_utils import (
@@ -245,6 +246,9 @@ DEFAULT_DESP = {
     "STORAGE_LIMIT": "Minimum free storage to maintain in GB. Downloads cancelled if exceeded.",
     "MONTHLY_BANDWIDTH": "Monthly VPS bandwidth limit in GB (e.g. 3000 for 3TB). 0 = unlimited.",
     "LEECH_LOG_CHAT": "Chat ID to dump all leeched files, or chat_id|topic_id for a forum topic. Leave empty to disable.",
+    "STREMIO_DUMP_CHAT": "Chat ID dedicated for Stremio video dump (/sleech or /stremio). Leave empty to use LEECH_LOG_CHAT.",
+    "STREMIO_DB_URL": "MongoDB Connection URL dedicated for tracking Stremio leeched items.",
+    "STREMIO_USERS": "Space-separated User IDs allowed to use Stremio commands. Leave empty to allow all users (Owner & Sudo always allowed).",
     "LEECH_DUMP_CHATS": 'Named leech dump chats selectable per task via -ud flag. Dict format: {"name": chat_id}. Example: {"A": -100123}.',
     "LINKS_LOG_ID": "Chat ID for link logging.",
     "MIRROR_LOG_ID": "Chat ID(s) for mirror logs. Space-separated for multiple.",
@@ -885,6 +889,36 @@ async def edit_variable(_, message, pre_message, key):
                 )
                 return await update_buttons(pre_message, "var")
             value = value.strip() if thread else chat
+    elif key == "STREMIO_DUMP_CHAT":
+        if isinstance(value, str) and value.strip():
+            if value.strip().startswith("{") and value.strip().endswith("}"):
+                try:
+                    value = literal_eval(value.strip())
+                except Exception:
+                    await send_message(
+                        message, "Invalid dict format for STREMIO_DUMP_CHAT!"
+                    )
+                    return await update_buttons(pre_message, "var")
+            else:
+                chat, thread = parse_dest(value.strip())
+                if not isinstance(chat, int) or ("|" in value and thread is None):
+                    await send_message(
+                        message,
+                        "Invalid value! STREMIO_DUMP_CHAT must be a chat ID, or dict: {'Movies': -100123, 'Anime': -100456}",
+                    )
+                    return await update_buttons(pre_message, "var")
+                value = value.strip() if thread else chat
+    elif key == "STREMIO_USERS":
+        aid = value.split()
+        stremio_users.clear()
+        for id_ in aid:
+            if not id_.strip().lstrip("-").isdigit():
+                await send_message(
+                    message,
+                    "Invalid value! STREMIO_USERS must be space-separated User IDs.",
+                )
+                return await update_buttons(pre_message, "var")
+            stremio_users.append(int(id_.strip()))
     elif key == "LEECH_DUMP_CHATS":
         if isinstance(value, str):
             if value.startswith("{") and value.endswith("}"):
