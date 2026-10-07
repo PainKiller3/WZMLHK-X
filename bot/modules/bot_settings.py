@@ -51,6 +51,7 @@ from .. import (
     auth_chats,
     sudo_users,
     stremio_users,
+    stremio_chats,
     var_list,
 )
 from ..helper.ext_utils.bot_utils import (
@@ -249,6 +250,7 @@ DEFAULT_DESP = {
     "STREMIO_DUMP_CHAT": "Chat ID dedicated for Stremio video dump (/sleech or /stremio). Leave empty to use LEECH_LOG_CHAT.",
     "STREMIO_DB_URL": "MongoDB Connection URL dedicated for tracking Stremio leeched items.",
     "STREMIO_USERS": "Space-separated User IDs allowed to use Stremio commands. Leave empty to allow all users (Owner & Sudo always allowed).",
+    "STREMIO_AUTHORIZED_CHATS": "Space-separated Group Chat IDs allowed for Stremio commands. Leave empty to allow all chats.",
     "LEECH_DUMP_CHATS": 'Named leech dump chats selectable per task via -ud flag. Dict format: {"name": chat_id}. Example: {"A": -100123}.',
     "LINKS_LOG_ID": "Chat ID for link logging.",
     "MIRROR_LOG_ID": "Chat ID(s) for mirror logs. Space-separated for multiple.",
@@ -919,6 +921,17 @@ async def edit_variable(_, message, pre_message, key):
                 )
                 return await update_buttons(pre_message, "var")
             stremio_users.append(int(id_.strip()))
+    elif key == "STREMIO_AUTHORIZED_CHATS":
+        aid = value.split()
+        stremio_chats.clear()
+        for id_ in aid:
+            if not id_.strip().lstrip("-").isdigit():
+                await send_message(
+                    message,
+                    "Invalid value! STREMIO_AUTHORIZED_CHATS must be space-separated Chat IDs.",
+                )
+                return await update_buttons(pre_message, "var")
+            stremio_chats.append(int(id_.strip()))
     elif key == "LEECH_DUMP_CHATS":
         if isinstance(value, str):
             if value.startswith("{") and value.endswith("}"):

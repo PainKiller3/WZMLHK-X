@@ -3,7 +3,7 @@ from time import time
 from pyrogram.filters import create
 from pyrogram.enums import ChatType
 
-from ... import auth_chats, sudo_users, stremio_users, user_data
+from ... import auth_chats, sudo_users, stremio_users, stremio_chats, user_data
 from ...core.config_manager import Config
 from .tg_utils import chat_info
 
@@ -104,16 +104,30 @@ class CustomFilters:
     async def stremio_user(self, _, update):
         if not await CustomFilters.authorized("", update):
             return False
-        if not Config.STREMIO_USERS and not stremio_users:
+
+        has_user_filter = bool(Config.STREMIO_USERS or stremio_users)
+        has_chat_filter = bool(Config.STREMIO_AUTHORIZED_CHATS or stremio_chats)
+
+        if not has_user_filter and not has_chat_filter:
             return True
+
         user = update.from_user or update.sender_chat
-        uid = user.id
-        return bool(
+        uid = user.id if user else 0
+        chat, _ = _chat_context(update)
+        chat_id = chat.id if chat else 0
+
+        # Owner and Sudo users always bypass
+        if (
             uid == Config.OWNER_ID
             or (uid in user_data and user_data[uid].get("SUDO"))
             or uid in sudo_users
-            or uid in stremio_users
-        )
+        ):
+            return True
+
+        user_allowed = not has_user_filter or (uid in stremio_users)
+        chat_allowed = not has_chat_filter or (chat_id in stremio_chats)
+
+        return bool(user_allowed and chat_allowed)
 
     stremio = create(stremio_user)
 
