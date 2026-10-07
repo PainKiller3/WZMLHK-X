@@ -122,6 +122,7 @@ class Config:
     STREMIO_DUMP_CHAT = ""
     STREMIO_DB_URL = ""
     STREMIO_USERS = ""
+    STREMIO_AUTHORIZED_CHATS = ""
     STREAMWISH_API = ""
     SUDO_USERS = ""
     TELEGRAM_API = 0

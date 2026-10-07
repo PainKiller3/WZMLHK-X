@@ -89,6 +89,7 @@ drives_ids = []
 index_urls = []
 sudo_users = []
 stremio_users = []
+stremio_chats = []
 non_queued_dl = set()
 non_queued_up = set()
 multi_tags = set()

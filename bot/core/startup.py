@@ -25,6 +25,7 @@ from .. import (
     sabnzbd_client,
     sudo_users,
     stremio_users,
+    stremio_chats,
 )
 from ..helper.ext_utils.db_handler import database
 from .config_manager import Config, BinConfig
@@ -265,6 +266,12 @@ async def update_variables():
         for id_ in aid:
             if id_.strip().lstrip("-").isdigit():
                 stremio_users.append(int(id_.strip()))
+
+    if Config.STREMIO_AUTHORIZED_CHATS:
+        aid = Config.STREMIO_AUTHORIZED_CHATS.split()
+        for id_ in aid:
+            if id_.strip().lstrip("-").isdigit():
+                stremio_chats.append(int(id_.strip()))
 
     if Config.EXCLUDED_EXTENSIONS:
         fx = Config.EXCLUDED_EXTENSIONS.split()

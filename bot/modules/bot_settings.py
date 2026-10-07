@@ -36,6 +36,7 @@ from .. import (
     auth_chats,
     sudo_users,
     stremio_users,
+    stremio_chats,
 )
 from ..helper.ext_utils.bot_utils import (
     SetInterval,
@@ -430,6 +431,17 @@ async def edit_variable(_, message, pre_message, key):
                 )
                 return await update_buttons(pre_message, "var")
             stremio_users.append(int(id_.strip()))
+    elif key == "STREMIO_AUTHORIZED_CHATS":
+        aid = value.split()
+        stremio_chats.clear()
+        for id_ in aid:
+            if not id_.strip().lstrip("-").isdigit():
+                await send_message(
+                    message,
+                    "Invalid value! STREMIO_AUTHORIZED_CHATS must be space-separated Chat IDs.",
+                )
+                return await update_buttons(pre_message, "var")
+            stremio_chats.append(int(id_.strip()))
     elif key == "AUTHORIZED_CHATS":
         aid = value.split()
         auth_chats.clear()
