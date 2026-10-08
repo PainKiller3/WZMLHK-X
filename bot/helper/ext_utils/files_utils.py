@@ -225,32 +225,48 @@ async def remove_excluded_files(fpath, ee):
 
 
 async def remove_non_stremio_files(fpath):
-    STREMIO_EXCLUDED_EXT = (
-        ".exe",
-        ".iso",
-        ".dmg",
-        ".bat",
-        ".sh",
-        ".apk",
-        ".msi",
-        ".cmd",
-        ".com",
-        ".vbs",
-        ".ps1",
-        ".txt",
-        ".nfo",
-        ".url",
-        ".website",
-        ".sfv",
-        ".md5",
+    STREMIO_ALLOWED_EXT = (
+        # Video formats
+        ".mkv",
+        ".mp4",
+        ".avi",
+        ".mov",
+        ".flv",
+        ".wmv",
+        ".webm",
+        ".m4v",
+        ".3gp",
+        ".ts",
+        ".m2ts",
+        ".vob",
+        ".divx",
+        ".ogv",
+        # Subtitle formats
+        ".srt",
+        ".vtt",
+        ".ass",
+        ".ssa",
+        ".sub",
+        ".idx",
     )
-    for root, _, files in await sync_to_async(walk, fpath):
+    for root, dirs, files in await sync_to_async(walk, fpath, topdown=False):
         if root.strip().endswith("/yt-dlp-thumb"):
             continue
         for f in files:
             f_lower = f.lower()
-            if any(f_lower.endswith(ext) for ext in STREMIO_EXCLUDED_EXT):
+            ext = ospath.splitext(f_lower)[1]
+            # Allow video/subtitle extensions or numeric binary split chunks (.001, .002, etc.)
+            is_binary_split = ext and ext[1:].isdigit()
+            is_allowed = (
+                any(f_lower.endswith(a_ext) for a_ext in STREMIO_ALLOWED_EXT)
+                or is_binary_split
+            )
+            if not is_allowed:
                 await remove(ospath.join(root, f))
+        for d in dirs:
+            dir_path = ospath.join(root, d)
+            if not await listdir(dir_path):
+                await remove(dir_path)
 
 
 async def move_and_merge(source, destination, mid):

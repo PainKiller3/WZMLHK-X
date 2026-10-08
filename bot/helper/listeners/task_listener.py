@@ -250,6 +250,10 @@ class TaskListener(TaskConfig):
         await remove_excluded_files(self.up_dir or self.dir, self.excluded_extensions)
         if self.is_stremio:
             await remove_non_stremio_files(self.up_dir or self.dir)
+            if (await get_path_size(self.up_dir or self.dir)) == 0:
+                return await self.on_upload_error(
+                    "No valid video/media files found for Stremio upload!"
+                )
 
         if not Config.QUEUE_ALL:
             async with queue_dict_lock:
