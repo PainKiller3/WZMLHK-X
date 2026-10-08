@@ -49,6 +49,7 @@ class Config:
     GD_DESP = "Uploaded with WZ Bot"
     AUTHOR_NAME = "WZML-X"
     AUTHOR_URL = "https://t.me/WZML_X"
+    AUTO_THUMBNAIL = False
     INSTADL_API = ""
     IMDB_TEMPLATE = ""
     INCOMPLETE_TASK_NOTIFIER = False

@@ -76,6 +76,7 @@ DEFAULT_VALUES = {
     "QUEUE_DOWNLOAD": 0,
     "QUEUE_UPLOAD": 0,
     "USER_MAX_TASKS": 0,
+    "AUTO_THUMBNAIL": False,
 }
 
 

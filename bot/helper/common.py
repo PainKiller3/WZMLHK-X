@@ -174,7 +174,11 @@ class TaskConfig:
         self.pm_msg = None
         self.file_details = {}
         self.mode = tuple()
-        self.auto_thumbnail = self.user_dict.get("AUTO_THUMBNAIL", True)
+        self.auto_thumbnail = (
+            self.user_dict["AUTO_THUMBNAIL"]
+            if "AUTO_THUMBNAIL" in self.user_dict
+            else Config.AUTO_THUMBNAIL
+        )
         self.smart_autorename = (
             self.user_dict["SMART_AUTORENAME"]
             if "SMART_AUTORENAME" in self.user_dict
