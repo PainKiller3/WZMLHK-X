@@ -98,9 +98,9 @@ class JDownloader(MyJdApi):
             await rmtree("/JDownloader/tmp", ignore_errors=True)
         svc_cores = service_cores()
         if svc_cores:
-            cmd = f"taskset -c {svc_cores} cpulimit -l {Config.CPU_LIMIT} -- java -Xms256m -Xmx500m -Dsun.jnu.encoding=UTF-8 -Dfile.encoding=UTF-8 -Djava.awt.headless=true -jar /JDownloader/JDownloader.jar"
+            cmd = f"taskset -c {svc_cores} cpulimit -l {Config.CPU_LIMIT} -- java -Xms64m -Xmx128m -Dsun.jnu.encoding=UTF-8 -Dfile.encoding=UTF-8 -Djava.awt.headless=true -jar /JDownloader/JDownloader.jar"
         else:
-            cmd = f"cpulimit -l {Config.CPU_LIMIT} -- java -Xms256m -Xmx500m -Dsun.jnu.encoding=UTF-8 -Dfile.encoding=UTF-8 -Djava.awt.headless=true -jar /JDownloader/JDownloader.jar"
+            cmd = f"cpulimit -l {Config.CPU_LIMIT} -- java -Xms64m -Xmx128m -Dsun.jnu.encoding=UTF-8 -Dfile.encoding=UTF-8 -Djava.awt.headless=true -jar /JDownloader/JDownloader.jar"
         self.is_connected = True
         _, __, code = await cmd_exec(cmd, shell=True)
         self.is_connected = False
