@@ -41,6 +41,7 @@
 
    - [At a Glance](#at-a-glance)
    - [Why Use It](#why-use-it)
+   - [Enhancements over Upstream WZML-X](#enhancements-over-upstream-wzml-x)
    - [What It Covers](#what-it-covers)
    - [How It Runs](#how-it-runs)
    - [Deployment](#deployment)
@@ -65,6 +66,20 @@
 ## Why Use It
 
 WZML-X is built for users who want a single bot stack that can mirror, leech, manage files, and expose a simple web-based selection flow without stitching together multiple tools. The README focuses on what you need to deploy it quickly, understand the moving parts, and tune the behavior safely.
+
+## Enhancements over Upstream WZML-X
+
+This repository builds upon upstream WZML-X with a suite of custom features, automated media streaming integrations, enhanced download engines, and granular output controls:
+
+| Feature / System | Upstream WZML-X | This Custom Build |
+|---|---|---|
+| **Stremio Integration** | ❌ Not available | ✅ **Native `/sleech` & `/stremiolist`**: Direct integration with Telegram-Stremio DB, multi-channel dump routing, video/subtitle strict filtering, and automated Telegraph catalog generation. |
+| **Auto-Leech Engine** | ❌ Manual leeching only | ✅ **Automated Leeching**: Rule-based Auto-Leech engine with per-user settings, chat filters, and custom file extension matching. |
+| **Smart Renaming & Captions** | ⚠️ Basic static templates | ✅ **Smart Auto Rename 2.0 & Smart Captions**: Multi-provider metadata auto-renaming (TMDb, IMDb, TVDB, Kitsu, Cinemeta), `{smartcaption}` variable, V1/V2 renderers, and multi-part binary split support (`.part001.mkv`, `.rar.001`). |
+| **Media Splitting Engine** | ⚠️ Standard FFmpeg split | ✅ **FFmpeg & Binary Chunk Splitting**: Configurable Media Split mode (FFmpeg vs Binary) with native support for multi-part binary split outputs. |
+| **Storage & Staged Downloads** | ⚠️ Basic temp downloads | ✅ **Staged Torrent Downloads & Bandwidth Tracking**: Storage-safe staged torrent downloading with state resumption, server bandwidth manager with alert notifications, and Uptime Kuma heartbeats. |
+| **Archive Extraction** | ⚠️ Single-pass extraction | ✅ **Multi-Pass Recursive Extraction**: Automatically extracts deeply nested archives (ZIP, RAR, 7Z) in a single task workflow. |
+| **Task & Output Control** | ⚠️ Global channel dumps | ✅ **Granular Output Routing**: `PRIVATE_OUTPUT` (PM delivery), `ONLY_LEECH_DUMP`, per-user `/uset` `BOT_PM` controls, and `STREMIO_AUTHORIZED_CHATS`. |
 
 ## What It Covers
 
@@ -188,10 +203,12 @@ Then tune the optional behavior from `config_sample.py`.
 
    - `STREMIO_DUMP_CHAT`: Single chat ID or dictionary of named channels (`{"Movies": -100111, "Anime": -100222}`).
    - `STREMIO_DB_URL`: Read-only connection URL for your Telegram-Stremio MongoDB database (`dbFyvio`).
+   - `STREMIO_USERS`: Space-separated User IDs allowed to use Stremio commands.
+   - `STREMIO_AUTHORIZED_CHATS`: Space-separated Group/Channel Chat IDs allowed for Stremio commands.
 
-   **Commands:**
-   - `/sleech <link>` (or `/stremio` / `/slch`): Automatically strips non-media files (`.exe`, `.iso`, `.apk`), sends non-split videos as media preview, and splits large videos (> 2GB) losslessly into document chunks (`.001`, `.002`). Prompts with interactive channel buttons when multiple Stremio dump chats exist (or pass `-ud <name>` to skip).
-   - `/stremiolist` (or `/slist`): Queries `STREMIO_DB_URL` and generates an organized Telegraph media library catalog grouped by **Movies** and **TV Series**.
+   **Commands & Capabilities:**
+   - `/sleech <link>` (or `/stremio` / `/slch`): Automatically extracts archives (`.zip`, `.rar`, `.7z`), strips non-media files using a strict video/subtitle allowlist, cleans up empty subdirectories, and aborts tasks if 0 video files remain. Sends non-split videos as media preview, and splits large videos (> 2GB) losslessly into binary chunks (`.001`, `.002`). Prompts with interactive channel buttons when multiple Stremio dump chats exist (or pass `-ud <name>` to skip).
+   - `/stremiolist` (or `/slist`): Queries `STREMIO_DB_URL` and generates an organized multi-page Telegraph media catalog with automatic `[Next ➡]` and `[⬅ Prev]` pagination links.
 </details>
 
 ## Project Layout
