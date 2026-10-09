@@ -113,8 +113,8 @@ class CustomFilters:
 
         user = update.from_user or update.sender_chat
         uid = user.id if user else 0
-        chat, _ = _chat_context(update)
-        chat_id = chat.id if chat else 0
+        chat_id, _ = _chat_context(update)
+        chat_id = chat_id or 0
 
         # Owner and Sudo users always bypass
         if (
