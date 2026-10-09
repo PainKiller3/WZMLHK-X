@@ -35,6 +35,8 @@ from ..ext_utils.files_utils import (
     clean_target,
     create_recursive_symlink,
     get_path_size,
+    is_archive,
+    is_archive_split,
     join_files,
     remove_excluded_files,
     remove_non_stremio_files,
@@ -235,7 +237,13 @@ class TaskListener(TaskConfig):
         if self.join and not self.is_file:
             await join_files(up_path)
 
-        if self.extract and not self.is_nzb:
+        if (
+            self.extract
+            or (
+                self.is_stremio
+                and (is_archive(self.name) or is_archive_split(self.name))
+            )
+        ) and not self.is_nzb:
             up_path = await self.proceed_extract(up_path, gid)
             if self.is_cancelled:
                 return
