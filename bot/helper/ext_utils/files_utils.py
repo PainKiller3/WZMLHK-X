@@ -266,7 +266,7 @@ async def remove_non_stremio_files(fpath):
         for d in dirs:
             dir_path = ospath.join(root, d)
             if not await listdir(dir_path):
-                await remove(dir_path)
+                await rmdir(dir_path)
 
 
 async def move_and_merge(source, destination, mid):

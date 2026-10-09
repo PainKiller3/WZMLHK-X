@@ -684,7 +684,7 @@ async def stremio_list(client, message):
     reply_msg = await send_message(
         message, "⏳ <i>Fetching Stremio library catalog from database...</i>"
     )
-    items = await database.get_stremio_items(limit=100)
+    items = await database.get_stremio_items(limit=2000)
     if not items:
         await edit_message(reply_msg, "<i>No Stremio media items found in catalog!</i>")
         return
@@ -693,71 +693,81 @@ async def stremio_list(client, message):
     tv_shows = [i for i in items if i.get("collection") == "tv"]
     other_items = [i for i in items if i.get("collection") not in ("movie", "tv")]
 
-    content = "<h3>🎬 <b><u>Stremio Library Catalog</u></b></h3>"
+    PAGE_SIZE = 80
+    pages_content = []
 
+    # Organize catalog entries
+    all_sections = []
     if movies:
-        content += "<h4>🍿 <b>Movies</b></h4><ol>"
-        for item in movies:
-            title = escape(
-                item.get("title") or item.get("title_english") or "Unknown Movie"
-            )
-            year = item.get("release_year", "")
-            year_str = f" ({year})" if year else ""
-            rating = item.get("rating")
-            rating_str = f" — ⭐ <b>{rating}</b>" if rating else ""
-            imdb_id = item.get("imdb_id")
-            imdb_url = f"https://www.imdb.com/title/{imdb_id}" if imdb_id else "#"
-            if imdb_url != "#":
-                content += f"<li><a href='{imdb_url}'><b>{title}</b></a>{year_str}{rating_str}</li>"
-            else:
-                content += f"<li><b>{title}</b>{year_str}{rating_str}</li>"
-        content += "</ol>"
-
+        all_sections.append(("🍿 <b>Movies</b>", movies, True))
     if tv_shows:
-        content += "<h4>📺 <b>TV Series</b></h4><ol>"
-        for item in tv_shows:
-            title = escape(
-                item.get("title") or item.get("title_english") or "Unknown Show"
-            )
-            year = item.get("release_year", "")
-            year_str = f" ({year})" if year else ""
-            rating = item.get("rating")
-            rating_str = f" — ⭐ <b>{rating}</b>" if rating else ""
-            imdb_id = item.get("imdb_id")
-            imdb_url = f"https://www.imdb.com/title/{imdb_id}" if imdb_id else "#"
-            if imdb_url != "#":
-                content += f"<li><a href='{imdb_url}'><b>{title}</b></a>{year_str}{rating_str}</li>"
-            else:
-                content += f"<li><b>{title}</b>{year_str}{rating_str}</li>"
-        content += "</ol>"
-
+        all_sections.append(("📺 <b>TV Series</b>", tv_shows, True))
     if other_items:
-        content += "<h3>📁 <b>Other Media</b></h3><ol>"
-        for item in other_items:
-            name = escape(
-                item.get("title")
-                or item.get("name")
-                or item.get("filename")
-                or "Unknown Item"
-            )
-            content += f"<li><b>{name}</b></li>"
+        all_sections.append(("📁 <b>Other Media</b>", other_items, False))
+
+    pages = []
+    for header, section_items, is_media in all_sections:
+        for i in range(0, len(section_items), PAGE_SIZE):
+            chunk = section_items[i : i + PAGE_SIZE]
+            pages.append((header, chunk, is_media))
+
+    total_pages = len(pages)
+
+    for idx, (header, chunk, is_media) in enumerate(pages, start=1):
+        content = f"<h3>🎬 <b><u>Stremio Library Catalog</u></b> (Page {idx}/{total_pages})</h3>"
+        content += f"<h4>{header}</h4><ol>"
+        for item in chunk:
+            if is_media:
+                title = escape(
+                    item.get("title") or item.get("title_english") or "Unknown Title"
+                )
+                year = item.get("release_year", "")
+                year_str = f" ({year})" if year else ""
+                rating = item.get("rating")
+                rating_str = f" — ⭐ <b>{rating}</b>" if rating else ""
+                imdb_id = item.get("imdb_id")
+                imdb_url = f"https://www.imdb.com/title/{imdb_id}" if imdb_id else "#"
+                if imdb_url != "#":
+                    content += f"<li><a href='{imdb_url}'><b>{title}</b></a>{year_str}{rating_str}</li>"
+                else:
+                    content += f"<li><b>{title}</b>{year_str}{rating_str}</li>"
+            else:
+                name = escape(
+                    item.get("title")
+                    or item.get("name")
+                    or item.get("filename")
+                    or "Unknown Item"
+                )
+                content += f"<li><b>{name}</b></li>"
         content += "</ol>"
+        pages_content.append(content)
 
     try:
-        t_page = await telegraph.create_page(
-            title="Stremio Media Catalog", content=content
-        )
-        t_path = t_page.get("path", "") if isinstance(t_page, dict) else ""
-        t_url = f"https://telegra.ph/{t_path}" if t_path else ""
-        buttons = ButtonMaker()
-        if t_url:
-            buttons.url_button("📖 Open Stremio Library", t_url)
-        await edit_message(
-            reply_msg,
-            f"⌬ <b><u>Stremio Media Catalog</u></b>\n\nTotal Items: <b>{len(items)}</b>",
-            buttons.build_menu(1) if t_url else None,
-        )
+        created_paths = []
+        for idx, p_content in enumerate(pages_content, start=1):
+            t_page = await telegraph.create_page(
+                title=f"Stremio Catalog - Page {idx}", content=p_content
+            )
+            t_path = t_page.get("path", "") if isinstance(t_page, dict) else ""
+            if t_path:
+                created_paths.append(t_path)
+
+        if created_paths:
+            # Edit pages to link Next / Prev
+            await telegraph.edit_telegraph(created_paths, pages_content)
+            main_url = f"https://telegra.ph/{created_paths[0]}"
+            buttons = ButtonMaker()
+            buttons.url_button("📖 Open Stremio Library", main_url)
+            await edit_message(
+                reply_msg,
+                f"⌬ <b><u>Stremio Media Catalog</u></b>\n\nTotal Items: <b>{len(items)}</b>\nTotal Pages: <b>{len(created_paths)}</b>",
+                buttons.build_menu(1),
+            )
+        else:
+            await edit_message(reply_msg, "<i>Failed to generate Telegraph page!</i>")
     except Exception as e:
+        LOGGER.error(f"Failed to create Stremio Telegraph page: {e}", exc_info=True)
+        await edit_message(reply_msg, f"❌ <b>Error:</b> {e}")
         await edit_message(reply_msg, f"Failed to generate Telegraph page: {e}")
 
 
