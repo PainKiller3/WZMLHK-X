@@ -23,7 +23,7 @@ from .telegraph_helper import telegraph
 
 COMMAND_USAGE = {}
 
-THREAD_POOL = ThreadPoolExecutor(max_workers=500)
+THREAD_POOL = ThreadPoolExecutor(max_workers=32)
 
 
 class SetInterval:
