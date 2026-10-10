@@ -64,6 +64,16 @@ async def _connect_aria2(retries=5, delay=2):
             await sleep(delay)
 
 
+async def _connect_qbit(url="http://localhost:8090/api/v2/", retries=15, delay=1):
+    for i in range(retries):
+        try:
+            await sleep(delay)
+            return await create_client(url)
+        except Exception:
+            if i == retries - 1:
+                raise
+
+
 class TorrentManager:
     aria2 = None
     qbittorrent = None
@@ -97,17 +107,8 @@ class TorrentManager:
             cls._qbit_process = await create_subprocess_exec(
                 BinConfig.QBIT_NAME, "-d", f"--profile={getcwd()}/configs/qbittorrent"
             )
-            for attempt in range(15):
-                try:
-                    await sleep(1)
-                    cls.qbittorrent = await create_client(
-                        "http://localhost:8090/api/v2/"
-                    )
-                    LOGGER.info("qBittorrent started !")
-                    break
-                except Exception:
-                    if attempt == 14:
-                        raise
+            cls.qbittorrent = await _connect_qbit(retries=15, delay=1)
+            LOGGER.info("qBittorrent started !")
             cls.qbittorrent = wrap_with_retry(cls.qbittorrent)
             await cls._auth_qbit()
 
@@ -160,8 +161,7 @@ class TorrentManager:
             cls._qbit_process = await create_subprocess_exec(
                 BinConfig.QBIT_NAME, "-d", f"--profile={getcwd()}/configs/qbittorrent"
             )
-            await sleep(3)
-            cls.qbittorrent = await create_client("http://localhost:8090/api/v2/")
+            cls.qbittorrent = await _connect_qbit(retries=15, delay=1)
             cls.qbittorrent = wrap_with_retry(cls.qbittorrent)
             await cls._auth_qbit()
             LOGGER.info("qBittorrent (re)started successfully")

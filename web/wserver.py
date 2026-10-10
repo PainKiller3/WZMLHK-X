@@ -195,14 +195,22 @@ http_session = None
 async def lifespan(app: FastAPI):
     global aria2, qbittorrent, http_session
     aria2 = Aria2HttpClient("http://localhost:6800/jsonrpc")
-    qbittorrent = await create_client("http://localhost:8090/api/v2/")
+    for attempt in range(15):
+        try:
+            await sleep(1)
+            qbittorrent = await create_client("http://localhost:8090/api/v2/")
+            break
+        except Exception:
+            if attempt == 14:
+                raise
     http_session = ClientSession(
         auto_decompress=True,
         timeout=ClientTimeout(total=None, connect=15, sock_connect=15, sock_read=300),
     )
     yield
     await aria2.close()
-    await qbittorrent.close()
+    if qbittorrent:
+        await qbittorrent.close()
     await http_session.close()
 
 
