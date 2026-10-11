@@ -463,6 +463,61 @@ def _first_alive(session, links):
 
 def hubcloud(url):
     with CurlSession(impersonate="chrome") as session:
+        if "/packs/" in url:
+            res = session.get(url)
+            match_data = search(
+                r"const\s+packData\s*=\s*JSON\.parse\(`([^`]+)`\);", res.text
+            )
+            if not match_data:
+                raise DirectDownloadLinkException(
+                    "ERROR: Could not parse HubCloud pack data"
+                )
+            try:
+                data = loads(match_data.group(1))
+            except Exception as e:
+                raise DirectDownloadLinkException(
+                    f"ERROR: Invalid HubCloud pack JSON: {e}"
+                )
+
+            files = data.get("files", [])
+            if not files:
+                raise DirectDownloadLinkException(
+                    "ERROR: No files found in HubCloud pack"
+                )
+
+            parsed = urlparse(url)
+            host = f"{parsed.scheme}://{parsed.netloc}"
+            pack_info = data.get("pack", {})
+
+            details = {
+                "contents": [],
+                "title": pack_info.get("pack_name")
+                or pack_info.get("slug")
+                or "HubCloud Pack",
+                "total_size": 0,
+            }
+
+            for item in files:
+                share_id = item.get("share_id")
+                if not share_id:
+                    continue
+                file_url = f"{host}/drive/{share_id}"
+                file_size = int(item.get("file_size") or 0)
+                details["contents"].append(
+                    {
+                        "path": "",
+                        "filename": item.get("file_name", "Untitled").strip(),
+                        "url": hubcloud(file_url),
+                    }
+                )
+                details["total_size"] += file_size
+
+            if not details["contents"]:
+                raise DirectDownloadLinkException(
+                    "ERROR: No files could be resolved in pack"
+                )
+            return details
+
         if durl := _first_alive(session, _hubcloud_links(session, url)):
             return durl
     raise DirectDownloadLinkException("ERROR: File Not Found or Expired")
