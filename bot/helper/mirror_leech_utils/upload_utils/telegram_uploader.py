@@ -139,16 +139,50 @@ class TelegramUploader:
         lsuffix = self._lsuffix
         lcaption = self._lcaption
 
+        from ...ext_utils.smart_autorename import split_media_filename
+
+        # If pre_file_ is a split chunk (e.g. .mkv.001 or .part003.mkv), find its base parent file
+        _, _, pre_s_suf = split_media_filename(pre_file_)
+        base_candidate = ""
+        if pre_s_suf:
+            if pre_s_suf.startswith(".part") and pre_file_.endswith(pre_s_suf):
+                base_candidate = pre_file_[: -len(pre_s_suf)]
+                _stem_cand, _ext_cand, _ = split_media_filename(base_candidate)
+                if not _stem_cand.endswith(_ext_cand) and _ext_cand:
+                    pass
+                elif _stem_cand.endswith(_ext_cand):
+                    base_candidate = f"{_stem_cand}{_ext_cand}"
+                # If FFmpeg split produced .part001.mkv from base.mkv, base_candidate + ext
+                if not ospath.splitext(base_candidate)[1]:
+                    # Extract extension from pre_s_suf, e.g. .mkv
+                    _, ext_part = ospath.splitext(pre_s_suf)
+                    if ext_part:
+                        base_candidate = f"{base_candidate}{ext_part}"
+            elif pre_file_.endswith(pre_s_suf):
+                base_candidate = pre_file_[: -len(pre_s_suf)]
+
+        smart_meta = (
+            self._listener.file_details.get("smart_metadata", {}).get(pre_file_)
+            or (
+                self._listener.file_details.get("smart_metadata", {}).get(
+                    base_candidate
+                )
+                if base_candidate
+                else None
+            )
+            or {}
+        )
+
         display_orig = (
             orig_filename
+            or (orig_filenames.get(base_candidate) if base_candidate else None)
             or self._listener.file_details.get("orig_filename")
             or pre_file_
         )
 
-        smart_meta = (
-            self._listener.file_details.get("smart_metadata", {}).get(pre_file_) or {}
-        )
-        if not smart_meta and (self._smart_autorename or orig_filename):
+        if not smart_meta and (
+            self._smart_autorename or orig_filename or base_candidate
+        ):
             try:
                 from ...ext_utils.smart_autorename import (
                     parse_smart_filename,
@@ -201,16 +235,29 @@ class TelegramUploader:
         smartcaption_v1_val = smart_meta.get("smartcaptionv1") or smartcaption_val
         smartcaption_v2_val = smart_meta.get("smartcaptionv2") or smartcaption_val
 
-        from ...ext_utils.smart_autorename import split_media_filename
+        def _apply_split_suffix(caption: str, s_suf: str) -> str:
+            if not s_suf or caption.endswith(s_suf):
+                return caption
+            import re
+            from ...ext_utils.smart_autorename import _MEDIA_EXT_PATTERN
+
+            if s_suf.startswith(".part") and re.search(
+                rf"{_MEDIA_EXT_PATTERN}$", s_suf, flags=re.IGNORECASE
+            ):
+                ext_match = re.search(
+                    rf"({_MEDIA_EXT_PATTERN})$", caption, flags=re.IGNORECASE
+                )
+                if ext_match:
+                    ext = ext_match.group(1)
+                    if s_suf.lower().endswith(ext.lower()):
+                        return f"{caption[: -len(ext)]}{s_suf}"
+            return f"{caption}{s_suf}"
 
         _, _, s_suf = split_media_filename(pre_file_)
         if s_suf:
-            if not smartcaption_val.endswith(s_suf):
-                smartcaption_val = f"{smartcaption_val}{s_suf}"
-            if not smartcaption_v1_val.endswith(s_suf):
-                smartcaption_v1_val = f"{smartcaption_v1_val}{s_suf}"
-            if not smartcaption_v2_val.endswith(s_suf):
-                smartcaption_v2_val = f"{smartcaption_v2_val}{s_suf}"
+            smartcaption_val = _apply_split_suffix(smartcaption_val, s_suf)
+            smartcaption_v1_val = _apply_split_suffix(smartcaption_v1_val, s_suf)
+            smartcaption_v2_val = _apply_split_suffix(smartcaption_v2_val, s_suf)
 
         cap_file_ = (
             smartcaption_val
