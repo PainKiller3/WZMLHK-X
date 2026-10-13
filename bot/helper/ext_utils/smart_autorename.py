@@ -177,14 +177,20 @@ OTT_ALIASES = {
     "disney": "DSNP",
     "hmax": "HMAX",
     "max": "MAX",
+    "atv": "ATVP",
     "atvp": "ATVP",
     "apple": "ATVP",
     "hulu": "Hulu",
     "hstar": "HOTSTAR",
     "hotstar": "HOTSTAR",
     "jio": "JIO",
+    "jc": "JIO",
+    "jiocinema": "JIO",
     "sonyliv": "SONYLIV",
     "wb": "WB",
+    "cr": "CR",
+    "crunchyroll": "CR",
+    "zee5": "ZEE5",
 }
 
 VIDEO_CODEC_MAP = {
@@ -322,6 +328,69 @@ _SITE_TAGS_RE = re.compile(
 )
 
 
+def extract_hdr_format(stem: str) -> Optional[str]:
+    if not stem:
+        return None
+
+    # Compound DV + HDR variations
+    if re.search(
+        r"(?i)(?:\b|_)(?:dv|dovi|dolby\s*vision)[-._\s]+(?:hdr10\+|hdr10p)(?=[^a-zA-Z0-9]|$)",
+        stem,
+    ):
+        return "DV.HDR10+" if "+" in stem else "DV.HDR10P"
+    if re.search(
+        r"(?i)(?:\b|_)(?:hdr10\+|hdr10p)[-._\s]+(?:dv|dovi|dolby\s*vision)(?=[^a-zA-Z0-9]|$)",
+        stem,
+    ):
+        return "DV.HDR10+" if "+" in stem else "DV.HDR10P"
+    if re.search(
+        r"(?i)(?:\b|_)(?:dv|dovi|dolby\s*vision)[-._\s]+hdr10(?=[^a-zA-Z0-9]|$)",
+        stem,
+    ):
+        return "DV.HDR10"
+    if re.search(
+        r"(?i)(?:\b|_)(?:dv|dovi|dolby\s*vision)[-._\s]+hdr(?=[^a-zA-Z0-9]|$)",
+        stem,
+    ):
+        return "DV.HDR"
+    if re.search(
+        r"(?i)(?:\b|_)hdr[-._\s]+(?:dv|dovi|dolby\s*vision)(?=[^a-zA-Z0-9]|$)",
+        stem,
+    ):
+        return "DV.HDR"
+
+    # Standalone tokens across stem
+    has_dv = bool(
+        re.search(r"(?i)(?:\b|_)(?:dv|dovi|dolby\s*vision)(?=[^a-zA-Z0-9]|$)", stem)
+    )
+    has_hdr10p = bool(
+        re.search(r"(?i)(?:\b|_)(?:hdr10\+|hdr10p)(?=[^a-zA-Z0-9]|$)", stem)
+    )
+    has_hdr10 = bool(re.search(r"(?i)(?:\b|_)(?:hdr10)(?=[^a-zA-Z0-9]|$)", stem))
+    has_hdr = bool(re.search(r"(?i)(?:\b|_)hdr(?=[^a-zA-Z0-9]|$)", stem))
+    has_sdr = bool(re.search(r"(?i)(?:\b|_)sdr(?=[^a-zA-Z0-9]|$)", stem))
+
+    if has_dv and has_hdr10p:
+        return "DV.HDR10+" if "+" in stem else "DV.HDR10P"
+    if has_dv and has_hdr10:
+        return "DV.HDR10"
+    if has_dv and has_hdr:
+        return "DV.HDR"
+    if has_dv:
+        if re.search(r"(?i)(?:\b|_)dovi(?=[^a-zA-Z0-9]|$)", stem):
+            return "DoVi"
+        return "DV"
+    if has_hdr10p:
+        return "HDR10+" if "+" in stem else "HDR10P"
+    if has_hdr10:
+        return "HDR10"
+    if has_hdr:
+        return "HDR"
+    if has_sdr:
+        return "SDR"
+    return None
+
+
 def clean_candidate_title(stem: str) -> str:
     value = stem
     value = re.sub(r"https?://\S+", " ", value, flags=re.I)
@@ -340,6 +409,11 @@ def clean_candidate_title(stem: str) -> str:
 
     value = _QUALITY_RE.sub(" ", value)
     value = _CODEC_RE.sub(" ", value)
+    value = re.sub(
+        r"(?i)(?:\b|_)(?:dv[-. ]*(?:hdr10\+|hdr10p|hdr)|hdr10\+|hdr10p|hdr\d*|sdr|dovi|dolbyvision|\bdv\b)(?=[^a-zA-Z0-9]|$)",
+        " ",
+        value,
+    )
     value = re.sub(
         r"(?i)\b(?:web[- ]?dl|web[- ]?rip|webrip|bluray|brrip|hdr\d*|10bit|8bit|remux|repack|esubs?|engsubs?|multi(?:audio|sub)?|combined)\b",
         " ",
@@ -825,7 +899,7 @@ class SmartFilenameBuilder:
             r"(?i)\b("
             r"480p|540p|576p|720p|1080p|1440p|2160p|4320p|4k|"
             r"hevc|h\.?265|h\.?264|x265|x264|avc1?|av1|vp9|vp8|"
-            r"10bit|8bit|hdr\d*|sdr|dovi|dolbyvision|open\s*matte|remastered|60fps|ds\d*k?|uhd|remux|imax|"
+            r"10bit|8bit|hdr\d*|hdr10p|hdr10\+|sdr|dovi|dolbyvision|\bdv\b|open\s*matte|remastered|60fps|ds\d*k?|uhd|remux|imax|"
             r"unrated|extended|uncut|untouched|directors\s*cut|theatrical\s*cut|upscaled|"
             r"web[- ]?dl|web[- ]?rip|bluray|brrip|hdrip|dvdrip|hdtvrip|hdtv|tv-dl|predvd|s-print|hdts|pre-hd|"
             r"amzn|amazon|nf|netflix|cr|crunchyroll|sm|shemaroo|hs|hotstar|hstar|mxp|crav|snxt|zee5|jc|jiocinema|it|itunes|atv|apple\s*tv|dsnp|disney\+?|hmax|hulu|pcok|peacock|sonyliv|bms|"
@@ -839,7 +913,7 @@ class SmartFilenameBuilder:
         encoders = []
         codecs = []
         bit_depth = None
-        hdr = None
+        hdr = extract_hdr_format(stem_clean)
         flags = []
         explicit_audio_label = None
 
@@ -878,8 +952,18 @@ class SmartFilenameBuilder:
                 codecs.append(tok)
             elif tok_l in {"10bit", "8bit"}:
                 bit_depth = tok
-            elif tok_l in {"hdr", "sdr", "dovi", "dolbyvision", "dv"}:
-                hdr = tok
+            elif tok_l in {
+                "hdr",
+                "hdr10",
+                "hdr10p",
+                "hdr10+",
+                "sdr",
+                "dovi",
+                "dolbyvision",
+                "dv",
+            }:
+                if not hdr:
+                    hdr = tok
             elif tok_l in {
                 "ds4k",
                 "ds2k",
@@ -1013,21 +1097,22 @@ class SmartFilenameBuilder:
 
         if snapshot.quality:
             values.append(clean_component(snapshot.quality))
-        if snapshot.bit_depth:
-            values.append(clean_component(snapshot.bit_depth))
+        if snapshot.ott:
+            values.append(clean_component(snapshot.ott))
 
         for src in snapshot.source_tokens:
             values.append(clean_component(src))
+        if snapshot.hdr:
+            values.append(clean_component(snapshot.hdr))
+        if snapshot.bit_depth:
+            values.append(clean_component(snapshot.bit_depth))
+
         for flag in snapshot.edition_flags:
             values.append(clean_component(flag))
         for enc in snapshot.encoder_tokens:
             values.append(clean_component(enc))
         for cod in snapshot.codec_tokens:
             values.append(clean_component(cod))
-        if snapshot.ott:
-            values.append(clean_component(snapshot.ott))
-        if snapshot.hdr:
-            values.append(clean_component(snapshot.hdr))
 
         if snapshot.audio_summary:
             values.append(clean_component(snapshot.audio_summary))
@@ -1095,21 +1180,22 @@ class SmartFilenameBuilder:
 
         if snapshot.quality:
             values.append(clean_component(snapshot.quality))
-        if snapshot.bit_depth:
-            values.append(clean_component(snapshot.bit_depth))
+        if snapshot.ott:
+            values.append(clean_component(snapshot.ott))
 
         for src in snapshot.source_tokens:
             values.append(clean_component(src))
+        if snapshot.hdr:
+            values.append(clean_component(snapshot.hdr))
+        if snapshot.bit_depth:
+            values.append(clean_component(snapshot.bit_depth))
+
         for flag in snapshot.edition_flags:
             values.append(clean_component(flag))
         for enc in snapshot.encoder_tokens:
             values.append(clean_component(enc))
         for cod in snapshot.codec_tokens:
             values.append(clean_component(cod))
-        if snapshot.ott:
-            values.append(clean_component(snapshot.ott))
-        if snapshot.hdr:
-            values.append(clean_component(snapshot.hdr))
 
         if snapshot.audio_tracks:
             track_strs = []
@@ -1203,6 +1289,13 @@ class CaptionValidator:
             if tok_c and tok_c not in caption.lower():
                 LOGGER.warning(
                     f"CaptionValidator Warning: Codec token '{tok}' missing from caption '{caption}'"
+                )
+
+        if snapshot.hdr:
+            hdr_c = clean_component(snapshot.hdr).lower()
+            if hdr_c and hdr_c not in caption.lower():
+                LOGGER.warning(
+                    f"CaptionValidator Warning: HDR token '{snapshot.hdr}' missing from caption '{caption}'"
                 )
 
         if snapshot.split_suffix and not caption.endswith(snapshot.split_suffix):
@@ -1421,6 +1514,7 @@ class SmartAutoRename:
             else "",
             "quality": snapshot.quality or parts.quality or "",
             "bit_depth": snapshot.bit_depth or "",
+            "hdr": snapshot.hdr or "",
             "audio_summary": snapshot.audio_summary or "",
             "subtitle": snapshot.subtitle_summary or "",
             "split_suffix": snapshot.split_suffix or "",
