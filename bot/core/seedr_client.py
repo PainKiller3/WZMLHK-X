@@ -106,25 +106,23 @@ class SeedrClient:
         return 0, 0
 
     async def add_torrent(self, torrent):
-        from os.path import exists, basename
+        from os import path as ospath
+        from ..helper.ext_utils.links_utils import (
+            is_magnet,
+            is_url,
+            get_magnet_from_torrent,
+            get_magnet_from_url,
+        )
 
-        payload = {"folder_id": "0"}
-        files = None
+        if isinstance(torrent, str) and not is_magnet(torrent):
+            if ospath.isfile(torrent):
+                torrent = get_magnet_from_torrent(torrent)
+            elif is_url(torrent):
+                torrent = await get_magnet_from_url(torrent)
 
-        if isinstance(torrent, str) and exists(torrent):
-            with open(torrent, "rb") as f:
-                torrent_bytes = f.read()
-            files = {
-                "torrent_file": (
-                    basename(torrent),
-                    torrent_bytes,
-                    "application/x-bittorrent",
-                )
-            }
-        else:
-            payload["torrent_magnet"] = torrent
-
-        result = await self._api("add_torrent", payload, files=files)
+        result = await self._api(
+            "add_torrent", {"torrent_magnet": torrent, "folder_id": "0"}
+        )
         if not isinstance(result, dict):
             raise ValueError(f"Seedr API returned invalid response: {result}")
 

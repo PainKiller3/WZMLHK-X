@@ -43,6 +43,8 @@ from ..helper.ext_utils.links_utils import (
     is_rclone_path,
     is_telegram_link,
     is_url,
+    get_magnet_from_torrent,
+    get_magnet_from_url,
 )
 from ..helper.ext_utils.task_manager import pre_task_check, check_blacklisted_keywords
 from ..helper.ext_utils.telegraph_helper import telegraph
@@ -802,14 +804,32 @@ async def seedr_link(client, message):
         elif reply_to.text:
             link = reply_to.text.split("\n", 1)[0].strip()
 
-    if not link or not (
-        is_magnet(link)
-        or is_url(link)
-        or link.endswith(".torrent")
-        or await aiopath.exists(link)
-    ):
+    if isinstance(link, str) and not is_magnet(link):
+        if await aiopath.exists(link):
+            tor_path = link
+            try:
+                link = get_magnet_from_torrent(tor_path)
+            except Exception as e:
+                LOGGER.error(
+                    f"Failed to parse telegram torrent file for SeedrLink: {e}"
+                )
+            finally:
+                if await aiopath.exists(tor_path):
+                    try:
+                        await aioremove(tor_path)
+                    except Exception:
+                        pass
+        elif is_url(link):
+            try:
+                link = await get_magnet_from_url(link)
+            except Exception as e:
+                LOGGER.error(f"Failed to fetch/parse torrent URL for SeedrLink: {e}")
+                await message.reply(f"Failed to fetch/parse .torrent from URL: {e}")
+                return
+
+    if not link or not is_magnet(link):
         await message.reply(
-            f"Please provide a valid magnet link, .torrent URL, or reply to a .torrent file!\n\n<b>Usage:</b> <code>{seedrlink_cmd} magnet:...</code> or <code>{seedrlink_cmd} https://.../file.torrent</code>"
+            f"Please provide a valid magnet link or .torrent URL!\n\n<b>Usage:</b> <code>{seedrlink_cmd} magnet:...</code> or <code>{seedrlink_cmd} https://.../file.torrent</code>"
         )
         return
 
