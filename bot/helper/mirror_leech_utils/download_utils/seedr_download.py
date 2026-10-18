@@ -11,7 +11,12 @@ from ...ext_utils.task_manager import (
     limit_checker,
     check_blacklisted_keywords,
 )
-from ...ext_utils.links_utils import is_magnet, is_url, get_magnet_from_torrent
+from ...ext_utils.links_utils import (
+    is_magnet,
+    is_url,
+    get_magnet_from_torrent,
+    get_magnet_from_url,
+)
 from ...listeners.direct_listener import DirectListener
 from ...mirror_leech_utils.status_utils.direct_status import DirectStatus
 from ...mirror_leech_utils.status_utils.queue_status import QueueStatus
@@ -69,14 +74,16 @@ async def _delete_seedr_folder(seedr_client, torrent_download_dir):
 
 
 async def add_seedr_download(listener, path):
-    if isinstance(listener.link, str) and (
-        listener.link.endswith(".torrent") or ospath.isfile(listener.link)
-    ):
+    if isinstance(listener.link, str) and not is_magnet(listener.link):
         try:
             if ospath.isfile(listener.link):
                 listener.link = get_magnet_from_torrent(listener.link)
+            elif is_url(listener.link) and (
+                listener.link.endswith(".torrent") or "torrent" in listener.link.lower()
+            ):
+                listener.link = await get_magnet_from_url(listener.link)
         except Exception as e:
-            LOGGER.error(f"Failed to parse local torrent file for Seedr: {e}")
+            LOGGER.error(f"Failed to parse torrent file/URL for Seedr: {e}")
 
     if not isinstance(listener.link, str) or not (
         is_magnet(listener.link)

@@ -42,6 +42,7 @@ from ..helper.ext_utils.links_utils import (
     is_telegram_link,
     is_url,
     get_magnet_from_torrent,
+    get_magnet_from_url,
 )
 from ..helper.ext_utils.task_manager import (
     pre_task_check,
@@ -907,7 +908,15 @@ async def seedr_link(client, message):
             if ospath.exists(tor_path):
                 await remove(tor_path)
 
-    if not link or not (is_magnet(link) or is_url(link) or link.endswith(".torrent")):
+    if is_url(link) and not is_magnet(link):
+        try:
+            link = await get_magnet_from_url(link)
+        except Exception as e:
+            LOGGER.error(f"Failed to fetch/parse torrent URL for SeedrLink: {e}")
+            await message.reply(f"Failed to fetch/parse .torrent from URL: {e}")
+            return
+
+    if not link or not is_magnet(link):
         await message.reply(
             f"Please provide a valid magnet link or .torrent URL!\n\n<b>Usage:</b> <code>{seedrlink_cmd} magnet:...</code> or <code>{seedrlink_cmd} https://.../file.torrent</code>"
         )

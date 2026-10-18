@@ -112,6 +112,11 @@ def get_magnet_from_torrent(file_path_or_bytes):
     else:
         data = file_path_or_bytes
 
+    if not data or not data.startswith(b"d"):
+        raise ValueError(
+            "Invalid torrent file: content does not start with a bencoded dictionary"
+        )
+
     def decode(data, idx=0):
         if data[idx : idx + 1] == b"i":
             idx += 1
@@ -161,4 +166,38 @@ def get_magnet_from_torrent(file_path_or_bytes):
     magnet = f"magnet:?xt=urn:btih:{info_hash}"
     if name:
         magnet += f"&dn={quote(name)}"
+    try:
+        if b"announce" in parsed and isinstance(parsed[b"announce"], (bytes, str)):
+            ann = parsed[b"announce"]
+            ann = ann.decode("utf-8", "ignore") if isinstance(ann, bytes) else ann
+            if ann:
+                magnet += f"&tr={quote(ann)}"
+        if b"announce-list" in parsed and isinstance(parsed[b"announce-list"], list):
+            for sub in parsed[b"announce-list"]:
+                if isinstance(sub, list):
+                    for tr in sub:
+                        if isinstance(tr, (bytes, str)):
+                            tr_str = (
+                                tr.decode("utf-8", "ignore")
+                                if isinstance(tr, bytes)
+                                else tr
+                            )
+                            if tr_str and f"&tr={quote(tr_str)}" not in magnet:
+                                magnet += f"&tr={quote(tr_str)}"
+    except Exception:
+        pass
     return magnet
+
+
+async def get_magnet_from_url(url: str):
+    from niquests import AsyncSession
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "*/*",
+    }
+    async with AsyncSession(timeout=30) as session:
+        resp = await session.get(url, headers=headers)
+        if resp.status_code != 200:
+            raise ValueError(f"Failed to fetch torrent URL (HTTP {resp.status_code})")
+        return get_magnet_from_torrent(resp.content)

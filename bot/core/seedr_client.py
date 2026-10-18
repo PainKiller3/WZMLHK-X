@@ -104,6 +104,20 @@ class SeedrClient:
         return 0, 0
 
     async def add_torrent(self, magnet):
+        from os import path as ospath
+        from ..helper.ext_utils.links_utils import (
+            is_magnet,
+            is_url,
+            get_magnet_from_torrent,
+            get_magnet_from_url,
+        )
+
+        if isinstance(magnet, str) and not is_magnet(magnet):
+            if ospath.isfile(magnet):
+                magnet = get_magnet_from_torrent(magnet)
+            elif is_url(magnet):
+                magnet = await get_magnet_from_url(magnet)
+
         result = await self._api(
             "add_torrent", {"torrent_magnet": magnet, "folder_id": "0"}
         )
