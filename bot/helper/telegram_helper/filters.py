@@ -102,15 +102,6 @@ class CustomFilters:
     sudo = create(sudo_user)
 
     async def stremio_user(self, _, update):
-        if not await CustomFilters.authorized("", update):
-            return False
-
-        has_user_filter = bool(Config.STREMIO_USERS or stremio_users)
-        has_chat_filter = bool(Config.STREMIO_AUTHORIZED_CHATS or stremio_chats)
-
-        if not has_user_filter and not has_chat_filter:
-            return True
-
         user = update.from_user or update.sender_chat
         uid = user.id if user else 0
         chat_id, _ = _chat_context(update)
@@ -124,10 +115,17 @@ class CustomFilters:
         ):
             return True
 
-        user_allowed = not has_user_filter or (uid in stremio_users)
-        chat_allowed = not has_chat_filter or (chat_id in stremio_chats)
+        has_user_filter = bool(Config.STREMIO_USERS or stremio_users)
+        has_chat_filter = bool(Config.STREMIO_AUTHORIZED_CHATS or stremio_chats)
 
-        return bool(user_allowed and chat_allowed)
+        if has_user_filter or has_chat_filter:
+            if has_user_filter and uid in stremio_users:
+                return True
+            if has_chat_filter and chat_id in stremio_chats:
+                return True
+            return False
+
+        return await CustomFilters.authorized("", update)
 
     stremio = create(stremio_user)
 
