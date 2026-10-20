@@ -102,16 +102,13 @@ class CustomFilters:
         has_user_filter = bool(Config.STREMIO_USERS or stremio_users)
         has_chat_filter = bool(Config.STREMIO_AUTHORIZED_CHATS or stremio_chats)
 
-        if not has_user_filter and not has_chat_filter:
-            return await CustomFilters.authorized("", update)
+        if has_user_filter or has_chat_filter:
+            if has_user_filter and uid in stremio_users:
+                return True
+            if has_chat_filter and chat_id in stremio_chats:
+                return True
+            return False
 
-        user_allowed = not has_user_filter or (uid in stremio_users)
-        chat_allowed = (
-            (chat_id in stremio_chats)
-            if has_chat_filter
-            else await CustomFilters.authorized("", update)
-        )
-
-        return bool(user_allowed and chat_allowed)
+        return await CustomFilters.authorized("", update)
 
     stremio = create(stremio_user)
