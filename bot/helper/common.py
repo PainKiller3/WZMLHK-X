@@ -929,6 +929,27 @@ class TaskConfig:
 
     async def proceed_extract(self, dl_path, gid):
         pswd = self.extract if isinstance(self.extract, str) else ""
+
+        self.files_to_proceed = []
+        if self.is_file and is_archive(dl_path):
+            self.files_to_proceed.append(dl_path)
+        else:
+            target_dir = self.up_dir or self.dir
+            for dirpath, _, files in await sync_to_async(
+                walk, target_dir, topdown=False
+            ):
+                for file_ in files:
+                    if (
+                        is_first_archive_split(file_)
+                        or is_archive(file_)
+                        and not file_.strip().lower().endswith(".rar")
+                    ):
+                        f_path = ospath.join(dirpath, file_)
+                        self.files_to_proceed.append(f_path)
+
+        if not self.files_to_proceed:
+            return dl_path
+
         sevenz = SevenZ(self)
         LOGGER.info(f"Extracting: {self.name}")
         async with task_dict_lock:
@@ -937,13 +958,12 @@ class TaskConfig:
         t_path = dl_path
         max_passes = 3
         pass_count = 0
+        code = 0
 
         while pass_count < max_passes:
             pass_count += 1
-            self.files_to_proceed = []
-            if self.is_file and pass_count == 1 and is_archive(dl_path):
-                self.files_to_proceed.append(dl_path)
-            else:
+            if pass_count > 1:
+                self.files_to_proceed = []
                 target_dir = self.up_dir or self.dir
                 for dirpath, _, files in await sync_to_async(
                     walk, target_dir, topdown=False
@@ -957,13 +977,12 @@ class TaskConfig:
                             f_path = ospath.join(dirpath, file_)
                             self.files_to_proceed.append(f_path)
 
-            if not self.files_to_proceed:
-                break
+                if not self.files_to_proceed:
+                    break
 
             for dirpath, _, files in await sync_to_async(
                 walk, self.up_dir or self.dir, topdown=False
             ):
-                code = 0
                 for file_ in files:
                     if self.is_cancelled:
                         return False
@@ -974,10 +993,20 @@ class TaskConfig:
                     ):
                         self.proceed_count += 1
                         f_path = ospath.join(dirpath, file_)
-                        t_path = get_base_name(f_path) if self.is_file else dirpath
+                        dest_path = (
+                            get_base_name(f_path)
+                            if (self.is_file and pass_count == 1)
+                            else dirpath
+                        )
+                        if self.is_file and pass_count == 1:
+                            t_path = dest_path
                         if not self.is_file:
                             self.subname = file_
-                        code = await sevenz.extract(f_path, t_path, pswd)
+                        code = await sevenz.extract(f_path, dest_path, pswd)
+                        if self.is_cancelled:
+                            return code
+                        if code != 0:
+                            break
                 if self.is_cancelled:
                     return code
                 if code == 0:
@@ -990,6 +1019,9 @@ class TaskConfig:
                                 self.is_cancelled = True
                 else:
                     break
+
+            if code != 0 or self.is_cancelled:
+                break
 
         return t_path if self.is_file and code == 0 else dl_path
 
