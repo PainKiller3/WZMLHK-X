@@ -872,7 +872,11 @@ class TelegramUploader:
 
             if self._sent_msg:
                 await self._copy_media()
-                if self._listener.leech_dest:
+                if (
+                    self._listener.leech_dest
+                    and not self._listener.is_stremio
+                    and str(self._listener.leech_dest) != str(self._sent_msg.chat.id)
+                ):
                     try:
                         leech_dest = self._listener.leech_dest
                         if not isinstance(leech_dest, int):
