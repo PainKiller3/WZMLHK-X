@@ -129,6 +129,7 @@ class TaskConfig:
         self.join = False
         self.private_link = False
         self.stop_duplicate = False
+        self.skip_stop_duplicate = False
         self.sample_video = False
         self.convert_audio = False
         self.convert_video = False
@@ -353,6 +354,8 @@ class TaskConfig:
                 or "STOP_DUPLICATE" not in self.user_dict
                 and Config.STOP_DUPLICATE
             )
+            if self.skip_stop_duplicate:
+                self.stop_duplicate = False
             default_upload = (
                 self.user_dict.get("DEFAULT_UPLOAD", "") or Config.DEFAULT_UPLOAD
             )
