@@ -259,6 +259,10 @@ force_start = """<b>Force Start</b>: -f -fd -fu
 /cmd link -fd (force download only)
 /cmd link -fu (force upload directly after download finish)"""
 
+skip_duplicate = """<b>Skip Stop Duplicate</b>: -ssd or -dup
+/cmd link -ssd (bypass stop duplicate check for this task)
+/cmd link -dup (alias for -ssd)"""
+
 gdrive = """<b>Gdrive</b>: link
 If DEFAULT_UPLOAD is `rc` then you can pass up: `gd` to upload using gdrive tools to GDRIVE_ID.
 /cmd gdriveLink or gdl or gdriveId -up gdl or gdriveId or gd
@@ -385,6 +389,7 @@ YT_HELP_DICT = {
     "Screenshot": screenshot,
     "Convert-Media": convert_media,
     "Force-Start": force_start,
+    "Skip-Duplicate": skip_duplicate,
     "Name-Swap": name_swap,
     "TG-Transmission": transmission,
     "Thumb-Layout": thumbnail_layout,
@@ -415,6 +420,7 @@ MIRROR_HELP_DICT = {
     "Screenshot": screenshot,
     "Convert-Media": convert_media,
     "Force-Start": force_start,
+    "Skip-Duplicate": skip_duplicate,
     "User-Download": user_download,
     "Name-Swap": name_swap,
     "TG-Transmission": transmission,
@@ -430,6 +436,7 @@ CLONE_HELP_DICT = {
     "main": clone,
     "Multi-Link": multi_link,
     "Bulk": bulk,
+    "Skip-Duplicate": skip_duplicate,
     "Gdrive": gdrive,
     "Rclone": rclone_cl,
     "Telegram": tg_clone,

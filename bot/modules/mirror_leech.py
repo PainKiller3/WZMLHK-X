@@ -164,6 +164,8 @@ class Mirror(TaskListener):
             "-z": False,
             "-sv": False,
             "-ss": False,
+            "-ssd": False,
+            "-dup": False,
             "-f": False,
             "-fd": False,
             "-fu": False,
@@ -234,6 +236,7 @@ class Mirror(TaskListener):
         self.split_size = args["-sp"]
         self.sample_video = args["-sv"]
         self.screen_shots = args["-ss"]
+        self.skip_stop_duplicate = args["-ssd"] or args["-dup"]
         self.force_run = args["-f"]
         self.force_download = args["-fd"]
         self.force_upload = args["-fu"]
