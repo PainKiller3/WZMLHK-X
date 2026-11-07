@@ -24,9 +24,10 @@ from .status_utils import get_readable_time, get_readable_file_size
 
 
 async def stop_duplicate_check(listener):
+    is_stremio = getattr(listener, "is_stremio", False)
     if (
-        isinstance(listener.up_dest, int)
-        or listener.is_leech
+        (isinstance(listener.up_dest, int) and not is_stremio)
+        or (listener.is_leech and not is_stremio)
         or listener.select
         or not listener.stop_duplicate
         or listener.same_dir
@@ -85,7 +86,53 @@ async def stop_duplicate_check(listener):
         if msg:
             return msg, button
 
+    # Stremio DB stop duplicate check
+    elif is_stremio:
+        LOGGER.info(f"Checking File/Media if already in Stremio Database: {name}")
+        msg, button = await _stremio_stop_duplicate_check(name)
+        if msg:
+            return msg, button
+
     return False, None
+
+
+async def _stremio_stop_duplicate_check(name):
+    """Check if a file or title already exists in the Telegram-Stremio MongoDB database."""
+    from .db_handler import database
+
+    doc = await database.check_stremio_duplicate(name)
+    if not doc:
+        return False, None
+
+    title = (
+        doc.get("title")
+        or doc.get("title_english")
+        or doc.get("name")
+        or doc.get("file_name")
+        or name
+    )
+    coll = doc.get("collection", "media")
+    year = doc.get("release_year") or doc.get("year", "")
+    year_str = f" ({year})" if year else ""
+    imdb_id = doc.get("imdb_id")
+
+    button = None
+    if imdb_id:
+        button = ButtonMaker()
+        button.url_button("IMDb", f"https://www.imdb.com/title/{imdb_id}")
+        button = button.build_menu(1)
+
+    msg = (
+        "⌬ <b><u>Stremio Duplicate Found!</u></b>\n\n"
+        f"File/Media is already indexed in Stremio library ({coll}).\n"
+        f"┠ <b>Title:</b> {title}{year_str}\n"
+    )
+    if doc.get("file_size"):
+        msg += f"┖ <b>Size:</b> {get_readable_file_size(doc['file_size'])}\n"
+    elif doc.get("size"):
+        msg += f"┖ <b>Size:</b> {get_readable_file_size(doc['size'])}\n"
+
+    return msg, button
 
 
 async def _rclone_stop_duplicate_check(name):
