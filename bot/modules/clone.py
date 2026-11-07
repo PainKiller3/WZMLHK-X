@@ -123,6 +123,8 @@ class Clone(TaskListener):
             "-mc": "",
             "-xc": "",
             "-fwd": False,
+            "-ssd": False,
+            "-dup": False,
         }
 
         arg_parser(input_list[1:], args)
@@ -142,6 +144,7 @@ class Clone(TaskListener):
         self.clone_excluded = args["-ex"]
         self.clone_regex = {key: args[f"-{key}"] for key in ("mn", "xn", "mc", "xc")}
         self.clone_forward = bool(args["-fwd"])
+        self.skip_stop_duplicate = args["-ssd"] or args["-dup"]
 
         is_bulk = args["-b"]
         sync = args["-sync"]
