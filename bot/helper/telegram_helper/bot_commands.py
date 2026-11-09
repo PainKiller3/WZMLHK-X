@@ -22,6 +22,7 @@ class BotCommands:
         "NzbLeech": ["nzbleech", "nl"],
         "Sleech": ["sleech", "stremio", "slch"],
         "StremioList": ["stremiolist", "slist"],
+        "StremioDuplicate": ["stremiodup", "sdup", "sduplicate"],
         "Clone": ["clone", "cl"],
         "Count": "count",
         "Delete": "del",

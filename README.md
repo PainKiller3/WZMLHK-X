@@ -197,7 +197,7 @@ Then tune the optional behavior from `config_sample.py`.
 </details>
 
 <details>
-   <summary>Stremio Integration (<code>/sleech</code> & <code>/stremiolist</code>)</summary>
+   <summary>Stremio Integration (<code>/sleech</code>, <code>/stremiolist</code> & <code>/stremiodup</code>)</summary>
 
    Integrate directly with [Telegram-Stremio](https://github.com/weebzone/Telegram-Stremio) for streaming leeched media.
 
@@ -209,6 +209,7 @@ Then tune the optional behavior from `config_sample.py`.
    **Commands & Capabilities:**
    - `/sleech <link>` (or `/stremio` / `/slch`): Automatically extracts archives (`.zip`, `.rar`, `.7z`), strips non-media files using a strict video/subtitle allowlist, cleans up empty subdirectories, and aborts tasks if 0 video files remain. Sends non-split videos as media preview, and splits large videos (> 2GB) losslessly into binary chunks (`.001`, `.002`). Prompts with interactive channel buttons when multiple Stremio dump chats exist (or pass `-ud <name>` to skip).
    - `/stremiolist` (or `/slist`): Queries `STREMIO_DB_URL` and generates an organized multi-page Telegraph media catalog with automatic `[Next ➡]` and `[⬅ Prev]` pagination links.
+   - `/stremiodup` (or `/sdup` / `/sduplicate`): Audits the Stremio MongoDB database for duplicate media files of identical quality (e.g. two 1080p copies of the same movie or episode). Groups duplicates and generates a private Telegraph report with pagination so the Telegram-Stremio host/admin can easily review and clean them up.
 </details>
 
 ## Project Layout

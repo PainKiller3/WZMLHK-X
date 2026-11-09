@@ -411,6 +411,7 @@ def get_bot_commands():
         "Leech": "[link/file] Leech files to Upload to Telegram",
         "Sleech": "[link/file] Leech media directly to Stremio Dump channel",
         "StremioList": "View and get Stremio Media Library catalog",
+        "StremioDuplicate": "Audit Stremio database for duplicate media files of same quality",
         "QbLeech": "[magnet/torrent] Leech files to Upload to Telegram using qbit",
         "YtdlLeech": "[link] Leech YouTube, m3u8, Social Media and yt-dlp supported urls",
         "Clone": "[link] Clone files/folders to GDrive",
