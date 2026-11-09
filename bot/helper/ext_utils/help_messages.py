@@ -203,6 +203,9 @@ skip_duplicate = """<b>Skip Stop Duplicate</b>: -ssd or -dup
 /cmd link -ssd (bypass stop duplicate check for this task)
 /cmd link -dup (alias for -ssd)"""
 
+skip_smart_autorename = """<b>Skip Smart Auto Rename</b>: -ssar
+/cmd link -ssar (bypass smart auto renaming for this task and keep original file names)"""
+
 gdrive = """<b>Gdrive</b>: link
 If DEFAULT_UPLOAD is `rc` then you can pass up: `gd` to upload using gdrive tools to GDRIVE_ID.
 /cmd gdriveLink or gdl or gdriveId -up gdl or gdriveId or gd
@@ -313,6 +316,7 @@ YT_HELP_DICT = {
     "Convert-Media": convert_media,
     "Force-Start": force_start,
     "Skip-Duplicate": skip_duplicate,
+    "Skip-SmartAutoRename": skip_smart_autorename,
     "Name-Swap": name_swap,
     "TG-Transmission": transmission,
     "Thumb-Layout": thumbnail_layout,

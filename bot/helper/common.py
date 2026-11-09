@@ -130,6 +130,7 @@ class TaskConfig:
         self.private_link = False
         self.stop_duplicate = False
         self.skip_stop_duplicate = False
+        self.skip_smart_autorename = False
         self.sample_video = False
         self.convert_audio = False
         self.convert_video = False
@@ -185,6 +186,8 @@ class TaskConfig:
             if "SMART_AUTORENAME" in self.user_dict
             else Config.SMART_AUTORENAME
         )
+        if getattr(self, "skip_smart_autorename", False):
+            self.smart_autorename = False
 
     def _set_mode_engine(self):
         self.source_url = (
