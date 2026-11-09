@@ -166,6 +166,7 @@ class Mirror(TaskListener):
             "-ss": False,
             "-ssd": False,
             "-dup": False,
+            "-ssar": False,
             "-f": False,
             "-fd": False,
             "-fu": False,
@@ -237,6 +238,9 @@ class Mirror(TaskListener):
         self.sample_video = args["-sv"]
         self.screen_shots = args["-ss"]
         self.skip_stop_duplicate = args["-ssd"] or args["-dup"]
+        self.skip_smart_autorename = args["-ssar"]
+        if self.skip_smart_autorename:
+            self.smart_autorename = False
         self.force_run = args["-f"]
         self.force_download = args["-fd"]
         self.force_upload = args["-fu"]
