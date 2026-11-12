@@ -34,6 +34,7 @@ class BotCommands:
         "RclStorage": "rclstorage",
         "RclDelete": "rcldelete",
         "Search": "search",
+        "JSearch": ["jsearch", "js"],
         "Users": "users",
         "CancelTask": ["cancel", "c"],
         "CancelAll": ["cancelall", "call"],

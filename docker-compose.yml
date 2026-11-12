@@ -4,3 +4,18 @@ services:
     command: bash start.sh
     restart: on-failure
     network_mode: "host"
+    volumes:
+      - ./jackett_config:/config/jackett
+
+  jackett:
+    image: lscr.io/linuxserver/jackett:latest
+    container_name: jackett
+    restart: unless-stopped
+    network_mode: "host"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Kolkata
+    volumes:
+      - ./jackett_config:/config
+      - ./downloads:/downloads

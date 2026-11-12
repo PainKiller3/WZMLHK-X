@@ -426,6 +426,7 @@ def get_bot_commands():
         "RclDelete": "[query] Delete files/folders from rclone",
         "Search": "[query] Search torrents via Qbit Plugins",
         "MediaInfo": "[reply/link] Get MediaInfo of the Target Media",
+        "JSearch": "[query] Search via Jackett and auto-leech/sleech",
         "Select": "[gid/reply] Select files for NZB, Aria2, Qbit Tasks",
         "Ping": "Ping Bot to test Response Speed",
         "Status": "[id/me] Tasks Status of Bot",
@@ -551,6 +552,10 @@ def get_help_string():
             help_lines.append(f"{cmd_str} [query]: Search for torrents with API.")
         elif key == "MediaInfo":
             help_lines.append(f"{cmd_str} [query]: Get media info.")
+        elif key == "JSearch":
+            help_lines.append(
+                f"{cmd_str} [query]: Search via Jackett across all trackers with Sleech/Mirror."
+            )
         elif key == "Status":
             help_lines.append(f"{cmd_str}: Shows a status of all the downloads.")
         elif key == "Stats":
