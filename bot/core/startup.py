@@ -455,5 +455,7 @@ async def load_configurations():
         spawn_stream_server()
 
     from ..helper.ext_utils.tunnel_monitor import apply_tunnel_url_once
+    from ..helper.ext_utils.jackett_monitor import auto_configure_jackett
 
     await apply_tunnel_url_once()
+    await auto_configure_jackett()

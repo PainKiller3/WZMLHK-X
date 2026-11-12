@@ -31,10 +31,25 @@ services:
       - ./config.py:/usr/src/app/config.py:ro
       - ./accounts:/usr/src/app/accounts
       - ./downloads:/usr/src/app/downloads
+      - ./jackett_config:/config/jackett:ro
       - tunnel_data:/data:ro
 
     expose:
       - "8080"
+
+  jackett:
+    image: lscr.io/linuxserver/jackett:latest
+    container_name: jackett
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Kolkata
+    volumes:
+      - ./jackett_config:/config
+      - ./downloads:/downloads
+    ports:
+      - "9117:9117"
 
   tunnel:
     build:

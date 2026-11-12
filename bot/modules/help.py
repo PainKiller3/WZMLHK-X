@@ -65,6 +65,7 @@ def build_rich_help_html():
         "RclStorage": _format_cmd("RclStorage"),
         "RclDelete": _format_cmd("RclDelete"),
         "Search": _format_cmd("Search"),
+        "JSearch": _format_cmd("JSearch"),
         "GDClean": _format_cmd("GDClean"),
         "Status": _format_cmd("Status"),
         "CancelTask": _format_cmd("CancelTask"),
@@ -151,6 +152,7 @@ def build_rich_help_html():
 <tr><td><code>{c["RclDelete"]}</code></td><td>Delete file/folder from Rclone remote</td></tr>
 <tr><td><code>{c["RcRefreshIndex"]}</code></td><td>Refresh Rclone remote search index</td></tr>
 <tr><td><code>{c["Search"]}</code></td><td>Search torrents across multi-site APIs</td></tr>
+<tr><td><code>{c["JSearch"]}</code></td><td>Search via Jackett indexers with Sleech/Mirror</td></tr>
 </table>
 </details>
 

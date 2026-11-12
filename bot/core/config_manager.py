@@ -78,6 +78,10 @@ class Config:
     INC_TASK_RESUME = False
     INDEX_URL = ""
     IS_TEAM_DRIVE = False
+    JACKETT_URL = ""
+    JACKETT_API_KEY = ""
+    JACKETT_SEARCH_LIMIT = 10
+    JACKETT_SERIES_COOLDOWN = 180
     JD_EMAIL = ""
     JD_PASS = ""
     KUMA_URL = ""
