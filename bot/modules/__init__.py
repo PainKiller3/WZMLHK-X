@@ -63,7 +63,6 @@ from .restart import (
 from .auto_leech import auto_leech_listener
 from .rss import get_rss_menu, rss_listener
 from .search import torrent_search, torrent_search_update, initiate_search_tools
-from .jackett_search import jackett_search, jackett_callback
 from .services import start, start_cb, login, ping, log, log_cb
 from .shell import run_shell
 from .stats import bot_stats, stats_pages, get_packages_version
@@ -142,8 +141,6 @@ __all__ = [
     "rss_listener",
     "torrent_search",
     "torrent_search_update",
-    "jackett_search",
-    "jackett_callback",
     "initiate_search_tools",
     "start",
     "start_cb",

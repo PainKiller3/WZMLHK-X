@@ -284,17 +284,17 @@ Then tune the optional behavior from `config_sample.py`.
 </details>
 
 <details>
-   <summary>Jackett Search & Automation (<code>/jsearch</code>)</summary>
+   <summary>Torrent Search & Automation (<code>/search</code>)</summary>
 
-   Integrate with [Jackett](https://github.com/Jackett/Jackett) to search across all your indexers and send torrents directly to qbMirror, qbLeech, or Stremio Sleech with safe batch queueing.
+   Unified search across all indexers via [Jackett](https://github.com/Jackett/Jackett) (or qBittorrent plugins as fallback), with in-chat interactive buttons to trigger qbMirror, qbLeech, or Stremio Sleech with safe batch queueing.
 
-   - `JACKETT_URL`: URL to your Jackett instance (e.g. `http://127.0.0.1:9117`).
-   - `JACKETT_API_KEY`: API Key located on the top right of your Jackett dashboard.
+   - `JACKETT_URL`: URL to your Jackett instance (e.g. `http://127.0.0.1:9117`). Auto-detected in Docker Compose!
+   - `JACKETT_API_KEY`: API Key from Jackett dashboard. Auto-read from mounted config in Docker Compose!
    - `JACKETT_SEARCH_LIMIT`: Maximum number of search results to retrieve (default: `10`).
    - `JACKETT_SERIES_COOLDOWN`: Cooldown rest period in seconds between sequential season downloads (default: `180`).
 
    **Commands & Capabilities:**
-   - `/jsearch <title>` (or `/js`): Queries Jackett's Torznab API and displays interactive inline buttons with release title, size, and seeders.
+   - `/search <query>` (or `/s`): Searches via Jackett (or fallback plugins), displaying an interactive menu with release title, size, seeders, and engine badge (`[Engine: Jackett]` or `[Engine: qBit Plugins]`).
    - **One-Click Routing**:
      - `[📥 qbMirror]`: Sends release to qBittorrent for cloud/drive upload.
      - `[📤 qbLeech]`: Leech torrent via qBittorrent directly to user chat.

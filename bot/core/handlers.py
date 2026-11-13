@@ -490,16 +490,6 @@ async def add_handlers():
     )
     TgClient.bot.add_handler(
         MessageHandler(
-            jackett_search,
-            filters=command(BotCommands.JSearchCommand, case_sensitive=True)
-            & CustomFilters.authorized,
-        )
-    )
-    TgClient.bot.add_handler(
-        CallbackQueryHandler(jackett_callback, filters=regex("^jck"))
-    )
-    TgClient.bot.add_handler(
-        MessageHandler(
             get_users_settings,
             filters=command(BotCommands.UsersCommand, case_sensitive=True)
             & CustomFilters.sudo,
