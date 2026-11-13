@@ -28,6 +28,7 @@ class Config:
     DISABLE_SEEDR = True
     DISABLE_FF_MODE = False
     DISABLE_PLUGINS = False
+    DISABLE_JACKETT = True
     EQUAL_SPLITS = False
     MEDIA_SPLIT = True
     EXCLUDED_EXTENSIONS = ""

@@ -20,6 +20,11 @@ async def auto_configure_jackett():
       2. Normal Docker / Bare-metal host (localhost / 127.0.0.1)
       3. Shared volume auto-discovery of API Key from Jackett's ServerConfig.json
     """
+    if Config.DISABLE_JACKETT:
+        LOGGER.info(
+            "jackett_monitor: Jackett is disabled (DISABLE_JACKETT = True). Skipping auto-configuration."
+        )
+        return
     configured_url = Config.JACKETT_URL
     configured_key = Config.JACKETT_API_KEY
 
