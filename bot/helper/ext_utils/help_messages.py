@@ -424,9 +424,8 @@ def get_bot_commands():
         "Latest": "Get latest files/folders from Rclone Remotes",
         "RclStorage": "Get rclone storage info",
         "RclDelete": "[query] Delete files/folders from rclone",
-        "Search": "[query] Search torrents via Qbit Plugins",
+        "Search": "[query] Search torrents via Jackett / Qbit Plugins with auto-leech/sleech",
         "MediaInfo": "[reply/link] Get MediaInfo of the Target Media",
-        "JSearch": "[query] Search via Jackett and auto-leech/sleech",
         "Select": "[gid/reply] Select files for NZB, Aria2, Qbit Tasks",
         "Ping": "Ping Bot to test Response Speed",
         "Status": "[id/me] Tasks Status of Bot",
@@ -549,12 +548,14 @@ def get_help_string():
         elif key == "RclDelete":
             help_lines.append(f"{cmd_str} [query]: Delete files/folders from rclone.")
         elif key == "Search":
-            help_lines.append(f"{cmd_str} [query]: Search for torrents with API.")
+            help_lines.append(
+                f"{cmd_str} [query]: Search torrents via Jackett / Plugins with auto-leech/sleech."
+            )
         elif key == "MediaInfo":
             help_lines.append(f"{cmd_str} [query]: Get media info.")
         elif key == "JSearch":
             help_lines.append(
-                f"{cmd_str} [query]: Search via Jackett across all trackers with Sleech/Mirror."
+                f"{cmd_str} [query]: Search torrents via Jackett / Plugins with auto-leech/sleech."
             )
         elif key == "Status":
             help_lines.append(f"{cmd_str}: Shows a status of all the downloads.")
