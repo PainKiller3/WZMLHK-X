@@ -1,3 +1,4 @@
+import random
 import re
 from asyncio import gather, sleep
 from contextlib import suppress
@@ -333,6 +334,12 @@ class TaskConfig:
                 return next(iter(stremio_chats.values()))
             if self.dump_dest and self.dump_dest in stremio_chats:
                 return stremio_chats[self.dump_dest]
+            if Config.STREMIO_RANDOM_DUMP or self.dump_dest == "random":
+                chosen_name, chosen_chat = random.choice(list(stremio_chats.items()))
+                LOGGER.info(
+                    f"Stremio: Randomly selected dump channel '{chosen_name}' ({chosen_chat})"
+                )
+                return chosen_chat
             picked, is_cancelled = await open_dump_chat_btns(
                 self.message, stremio_chats, self.dump_dest
             )

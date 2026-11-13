@@ -273,6 +273,7 @@ Then tune the optional behavior from `config_sample.py`.
    Integrate directly with [Telegram-Stremio](https://github.com/weebzone/Telegram-Stremio) for streaming leeched media.
 
    - `STREMIO_DUMP_CHAT`: Single chat ID or dictionary of named channels (`{"Movies": -100111, "Anime": -100222}`).
+   - `STREMIO_RANDOM_DUMP`: Automatically select a random Stremio dump channel from `STREMIO_DUMP_CHAT` on each task (default: `False`). Set to `True` for automated load balancing without channel selection prompts.
    - `STREMIO_DB_URL`: Read-only connection URL for your Telegram-Stremio MongoDB database (`dbFyvio`).
    - `STREMIO_USERS`: Space-separated User IDs allowed to use Stremio commands.
    - `STREMIO_AUTHORIZED_CHATS`: Space-separated Group/Channel Chat IDs allowed for Stremio commands.
