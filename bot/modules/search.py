@@ -447,7 +447,8 @@ async def torrent_search_update(client, query):
             f"📦 <b>Size:</b> {item['readable_size']}\n"
             f"⬆️ <b>Seeders:</b> {item['seeders']}\n"
             f"⚙️ <b>Engine:</b> <code>{engine_name}</code>\n\n"
-            f"<i>Choose action to start downloading:</i>"
+            f"🧲 <b>Magnet / Link (tap to copy):</b>\n<code>{item['url']}</code>\n\n"
+            f"<i>Choose action or copy link above for manual <code>-s</code> selection:</i>"
         )
         await query.answer()
         await edit_message(message, details, buttons.build_menu(2))
@@ -478,7 +479,8 @@ async def torrent_search_update(client, query):
             f"📦 <b>Size:</b> {item['readable_size']}\n"
             f"⬆️ <b>Seeders:</b> {item['seeders']}\n"
             f"⚙️ <b>Engine:</b> <code>{engine_name}</code>\n\n"
-            f"<i>Choose action for Season {s_num}:</i>"
+            f"🧲 <b>Magnet / Link (tap to copy):</b>\n<code>{item['url']}</code>\n\n"
+            f"<i>Choose action for Season {s_num} or copy link above:</i>"
         )
         await query.answer()
         await edit_message(message, details, buttons.build_menu(2))
