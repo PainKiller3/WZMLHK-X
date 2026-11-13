@@ -137,6 +137,21 @@ class DbManager:
             {"_id": _part()}, {"SABnzbd__ini": nzb_conf}, upsert=True
         )
 
+    async def backup_jackett_config(self, zip_bytes: bytes):
+        if self._return:
+            return
+        await self.db.settings.jackett.replace_one(
+            {"_id": _part()}, {"config_zip": zip_bytes}, upsert=True
+        )
+
+    async def restore_jackett_config(self):
+        if self._return:
+            return None
+        doc = await self.db.settings.jackett.find_one({"_id": _part()})
+        if doc and "config_zip" in doc:
+            return doc["config_zip"]
+        return None
+
     async def update_user_data(self, user_id):
         if self._return:
             return

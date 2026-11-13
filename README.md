@@ -294,6 +294,10 @@ Then tune the optional behavior from `config_sample.py`.
    - `JACKETT_SEARCH_LIMIT`: Maximum number of search results to retrieve (default: `10`).
    - `JACKETT_SERIES_COOLDOWN`: Cooldown rest period in seconds between sequential season downloads (default: `180`).
 
+   **Cloud Backup & Auto-Sync (MongoDB)**:
+   - Configured Jackett indexers, passkeys, and API keys are automatically backed up to your MongoDB database.
+   - When migrating to a fresh VPS or deploying on a clean server, the bot automatically restores your indexers from MongoDB on boot—no manual re-configuration needed!
+
    **Commands & Capabilities:**
    - `/search <query>` (or `/s`): Searches via Jackett (or fallback plugins), displaying an interactive menu with release title, size, seeders, and engine badge (`[Engine: Jackett]` or `[Engine: qBit Plugins]`).
    - **One-Click Routing**:
