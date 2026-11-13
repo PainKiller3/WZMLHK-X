@@ -40,6 +40,7 @@ class Config:
     DISABLE_JD = True
     DISABLE_NZB = True
     DISABLE_SEEDR = True
+    DISABLE_JACKETT = True
     DISABLE_RSS = False
     DISABLE_SEARCH = False
     DISABLE_STREAM = False

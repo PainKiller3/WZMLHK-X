@@ -288,6 +288,7 @@ Then tune the optional behavior from `config_sample.py`.
 
    Unified search across all indexers via [Jackett](https://github.com/Jackett/Jackett) (or qBittorrent plugins as fallback), with in-chat interactive buttons to trigger qbMirror, qbLeech, or Stremio Sleech with safe batch queueing.
 
+   - `DISABLE_JACKETT`: Disable Jackett integration entirely (default: `True`). Keep `True` when deploying on lightweight hosts like Heroku or when using only qBittorrent plugins. Set `False` to enable Jackett.
    - `JACKETT_URL`: URL to your Jackett instance (e.g. `http://127.0.0.1:9117`). Auto-detected in Docker Compose!
    - `JACKETT_API_KEY`: API Key from Jackett dashboard. Auto-read from mounted config in Docker Compose!
    - `JACKETT_SEARCH_LIMIT`: Maximum number of search results to retrieve (default: `10`).

@@ -236,8 +236,8 @@ async def torrent_search(_, message):
     engine_name = "Jackett"
     results = []
 
-    # Priority 1: Jackett
-    if Config.JACKETT_URL and Config.JACKETT_API_KEY:
+    # Priority 1: Jackett (if enabled)
+    if not Config.DISABLE_JACKETT and Config.JACKETT_URL and Config.JACKETT_API_KEY:
         results = await query_jackett(query)
 
     # Priority 2: Fallback to qBittorrent plugins
