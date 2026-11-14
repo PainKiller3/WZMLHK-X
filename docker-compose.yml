@@ -31,7 +31,7 @@ services:
       - ./config.py:/usr/src/app/config.py:ro
       - ./accounts:/usr/src/app/accounts
       - ./downloads:/usr/src/app/downloads
-      - ./jackett_config:/config/jackett:ro
+      - ./jackett_config:/config/jackett
       - tunnel_data:/data:ro
 
     expose:
@@ -57,6 +57,17 @@ services:
       dockerfile: tunnel.Dockerfile
     restart: unless-stopped
     network_mode: "service:app"
+    volumes:
+      - tunnel_data:/data
+
+  jackett-tunnel:
+    build:
+      context: .
+      dockerfile: tunnel.Dockerfile
+    command: ["http://jackett:9117"]
+    restart: unless-stopped
+    environment:
+      - TUNNEL_URL_FILE=/data/jackett_tunnel_url.txt
     volumes:
       - tunnel_data:/data
 

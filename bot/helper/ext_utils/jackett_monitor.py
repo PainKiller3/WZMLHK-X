@@ -14,6 +14,7 @@ from ...core.config_manager import Config
 from .db_handler import database
 
 JACKETT_CONFIG_PATH = environ.get("JACKETT_CONFIG_PATH", "/config/jackett")
+JACKETT_TUNNEL_FILE = environ.get("JACKETT_TUNNEL_FILE", "/data/jackett_tunnel_url.txt")
 
 # Known config roots
 CANDIDATE_PATHS = [
@@ -102,6 +103,23 @@ async def backup_jackett_to_db():
         LOGGER.error(f"jackett_monitor: Failed to backup Jackett config to DB: {e}")
 
 
+async def _check_jackett_tunnel():
+    """Reads and logs the Cloudflare tunnel URL for Jackett dashboard if present."""
+    for _ in range(12):  # Poll up to 60s
+        try:
+            if await aiopath.isfile(JACKETT_TUNNEL_FILE):
+                async with aiopen(JACKETT_TUNNEL_FILE, "r") as f:
+                    url = (await f.read()).strip()
+                if url:
+                    LOGGER.info(
+                        f"jackett_monitor: JACKETT_DASHBOARD = {url} [Cloudflare Tunnel]"
+                    )
+                    return url
+        except Exception:
+            pass
+        await asyncio.sleep(5)
+
+
 async def auto_configure_jackett():
     """
     Auto-detects and configures JACKETT_URL and JACKETT_API_KEY.
@@ -179,3 +197,6 @@ async def auto_configure_jackett():
     # 4. If Jackett is reachable, backup current config state to MongoDB
     if discovered_url or configured_url:
         asyncio.create_task(backup_jackett_to_db())
+
+    # 5. Check and log Cloudflare tunnel URL for Jackett dashboard if running
+    asyncio.create_task(_check_jackett_tunnel())
