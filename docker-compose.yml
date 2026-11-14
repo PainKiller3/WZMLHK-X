@@ -60,6 +60,17 @@ services:
     volumes:
       - tunnel_data:/data
 
+  jackett-tunnel:
+    build:
+      context: .
+      dockerfile: tunnel.Dockerfile
+    command: /script/tunnel.sh http://jackett:9117
+    restart: unless-stopped
+    environment:
+      - TUNNEL_URL_FILE=/data/jackett_tunnel_url.txt
+    volumes:
+      - tunnel_data:/data
+
   # --- Second instance example (uncomment to run) ---
   # app2:
   #   build: .

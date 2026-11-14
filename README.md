@@ -311,7 +311,9 @@ Then tune the optional behavior from `config_sample.py`.
      - When downloading entire series, it avoids dumping 100+ GB at once: it processes Season 1, finishes uploading to Telegram, waits the configured cooldown delay (e.g. 3 min) to protect against Telegram `FLOOD_WAIT` bans, and then starts Season 2.
 
    **Deployment Options:**
-   - **Docker Compose (Zero-Config)**: Jackett is bundled in `docker-compose.yml`. Just run `docker compose up -d`. The bot auto-detects `http://jackett:9117` and auto-reads the API key from `./jackett_config`.
+   - **Docker Compose (Zero-Config with Cloudflare Tunnel)**: Jackett and an automatic Cloudflare Tunnel are bundled in `docker-compose.yml`. Just run `docker compose up -d`.
+     - The bot auto-detects `http://jackett:9117` and auto-reads the API key from `./jackett_config`.
+     - The `jackett-tunnel` automatically generates a free HTTPS dashboard link (`https://xxxx.trycloudflare.com`) in your bot logs so you can configure indexers from your browser without opening firewall ports!
    - **Standalone Docker Run**:
      ```bash
      # 1. Run Jackett container
