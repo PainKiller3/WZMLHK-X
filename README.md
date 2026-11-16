@@ -223,15 +223,10 @@ Then tune the optional behavior from `config_sample.py`.
 
    Unified search across all indexers via [Jackett](https://github.com/Jackett/Jackett) (or qBittorrent plugins as fallback), with in-chat interactive buttons to trigger qbMirror, qbLeech, or Stremio Sleech with safe batch queueing.
 
-   - `DISABLE_JACKETT`: Disable Jackett integration entirely (default: `True`). Keep `True` when deploying on lightweight hosts like Heroku or when using only qBittorrent plugins. Set `False` to enable Jackett.
-   - `JACKETT_URL`: URL to your Jackett instance (e.g. `http://127.0.0.1:9117`). Auto-detected in Docker Compose!
-   - `JACKETT_API_KEY`: API Key from Jackett dashboard. Auto-read from mounted config in Docker Compose!
+   - `JACKETT_URL`: URL to your external Jackett instance (e.g. `http://your-server-ip:9117` or Cloudflare Tunnel URL). If left empty, `/search` automatically uses qBittorrent search plugins.
+   - `JACKETT_API_KEY`: API Key from your Jackett dashboard.
    - `JACKETT_SEARCH_LIMIT`: Maximum number of search results to retrieve (default: `10`).
    - `JACKETT_SERIES_COOLDOWN`: Cooldown rest period in seconds between sequential season downloads (default: `180`).
-
-   **Cloud Backup & Auto-Sync (MongoDB)**:
-   - Configured Jackett indexers, passkeys, and API keys are automatically backed up to your MongoDB database.
-   - When migrating to a fresh VPS or deploying on a clean server, the bot automatically restores your indexers from MongoDB on boot—no manual re-configuration needed!
 
    **Commands & Capabilities:**
    - `/search <query>` (or `/s`): Searches via Jackett (or fallback plugins), displaying an interactive menu with release title, size, seeders, and engine badge (`[Engine: Jackett]` or `[Engine: qBit Plugins]`).

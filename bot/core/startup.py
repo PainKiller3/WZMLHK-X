@@ -373,7 +373,3 @@ async def load_configurations():
             await TorrentManager.qbittorrent.app.set_preferences(qbit_options)
         except Exception as e:
             LOGGER.error(f"Failed to configure qBittorrent: {e}")
-
-    from ..helper.ext_utils.jackett_monitor import auto_configure_jackett
-
-    await auto_configure_jackett()
