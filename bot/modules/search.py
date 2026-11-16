@@ -85,7 +85,15 @@ async def query_jackett(query: str, limit: int = None):
         "t": "search",
         "q": query,
     }
-    url = f"{base_url}/api/v2.0/indexers/all/results/torznab/api"
+
+    # Support full Torznab URLs, Prowlarr endpoints, or Jackett endpoints
+    if "/torznab" in base_url or "/api" in base_url:
+        url = base_url
+    elif "prowlarr" in base_url.lower() or ":9696" in base_url:
+        url = f"{base_url}/api/v1/indexer/all/torznab/api"
+    else:
+        url = f"{base_url}/api/v2.0/indexers/all/results/torznab/api"
+
     results = []
 
     try:
@@ -234,9 +242,13 @@ async def torrent_search(_, message):
     )
 
     engine_name = "Jackett"
+    if Config.JACKETT_URL and (
+        "prowlarr" in Config.JACKETT_URL.lower() or ":9696" in Config.JACKETT_URL
+    ):
+        engine_name = "Prowlarr"
     results = []
 
-    # Priority 1: Jackett (if configured)
+    # Priority 1: Torznab Indexer (Jackett / Prowlarr)
     if Config.JACKETT_URL and Config.JACKETT_API_KEY:
         results = await query_jackett(query)
 
