@@ -241,8 +241,7 @@ STREMIO_DB_URL = ""
 STREMIO_USERS = ""
 STREMIO_AUTHORIZED_CHATS = ""
 
-# Jackett Search & Automation
-DISABLE_JACKETT = True
+# Jackett Search & Automation (Optional: leave empty to use qBittorrent search plugins)
 JACKETT_URL = ""
 JACKETT_API_KEY = ""
 JACKETT_SEARCH_LIMIT = 10
