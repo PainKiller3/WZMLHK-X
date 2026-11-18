@@ -78,7 +78,7 @@ async def query_jackett(query: str, limit: int = None):
 
     base_url = Config.JACKETT_URL.rstrip("/")
     api_key = Config.JACKETT_API_KEY
-    limit = limit or Config.JACKETT_SEARCH_LIMIT or 15
+    limit = limit or Config.JACKETT_SEARCH_LIMIT or 50
 
     params = {
         "apikey": api_key,
@@ -165,7 +165,7 @@ async def query_qb_plugins(query: str, limit: int = None):
     """
     Query installed qBittorrent search plugins.
     """
-    limit = limit or Config.SEARCH_LIMIT or 15
+    limit = limit or Config.SEARCH_LIMIT or 50
     results = []
     try:
         if not PLUGINS:
@@ -219,6 +219,53 @@ async def query_qb_plugins(query: str, limit: int = None):
     return results[:limit]
 
 
+def build_search_page(search_id: str, session: dict, page_no: int = 1):
+    results = session["results"]
+    engine_name = session["engine"]
+    query = session["query"]
+
+    total_results = len(results)
+    page_size = 8
+    total_pages = max(1, (total_results + page_size - 1) // page_size)
+    page_no = max(1, min(page_no, total_pages))
+
+    start_idx = (page_no - 1) * page_size
+    end_idx = min(start_idx + page_size, total_results)
+    page_items = results[start_idx:end_idx]
+
+    buttons = ButtonMaker()
+    for idx, item in enumerate(page_items, start=start_idx):
+        badge = f"[S{item['season']:02d}] " if item.get("season") else ""
+        btn_text = f"[{idx + 1}] {badge}{item['readable_size']} | ⬆️ {item['seeders']}s"
+        buttons.data_button(btn_text, f"torser {search_id} pick {idx}")
+
+    # Pagination navigation buttons
+    if page_no > 1:
+        buttons.data_button("⬅️ Prev", f"torser {search_id} page prev")
+    if page_no < total_pages:
+        buttons.data_button("Next ➡️", f"torser {search_id} page next")
+
+    has_seasons = any(r.get("season") for r in results)
+    if has_seasons:
+        buttons.data_button("📺 Filter by Season", f"torser {search_id} season_view")
+
+    buttons.data_button("❌ Cancel", f"torser {search_id} cancel")
+    menu = buttons.build_menu(2)
+
+    caption = (
+        f"<b>🍿 Search Results for:</b> <code>{query}</code>\n"
+        f"<b>⚙️ Engine:</b> <code>{engine_name}</code> | <b>Page:</b> {page_no}/{total_pages} ({total_results} results)\n\n"
+    )
+    for idx, item in enumerate(page_items, start=start_idx):
+        caption += (
+            f"<b>{idx + 1}.</b> <code>{item['title']}</code>\n"
+            f"   📦 <b>Size:</b> {item['readable_size']} | ⬆️ <b>Seeds:</b> {item['seeders']}\n"
+        )
+    caption += "\n<i>Select an item to Mirror, Leech, or Sleech:</i>"
+
+    return caption, menu
+
+
 @new_task
 async def torrent_search(_, message):
     text_parts = message.text.split(maxsplit=1)
@@ -264,32 +311,10 @@ async def torrent_search(_, message):
         "user_id": message.from_user.id,
         "query": query,
         "engine": engine_name,
+        "page_no": 1,
     }
 
-    buttons = ButtonMaker()
-    for idx, item in enumerate(results[:8]):
-        badge = f"[S{item['season']:02d}] " if item.get("season") else ""
-        btn_text = f"[{idx + 1}] {badge}{item['readable_size']} | ⬆️ {item['seeders']}s"
-        buttons.data_button(btn_text, f"torser {search_id} pick {idx}")
-
-    has_seasons = any(r.get("season") for r in results)
-    if has_seasons:
-        buttons.data_button("📺 Filter by Season", f"torser {search_id} season_view")
-
-    buttons.data_button("❌ Cancel", f"torser {search_id} cancel")
-    menu = buttons.build_menu(2)
-
-    caption = (
-        f"<b>🍿 Search Results for:</b> <code>{query}</code>\n"
-        f"<b>⚙️ Engine:</b> <code>{engine_name}</code>\n\n"
-    )
-    for idx, item in enumerate(results[:8]):
-        caption += (
-            f"<b>{idx + 1}.</b> <code>{item['title']}</code>\n"
-            f"   📦 <b>Size:</b> {item['readable_size']} | ⬆️ <b>Seeds:</b> {item['seeders']}\n"
-        )
-    caption += "\n<i>Select an item to Mirror, Leech, or Sleech:</i>"
-
+    caption, menu = build_search_page(search_id, SEARCH_CACHE[search_id], page_no=1)
     await edit_message(status_msg, caption, menu)
 
 
@@ -372,7 +397,23 @@ async def torrent_search_update(client, query):
     results = session["results"]
     engine_name = session.get("engine", "Search Engine")
 
-    if action == "season_view":
+    page_no = session.get("page_no", 1)
+
+    if action == "page":
+        direction = data[3]
+        total_pages = (len(results) + 7) // 8
+        if direction == "next":
+            page_no = min(page_no + 1, total_pages)
+        elif direction == "prev":
+            page_no = max(page_no - 1, 1)
+        session["page_no"] = page_no
+
+        caption, menu = build_search_page(search_id, session, page_no)
+        await query.answer()
+        await edit_message(message, caption, menu)
+        return
+
+    elif action == "season_view":
         seasons = {}
         for r in results:
             s_num = r.get("season")
@@ -403,34 +444,7 @@ async def torrent_search_update(client, query):
         return
 
     elif action == "back_list":
-        buttons = ButtonMaker()
-        for idx, item in enumerate(results[:8]):
-            badge = f"[S{item['season']:02d}] " if item.get("season") else ""
-            btn_text = (
-                f"[{idx + 1}] {badge}{item['readable_size']} | ⬆️ {item['seeders']}s"
-            )
-            buttons.data_button(btn_text, f"torser {search_id} pick {idx}")
-
-        has_seasons = any(r.get("season") for r in results)
-        if has_seasons:
-            buttons.data_button(
-                "📺 Filter by Season", f"torser {search_id} season_view"
-            )
-
-        buttons.data_button("❌ Cancel", f"torser {search_id} cancel")
-        menu = buttons.build_menu(2)
-
-        caption = (
-            f"<b>🍿 Search Results for:</b> <code>{session['query']}</code>\n"
-            f"<b>⚙️ Engine:</b> <code>{engine_name}</code>\n\n"
-        )
-        for idx, item in enumerate(results[:8]):
-            caption += (
-                f"<b>{idx + 1}.</b> <code>{item['title']}</code>\n"
-                f"   📦 <b>Size:</b> {item['readable_size']} | ⬆️ <b>Seeds:</b> {item['seeders']}\n"
-            )
-        caption += "\n<i>Select an item to Mirror, Leech, or Sleech:</i>"
-
+        caption, menu = build_search_page(search_id, session, session.get("page_no", 1))
         await query.answer()
         await edit_message(message, caption, menu)
         return
