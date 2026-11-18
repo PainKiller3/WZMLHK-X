@@ -56,9 +56,11 @@ class TelegraphHelper:
 
     async def edit_telegraph(self, path, telegraph_content, title=None):
         title = title or Config.AUTHOR_NAME or "WZML-X"
+        num_of_path = len(path)
+        if num_of_path <= 1:
+            return
         nxt_page = 1
         prev_page = 0
-        num_of_path = len(path)
         for content in telegraph_content:
             if nxt_page == 1:
                 content += (
